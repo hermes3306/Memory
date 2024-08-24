@@ -105,6 +105,7 @@ public class MonitorActivity extends AppCompatActivity {
     }
 
 
+
     private void loadLatestLocation() {
         LocationData latestLocation = dbHelper.getLatestLocation();
         if (latestLocation != null) {

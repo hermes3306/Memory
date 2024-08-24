@@ -18,6 +18,8 @@
             android:textStyle="bold"
             app:layout_scrollFlags="scroll|enterAlways|snap" />
 
+
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView

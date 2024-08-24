@@ -45,6 +45,7 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.Locati
             locationTextView = itemView.findViewById(R.id.locationTextView);
         }
 
+
         void bind(LocationData location) {
             String locationText = String.format(Locale.getDefault(),
                     "Lat: %.6f, Lon: %.6f, Alt: %.2f, Time: %s",
