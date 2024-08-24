@@ -35,6 +35,15 @@
             android:name=".MonitorActivity"
             android:exported="false" />
 
+        <activity android:name=".MyActivity" />
+
+        <activity
+            android:name=".RunningMapActivity"
+            android:label="@string/title_activity_running_map" />
+
+        <activity android:name=".ListActivityActivity" />
+        <activity android:name=".ActivityDetailActivity" />
+
         <activity
             android:name=".BehaviorAnalysisActivity"
             android:exported="false" />
