@@ -42,12 +42,16 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
 
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
 
+
+
             for (LocationData location : locations) {
                 LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
                 String timeString = sdf.format(new Date(location.getTime()));
                 mMap.addMarker(new MarkerOptions().position(point).title(timeString));
                 polylineOptions.add(point);
             }
+
+
 
             mMap.addPolyline(polylineOptions);
 

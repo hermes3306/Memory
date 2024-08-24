@@ -1,6 +1,7 @@
 package com.jason.memory;
 
 
+
 public class LocationData {
     private long id;
     private double latitude;

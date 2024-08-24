@@ -5,4 +5,5 @@
         android:id="@+id/action_show_map"
         android:title="Show Map"
         app:showAsAction="never"/>
+
 </menu>

@@ -48,6 +48,7 @@
             android:layout_gravity="center"
             android:layout_marginBottom="16dp"/>
 
+
         <Button
             android:id="@+id/monitorButton"
             android:layout_width="match_parent"
