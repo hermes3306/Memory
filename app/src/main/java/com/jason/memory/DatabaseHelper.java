@@ -67,6 +67,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return locationList;
     }
 
+    public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
+        List<LocationData> locationList = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_NAME +
+                " WHERE " + COLUMN_TIMESTAMP + " >= ? AND " + COLUMN_TIMESTAMP + " < ?" +
+                " ORDER BY " + COLUMN_TIMESTAMP + " ASC";
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+
+        if (cursor.moveToFirst()) {
+            do {
+                LocationData location = new LocationData(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_ID)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_ALTITUDE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP))
+                );
+                locationList.add(location);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return locationList;
+    }
+
     public List<LatLng> getAllPositions() {
         List<LatLng> positions = new ArrayList<>();
         String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE + " FROM " + TABLE_NAME;

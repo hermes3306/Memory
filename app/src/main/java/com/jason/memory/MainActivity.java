@@ -65,6 +65,16 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // 행동 분석 버튼 추가
+        Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
+        btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, BehaviorAnalysisActivity.class);
+                startActivity(intent);
+            }
+        });
+
 
         updateUI();
 
