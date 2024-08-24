@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.animation.AnimationUtils;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,7 +37,10 @@ public class MonitorActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
 
         locationAdapter = new LocationAdapter(locationList);
-        locationRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setReverseLayout(true);
+        layoutManager.setStackFromEnd(true);
+        locationRecyclerView.setLayoutManager(layoutManager);
         locationRecyclerView.setAdapter(locationAdapter);
 
         updateLocationCount();
@@ -55,7 +61,8 @@ public class MonitorActivity extends AppCompatActivity {
         } else {
             registerReceiver(locationUpdateReceiver,
                     new IntentFilter(LocationService.ACTION_LOCATION_UPDATED));
-        }    }
+        }
+    }
 
     @Override
     protected void onDestroy() {
@@ -68,22 +75,47 @@ public class MonitorActivity extends AppCompatActivity {
     private void updateLocationCount() {
         int count = dbHelper.getLocationCount();
         locationCountTextView.setText("Total Locations: " + count);
+        locationCountTextView.startAnimation(AnimationUtils.loadAnimation(this, android.R.anim.fade_in));
     }
 
     private void loadLocations() {
         locationList.clear();
-        locationList.addAll(dbHelper.getAllLocations());
+        locationList.addAll(dbHelper.getAllLocationsDesc());
         locationAdapter.notifyDataSetChanged();
-        locationRecyclerView.scrollToPosition(locationList.size() - 1);
+        locationRecyclerView.scrollToPosition(0);
     }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_monitor, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_show_map) {
+            Intent mapIntent = new Intent(this, MapActivity.class);
+            startActivity(mapIntent);
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
 
     private void loadLatestLocation() {
         LocationData latestLocation = dbHelper.getLatestLocation();
         if (latestLocation != null) {
-            locationList.add(0, latestLocation); // Add to the beginning of the list
+            locationList.add(0, latestLocation);
             locationAdapter.notifyItemInserted(0);
-            locationRecyclerView.scrollToPosition(0);
+            locationRecyclerView.smoothScrollToPosition(0);
             updateLocationCount();
+
+            // Apply animation to the new item
+            locationRecyclerView.getLayoutManager().findViewByPosition(0)
+                    .startAnimation(AnimationUtils.loadAnimation(this, R.anim.item_animation_fall_down));
         }
     }
 
