@@ -40,6 +40,30 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         onCreate(db);
     }
 
+    public List<LocationData> getAllLocationsDesc() {
+        List<LocationData> locationList = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_NAME + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                LocationData location = new LocationData(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_ID)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_ALTITUDE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP))
+                );
+                locationList.add(location);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return locationList;
+    }
+
     public List<LocationData> getAllLocations() {
         List<LocationData> locationList = new ArrayList<>();
         String selectQuery = "SELECT * FROM " + TABLE_NAME + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";

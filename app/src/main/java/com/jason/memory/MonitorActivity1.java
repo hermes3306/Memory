@@ -4,8 +4,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.Build;
 import android.os.Bundle;
-import android.view.animation.AnimationUtils;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,9 +14,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
-import android.os.Build;
 
-public class MonitorActivity extends AppCompatActivity {
+public class MonitorActivity1 extends AppCompatActivity {
     private TextView locationCountTextView;
     private RecyclerView locationRecyclerView;
     private LocationAdapter locationAdapter;
@@ -35,10 +34,7 @@ public class MonitorActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
 
         locationAdapter = new LocationAdapter(locationList);
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
-        layoutManager.setReverseLayout(true);
-        layoutManager.setStackFromEnd(true);
-        locationRecyclerView.setLayoutManager(layoutManager);
+        locationRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         locationRecyclerView.setAdapter(locationAdapter);
 
         updateLocationCount();
@@ -59,8 +55,7 @@ public class MonitorActivity extends AppCompatActivity {
         } else {
             registerReceiver(locationUpdateReceiver,
                     new IntentFilter(LocationService.ACTION_LOCATION_UPDATED));
-        }
-    }
+        }    }
 
     @Override
     protected void onDestroy() {
@@ -73,27 +68,23 @@ public class MonitorActivity extends AppCompatActivity {
     private void updateLocationCount() {
         int count = dbHelper.getLocationCount();
         locationCountTextView.setText("Total Locations: " + count);
-        locationCountTextView.startAnimation(AnimationUtils.loadAnimation(this, android.R.anim.fade_in));
     }
 
     private void loadLocations() {
         locationList.clear();
-        locationList.addAll(dbHelper.getAllLocationsDesc());
+        locationList.addAll(dbHelper.getAllLocations());
         locationAdapter.notifyDataSetChanged();
-        locationRecyclerView.scrollToPosition(0);
+        locationRecyclerView.scrollToPosition(locationList.size() - 1);
     }
 
     private void loadLatestLocation() {
         LocationData latestLocation = dbHelper.getLatestLocation();
         if (latestLocation != null) {
-            locationList.add(0, latestLocation);
+            locationList.add(0, latestLocation); // Add to the beginning of the list
             locationAdapter.notifyItemInserted(0);
-            locationRecyclerView.smoothScrollToPosition(0);
+            locationRecyclerView.scrollToPosition(0);
             updateLocationCount();
-
-            // Apply animation to the new item
-            locationRecyclerView.getLayoutManager().findViewByPosition(0)
-                    .startAnimation(AnimationUtils.loadAnimation(this, R.anim.item_animation_fall_down));
         }
     }
+
 }
