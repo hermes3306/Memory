@@ -50,7 +50,7 @@ public class LocationAdapter extends RecyclerView.Adapter<LocationAdapter.Locati
             String locationText = String.format(Locale.getDefault(),
                     "Lat: %.6f, Lon: %.6f, Alt: %.2f, Time: %s",
                     location.getLatitude(), location.getLongitude(),
-                    location.getAltitude(), new Date(location.getTime()).toString());
+                    location.getAltitude(), new Date(location.getTimestamp()).toString());
             locationTextView.setText(locationText);
         }
     }

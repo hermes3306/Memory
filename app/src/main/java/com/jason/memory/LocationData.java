@@ -1,23 +1,21 @@
 package com.jason.memory;
-
-
+import java.util.Locale;
 
 public class LocationData {
     private long id;
     private double latitude;
     private double longitude;
     private double altitude;
-    private long time;
+    private long timestamp;
 
-    public LocationData(long id, double latitude, double longitude, double altitude, long time) {
+    public LocationData(long id, double latitude, double longitude, double altitude, long timestamp) {
         this.id = id;
         this.latitude = latitude;
         this.longitude = longitude;
         this.altitude = altitude;
-        this.time = time;
+        this.timestamp = timestamp;
     }
 
-    // Getters
     public long getId() {
         return id;
     }
@@ -34,28 +32,12 @@ public class LocationData {
         return altitude;
     }
 
-    public long getTime() {
-        return time;
+    public long getTimestamp() {
+        return timestamp;
     }
 
-    // Setters
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public void setLatitude(double latitude) {
-        this.latitude = latitude;
-    }
-
-    public void setLongitude(double longitude) {
-        this.longitude = longitude;
-    }
-
-    public void setAltitude(double altitude) {
-        this.altitude = altitude;
-    }
-
-    public void setTime(long time) {
-        this.time = time;
+    @Override
+    public String toString() {
+        return String.format(Locale.getDefault(), "Lat: %.6f, Lon: %.6f, Alt: %.2f", latitude, longitude, altitude);
     }
 }
