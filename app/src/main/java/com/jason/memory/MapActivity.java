@@ -49,6 +49,7 @@ public class MapActivity extends FragmentActivity implements OnMapReadyCallback 
                 polylineOptions.add(point);
             }
 
+
             mMap.addPolyline(polylineOptions);
 
             // Move camera to the last known location
