@@ -56,6 +56,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button btnShowMap = findViewById(R.id.btnShowMap);
+        btnShowMap.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, MapActivity.class);
+                startActivity(intent);
+            }
+        });
+
 
         updateUI();
 
@@ -74,6 +83,7 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(serviceStatusReceiver, filter);
         }
     }
+
 
     @Override
     protected void onDestroy() {

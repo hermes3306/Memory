@@ -6,6 +6,9 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.location.Location;
+
+import com.google.android.gms.maps.model.LatLng;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,6 +65,26 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         cursor.close();
         return locationList;
+    }
+
+    public List<LatLng> getAllPositions() {
+        List<LatLng> positions = new ArrayList<>();
+        String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE + " FROM " + TABLE_NAME;
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                double latitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE));
+                double longitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE));
+                LatLng position = new LatLng(latitude, longitude);
+                positions.add(position);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return positions;
     }
 
     public List<LocationData> getAllLocations() {

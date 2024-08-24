@@ -34,6 +34,9 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
+    buildFeatures {
+        viewBinding = true
+    }
 }
 
 dependencies {
@@ -49,6 +52,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.1.0")
 
     implementation(libs.activity)
+    implementation(libs.navigation.fragment)
+    implementation(libs.navigation.ui)
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
