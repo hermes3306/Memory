@@ -11,11 +11,26 @@ import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.location.Address;
+import android.location.Geocoder;
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
+import android.content.Context;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.database.sqlite.SQLiteOpenHelper;
+import android.location.Address;
+import android.location.Geocoder;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
     private static final int DATABASE_VERSION = 2;
-    private static final String TABLE_NAME = "locations";
+    private static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     private static final String COLUMN_LATITUDE = "latitude";
     private static final String COLUMN_LONGITUDE = "longitude";
@@ -33,17 +48,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_DESC = "description";
     private static final String COLUMN_DISTANCE = "distance";
     private static final String COLUMN_ELAPSED_TIME = "elapsed_time";
+    private Context context;
 
+    // Constructor
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        this.context = context;
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
         // Check if locations table exists
-        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_NAME});
+        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_LOCATIONS});
         if (cursor.getCount() == 0) {
-            String CREATE_TABLE = "CREATE TABLE " + TABLE_NAME + "("
+            String CREATE_TABLE = "CREATE TABLE " + TABLE_LOCATIONS + "("
                     + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                     + COLUMN_LATITUDE + " REAL,"
                     + COLUMN_LONGITUDE + " REAL,"
@@ -78,7 +96,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         // Drop older tables if existed
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_NAME);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
 
         // Create tables again
@@ -110,15 +128,57 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
     }
 
+
+
+    public ActivityData getUnfinishedActivity() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT a.*, l.latitude, l.longitude FROM " + TABLE_ACTIVITIES + " a " +
+                "LEFT JOIN " + TABLE_LOCATIONS + " l ON a." + COLUMN_START_LOCATION + " = l." + COLUMN_ID +
+                " WHERE a." + COLUMN_END_TIMESTAMP + " IS NULL " +
+                "ORDER BY a." + COLUMN_START_TIMESTAMP + " DESC LIMIT 1";
+
+        Cursor cursor = db.rawQuery(query, null);
+        ActivityData activity = null;
+
+        if (cursor.moveToFirst()) {
+            double latitude = cursor.getDouble(cursor.getColumnIndex("latitude"));
+            double longitude = cursor.getDouble(cursor.getColumnIndex("longitude"));
+            String address = getSimpleAddress(latitude, longitude);
+
+            activity = new ActivityData(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_NAME)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
+                    cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
+                    address
+            );
+        }
+
+        cursor.close();
+        return activity;
+    }
+
+
     public List<ActivityData> getAllActivities() {
         List<ActivityData> activities = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_ACTIVITIES + " ORDER BY " + COLUMN_START_TIMESTAMP + " DESC";
+        String selectQuery = "SELECT a.*, l.latitude, l.longitude FROM " + TABLE_ACTIVITIES + " a " +
+                "LEFT JOIN " + TABLE_LOCATIONS + " l ON a." + COLUMN_START_LOCATION + " = l." + COLUMN_ID +
+                " ORDER BY " + COLUMN_START_TIMESTAMP + " DESC";
 
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
 
         if (cursor.moveToFirst()) {
             do {
+                double latitude = cursor.getDouble(cursor.getColumnIndex("latitude"));
+                double longitude = cursor.getDouble(cursor.getColumnIndex("longitude"));
+                String address = getSimpleAddress(latitude, longitude);
+
                 ActivityData activity = new ActivityData(
                         cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
@@ -128,8 +188,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
                         cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
                         cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME))
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
+                        address
                 );
+
                 activities.add(activity);
             } while (cursor.moveToNext());
         }
@@ -138,12 +200,35 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return activities;
     }
 
+    private String getSimpleAddress(double latitude, double longitude) {
+        Geocoder geocoder = new Geocoder(context, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (!addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                String thoroughfare = address.getThoroughfare(); // Street name
+                String subLocality = address.getSubLocality(); // Neighborhood
+                if (subLocality != null && thoroughfare != null) {
+                    return subLocality + " " + thoroughfare;
+                } else if (subLocality != null) {
+                    return subLocality;
+                } else if (thoroughfare != null) {
+                    return thoroughfare;
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "Unknown location";
+    }
+
     public ActivityData getActivity(long id) {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.query(TABLE_ACTIVITIES, null, COLUMN_ACTIVITY_ID + "=?",
                 new String[]{String.valueOf(id)}, null, null, null);
 
         ActivityData activity = null;
+
         if (cursor.moveToFirst()) {
             activity = new ActivityData(
                     cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
@@ -154,17 +239,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
                     cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
                     cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME))
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),""
             );
         }
         cursor.close();
         return activity;
     }
 
+    public void deleteActivity(long activityId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_ACTIVITIES, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
+    }
 
     public LocationData getFirstLocationAfterTimestamp(long timestamp) {
         SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT * FROM " + TABLE_NAME +
+        String query = "SELECT * FROM " + TABLE_LOCATIONS +
                 " WHERE " + COLUMN_TIMESTAMP + " >= ?" +
                 " ORDER BY " + COLUMN_TIMESTAMP + " ASC LIMIT 1";
         Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(timestamp)});
@@ -186,7 +275,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT * FROM " + TABLE_NAME +
+        String query = "SELECT * FROM " + TABLE_LOCATIONS +
                 " WHERE " + COLUMN_TIMESTAMP + " BETWEEN ? AND ?" +
                 " ORDER BY " + COLUMN_TIMESTAMP + " ASC";
 
@@ -210,7 +299,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<LocationData> getAllLocationsDesc() {
         List<LocationData> locationList = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_NAME + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";
+        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";
 
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
@@ -234,7 +323,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
         List<LocationData> locationList = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_NAME +
+        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS +
                 " WHERE " + COLUMN_TIMESTAMP + " >= ? AND " + COLUMN_TIMESTAMP + " < ?" +
                 " ORDER BY " + COLUMN_TIMESTAMP + " ASC";
 
@@ -260,7 +349,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<LatLng> getAllPositions() {
         List<LatLng> positions = new ArrayList<>();
-        String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE + " FROM " + TABLE_NAME;
+        String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE + " FROM " + TABLE_LOCATIONS;
 
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
@@ -280,7 +369,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<LocationData> getAllLocations() {
         List<LocationData> locationList = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_NAME + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";
+        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS + " ORDER BY " + COLUMN_TIMESTAMP + " DESC";
 
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
@@ -304,7 +393,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public LocationData getLatestLocation() {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_NAME, null, null, null, null, null, COLUMN_TIMESTAMP + " DESC", "1");
+        Cursor cursor = db.query(TABLE_LOCATIONS, null, null, null, null, null, COLUMN_TIMESTAMP + " DESC", "1");
 
         LocationData location = null;
         if (cursor.moveToFirst()) {
@@ -327,12 +416,12 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_LONGITUDE, longitude);
         values.put(COLUMN_ALTITUDE, altitude);
         values.put(COLUMN_TIMESTAMP, timestamp);
-        db.insert(TABLE_NAME, null, values);
+        db.insert(TABLE_LOCATIONS, null, values);
         db.close();
     }
 
     public int getLocationCount() {
-        String countQuery = "SELECT * FROM " + TABLE_NAME;
+        String countQuery = "SELECT * FROM " + TABLE_LOCATIONS;
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(countQuery, null);
         int count = cursor.getCount();
@@ -342,7 +431,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public LocationData getLastLocation() {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_NAME, null, null, null, null, null, COLUMN_ID + " DESC", "1");
+        Cursor cursor = db.query(TABLE_LOCATIONS, null, null, null, null, null, COLUMN_ID + " DESC", "1");
 
         LocationData location = null;
         if (cursor.moveToFirst()) {
