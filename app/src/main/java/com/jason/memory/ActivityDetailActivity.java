@@ -10,8 +10,10 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.text.SimpleDateFormat;
@@ -20,7 +22,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ActivityDetailActivity extends AppCompatActivity implements OnMapReadyCallback {
-    private TextView tvName, tvStartTime, tvEndTime, tvDistance, tvElapsedTime;
+    private TextView tvName, tvStartTime, tvEndTime, tvDistance, tvElapsedTime, tvAveragePace, tvCalories;
     private GoogleMap mMap;
     private DatabaseHelper dbHelper;
     private ActivityData activity;
@@ -35,6 +37,8 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         tvEndTime = findViewById(R.id.tvEndTime);
         tvDistance = findViewById(R.id.tvDistance);
         tvElapsedTime = findViewById(R.id.tvElapsedTime);
+        tvAveragePace = findViewById(R.id.tvAveragePace);
+        tvCalories = findViewById(R.id.tvCalories);
 
         dbHelper = new DatabaseHelper(this);
         long activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
@@ -55,6 +59,14 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         tvEndTime.setText("End: " + formatTimestamp(activity.getEndTimestamp()));
         tvDistance.setText(String.format(Locale.getDefault(), "Distance: %.2f km", activity.getDistance()));
         tvElapsedTime.setText("Time: " + formatElapsedTime(activity.getElapsedTime()));
+
+        // Add average pace
+        String averagePace = calculateAveragePace(activity.getElapsedTime(), activity.getDistance());
+        tvAveragePace.setText("Average Pace: " + averagePace + " /km");
+
+        // Add calories
+        int calories = estimateCaloriesBurned(activity.getElapsedTime(), activity.getDistance());
+        tvCalories.setText("Calories: " + calories);
     }
 
     @Override
@@ -79,9 +91,40 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
             boundsBuilder.include(point);
         }
 
+        LocationData startLocation = locations.get(0);
+        LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
+        mMap.addMarker(new MarkerOptions()
+                .position(startPoint)
+                .title("Start")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
         mMap.addPolyline(polylineOptions);
         LatLngBounds bounds = boundsBuilder.build();
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+        LocationData endLocation = locations.get(locations.size() - 1);
+        LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+        mMap.addMarker(new MarkerOptions()
+                .position(endPoint)
+                .title("End")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+    }
+
+    private String calculateAveragePace(long elapsedTime, double distance) {
+        if (distance < 0.01) {
+            return "--:--";
+        }
+        long averagePaceSeconds = (long) (elapsedTime / 1000 / distance);
+        int averagePaceMinutes = (int) (averagePaceSeconds / 60);
+        int averagePaceSecondsRemainder = (int) (averagePaceSeconds % 60);
+        return String.format(Locale.getDefault(), "%02d:%02d", averagePaceMinutes, averagePaceSecondsRemainder);
+    }
+
+    private int estimateCaloriesBurned(long elapsedTime, double distance) {
+        // This is a very rough estimation. For more accurate results, you'd need to consider
+        // the user's weight, gender, age, and other factors.
+        // Here we assume an average person burns about 60 calories per km when running.
+        return (int) (distance * 60);
     }
 
     private String formatTimestamp(long timestamp) {

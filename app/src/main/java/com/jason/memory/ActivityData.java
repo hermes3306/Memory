@@ -12,9 +12,10 @@ public class ActivityData {
     private long endLocationId;
     private double distance;
     private long elapsedTime;
+    private String address;
 
     public ActivityData(long id, String type, String name, long startTimestamp, long endTimestamp,
-                        long startLocationId, long endLocationId, double distance, long elapsedTime) {
+                        long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
         this.id = id;
         this.type = type;
         this.name = name;
@@ -24,6 +25,7 @@ public class ActivityData {
         this.endLocationId = endLocationId;
         this.distance = distance;
         this.elapsedTime = elapsedTime;
+        this.address = address;
     }
 
     // Getters
@@ -39,6 +41,13 @@ public class ActivityData {
 
     // Setters (if needed)
     public void setName(String name) { this.name = name; }
-    // ... other setters ...
+    // Add getter and setter for address
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
 }
 
