@@ -2,8 +2,10 @@ package com.jason.memory;
 
 import android.Manifest;
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -65,7 +67,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 행동 분석 버튼 추가
         Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
         btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -81,17 +82,13 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
-
         Button btnStartActivity = findViewById(R.id.btnStartActivity);
         btnStartActivity.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, MyActivity.class);
-                startActivity(intent);
+                startActivityWithTracking();
             }
         });
-
-
 
         updateUI();
 
@@ -109,6 +106,64 @@ public class MainActivity extends AppCompatActivity {
         } else {
             registerReceiver(serviceStatusReceiver, filter);
         }
+
+        // Add this line to check for unfinished activities when the app starts
+        checkForUnfinishedActivity();
+    }
+
+    private void startActivityWithTracking() {
+        if (!isLocationServiceRunning()) {
+            // If the location service is not running, start it first
+            checkPermissionsAndStartService();
+
+            // Wait for a short time to ensure the service has started
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    launchMyActivity();
+                }
+            }, 1000); // 1 second delay
+        } else {
+            // If the service is already running, just start MyActivity
+            launchMyActivity();
+        }
+    }
+
+    private void launchMyActivity() {
+        Intent intent = new Intent(MainActivity.this, MyActivity.class);
+        startActivity(intent);
+    }
+
+
+    private void checkForUnfinishedActivity() {
+        DatabaseHelper dbHelper = new DatabaseHelper(this);
+        ActivityData unfinishedActivity = dbHelper.getUnfinishedActivity();
+
+        if (unfinishedActivity != null) {
+            long currentTime = System.currentTimeMillis();
+            long timeDifference = currentTime - unfinishedActivity.getStartTimestamp();
+            long hoursDifference = timeDifference / (60 * 60 * 1000);
+
+            if (hoursDifference < 24) { // Only ask if the activity started less than 24 hours ago
+                showUnfinishedActivityDialog(unfinishedActivity);
+            }
+        }
+    }
+
+    private void showUnfinishedActivityDialog(final ActivityData activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Unfinished Activity");
+        builder.setMessage("You have an unfinished activity. Do you want to resume it?");
+        builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                Intent intent = new Intent(MainActivity.this, MyActivity.class);
+                intent.putExtra("ACTIVITY_ID", activity.getId());
+                startActivity(intent);
+            }
+        });
+        builder.setNegativeButton("No", null);
+        builder.show();
     }
 
 

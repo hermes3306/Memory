@@ -1,8 +1,20 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Custom text appearance for smaller font size -->
+    <style name="SmallTextAppearance" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="android:textSize">12sp</item>
+    </style>
+
     <!-- Base application theme. -->
     <style name="Base.Theme.Memory" parent="Theme.Material3.Dark.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+        <!-- Apply the smaller text size to all text views -->
+        <item name="android:textViewStyle">@style/SmallTextViewStyle</item>
+    </style>
+
+    <style name="SmallTextViewStyle" parent="Widget.MaterialComponents.TextView">
+        <item name="android:textAppearance">@style/SmallTextAppearance</item>
     </style>
 
     <style name="Theme.Memory" parent="Base.Theme.Memory" />

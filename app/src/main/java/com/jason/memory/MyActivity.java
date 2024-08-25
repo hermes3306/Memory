@@ -1,9 +1,10 @@
 package com.jason.memory;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -16,7 +17,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-
 public class MyActivity extends AppCompatActivity {
     private DatabaseHelper dbHelper;
     private long activityId;
@@ -26,6 +26,7 @@ public class MyActivity extends AppCompatActivity {
 
     private TextView tvTime, tvPace, tvDistance;
     private Button btnMap;
+    private Button btnMonitorTracking;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +40,10 @@ public class MyActivity extends AppCompatActivity {
         tvDistance = findViewById(R.id.tvDistance);
         btnMap = findViewById(R.id.btnMap);
 
+        btnMonitorTracking = findViewById(R.id.btnMonitorTracking);
+        btnMonitorTracking.setOnClickListener(v -> openMonitorActivity());
+
+
         Button btnStopActivity = findViewById(R.id.btnStopActivity);
         btnStopActivity.setOnClickListener(v -> stopActivity());
 
@@ -48,18 +53,36 @@ public class MyActivity extends AppCompatActivity {
             startActivity(mapIntent);
         });
 
-        startActivity();
-        startUpdates();
+        activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
+        if (activityId != -1) {
+            resumeActivity();
+        } else {
+            startNewActivity();
+        }
     }
 
-    private String getTimeOfDay() {
-        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        if (hour < 12) return "Morning";
-        else if (hour < 17) return "Afternoon";
-        else return "Evening";
+    private void openMonitorActivity() {
+        Intent monitorIntent = new Intent(MyActivity.this, MonitorActivity.class);
+        monitorIntent.putExtra("ACTIVITY_ID", activityId);
+        monitorIntent.putExtra("START_TIMESTAMP", startTimestamp);
+        startActivity(monitorIntent);
     }
 
-    private void startActivity() {
+    private void resumeActivity() {
+        ActivityData activity = dbHelper.getActivity(activityId);
+        if (activity != null) {
+            startTimestamp = activity.getStartTimestamp();
+            // Initialize other fields based on the resumed activity
+            updateUI();
+            startUpdates();
+        } else {
+            // Handle error: activity not found
+            Toast.makeText(this, "Error: Activity not found", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
+    private void startNewActivity() {
         startTimestamp = System.currentTimeMillis();
         String activityType = "run";
         String dayOfWeek = new SimpleDateFormat("EEEE", Locale.getDefault()).format(new Date());
@@ -69,7 +92,18 @@ public class MyActivity extends AppCompatActivity {
         LocationData currentLocation = dbHelper.getLatestLocation();
         if (currentLocation != null) {
             activityId = dbHelper.insertActivity(activityType, activityName, startTimestamp, currentLocation.getId());
+            startUpdates();
+        } else {
+            Toast.makeText(this, "Unable to start activity: No location data", Toast.LENGTH_SHORT).show();
+            finish();
         }
+    }
+
+    private String getTimeOfDay() {
+        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        if (hour < 12) return "Morning";
+        else if (hour < 17) return "Afternoon";
+        else return "Evening";
     }
 
     private void startUpdates() {
@@ -90,15 +124,15 @@ public class MyActivity extends AppCompatActivity {
 
         // Update TIME
         String timeString = formatTime(elapsedTime);
-        tvTime.setText("TIME: " + timeString);
+        tvTime.setText("" + timeString);
 
         // Update DISTANCE
         String distanceString = String.format(Locale.getDefault(), "%.2f", distance);
-        tvDistance.setText("DISTANCE: " + distanceString + " km");
+        tvDistance.setText("" + distanceString + " km");
 
         // Update PACE
         String paceString = calculatePace(elapsedTime, distance);
-        tvPace.setText("PACE: " + paceString + " /km");
+        tvPace.setText("" + paceString + " /km");
     }
 
     private String formatTime(long millis) {
@@ -119,6 +153,44 @@ public class MyActivity extends AppCompatActivity {
     }
 
     private void stopActivity() {
+        showStopActivityDialog();
+    }
+
+    private void showStopActivityDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Stop Activity");
+        builder.setMessage("What would you like to do with this activity?");
+        builder.setPositiveButton("Stop and Save", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                finalizeActivity();
+            }
+        });
+        builder.setNeutralButton("Resume", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                // Just dismiss the dialog and continue the activity
+            }
+        });
+        builder.setNegativeButton("Discard", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                discardActivity();
+            }
+        });
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    private void discardActivity() {
+        handler.removeCallbacks(updateRunnable);
+        dbHelper.deleteActivity(activityId);
+        Toast.makeText(this, "Activity discarded", Toast.LENGTH_SHORT).show();
+        finish();
+    }
+
+
+    private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
         LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
@@ -167,9 +239,13 @@ public class MyActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        showStopActivityDialog();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacks(updateRunnable);
     }
-
 }

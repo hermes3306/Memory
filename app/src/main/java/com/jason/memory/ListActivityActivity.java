@@ -1,6 +1,7 @@
 package com.jason.memory;
 
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,6 +12,16 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.MapsInitializer;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.util.List;
 import java.util.Locale;
@@ -69,20 +80,74 @@ public class ListActivityActivity extends AppCompatActivity {
         }
 
         class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvName, tvDistance, tvTime;
+            TextView tvName, tvDistance, tvAveragePace, tvTime, tvAddress;
+            MapView mapView;
+            GoogleMap map;
 
             ViewHolder(View itemView) {
                 super(itemView);
                 tvName = itemView.findViewById(R.id.tvName);
                 tvDistance = itemView.findViewById(R.id.tvDistance);
+                tvAveragePace = itemView.findViewById(R.id.tvAveragePace);
                 tvTime = itemView.findViewById(R.id.tvTime);
+                tvAddress = itemView.findViewById(R.id.tvAddress);
+                mapView = itemView.findViewById(R.id.mapView);
+
+                mapView.onCreate(null);
+                mapView.getMapAsync(googleMap -> {
+                    MapsInitializer.initialize(itemView.getContext());
+                    map = googleMap;
+                    map.getUiSettings().setAllGesturesEnabled(false);
+                });
             }
 
             void bind(final ActivityData activity, final OnItemClickListener listener) {
                 tvName.setText(activity.getName());
                 tvDistance.setText(String.format(Locale.getDefault(), "%.2f km", activity.getDistance()));
-                tvTime.setText(formatElapsedTime(activity.getElapsedTime()));
+                tvAveragePace.setText(String.format(Locale.getDefault(), "%s/km", calculateAveragePace(activity.getElapsedTime(), activity.getDistance())));
+                tvTime.setText(String.format(Locale.getDefault(), "%s", formatElapsedTime(activity.getElapsedTime())));
+                tvAddress.setText(activity.getAddress());
                 itemView.setOnClickListener(v -> listener.onItemClick(activity));
+
+                if (map != null) {
+                    map.clear();
+                    drawActivityTrack(activity);
+                }
+            }
+
+            private void drawActivityTrack(ActivityData activity) {
+                List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
+                if (locations.size() < 2) return;
+
+                PolylineOptions polylineOptions = new PolylineOptions()
+                        .color(Color.RED)
+                        .width(3f);
+                LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+
+                for (LocationData location : locations) {
+                    LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
+                    polylineOptions.add(point);
+                    boundsBuilder.include(point);
+                }
+
+                map.addPolyline(polylineOptions);
+
+                // Add start marker
+                LatLng startPoint = new LatLng(locations.get(0).getLatitude(), locations.get(0).getLongitude());
+                map.addMarker(new MarkerOptions()
+                        .position(startPoint)
+                        .title("Start")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
+                // Add end marker
+                LatLng endPoint = new LatLng(locations.get(locations.size() - 1).getLatitude(), locations.get(locations.size() - 1).getLongitude());
+                map.addMarker(new MarkerOptions()
+                        .position(endPoint)
+                        .title("End")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+                LatLngBounds bounds = boundsBuilder.build();
+                map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50));
             }
         }
     }
@@ -96,5 +161,48 @@ public class ListActivityActivity extends AppCompatActivity {
         long minutes = seconds / 60;
         long hours = minutes / 60;
         return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes % 60, seconds % 60);
+    }
+
+    private String calculateAveragePace(long elapsedTime, double distance) {
+        if (distance < 0.01) {
+            return "--:--";
+        }
+        long averagePaceSeconds = (long) (elapsedTime / 1000 / distance);
+        int averagePaceMinutes = (int) (averagePaceSeconds / 60);
+        int averagePaceSecondsRemainder = (int) (averagePaceSeconds % 60);
+        return String.format(Locale.getDefault(), "%02d:%02d", averagePaceMinutes, averagePaceSecondsRemainder);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+            if (holder instanceof ActivityAdapter.ViewHolder) {
+                ((ActivityAdapter.ViewHolder) holder).mapView.onResume();
+            }
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+            if (holder instanceof ActivityAdapter.ViewHolder) {
+                ((ActivityAdapter.ViewHolder) holder).mapView.onPause();
+            }
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+            if (holder instanceof ActivityAdapter.ViewHolder) {
+                ((ActivityAdapter.ViewHolder) holder).mapView.onDestroy();
+            }
+        }
+        super.onDestroy();
     }
 }
