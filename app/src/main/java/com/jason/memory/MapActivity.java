@@ -51,9 +51,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private static final int DEFAULT_CIRCLE_SIZE = 785000; // 약 500미터 반경의 원 면적 (제곱미터)
     private static final float DEFAULT_ZOOM = 13f; // 약 3킬로미터 범위가 보이는 줌 레벨
 
-
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -194,7 +191,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             addOrUpdateCircle(position);
         }
     }
-
 
     private void addTextToCircle(LatLng center, String text) {
         // Remove existing text marker if any

@@ -110,6 +110,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
     }
 
+    public ActivityData getUnfinishedActivity() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT * FROM " + TABLE_ACTIVITIES +
+                " WHERE " + COLUMN_END_TIMESTAMP + " IS NULL " +
+                "ORDER BY " + COLUMN_START_TIMESTAMP + " DESC LIMIT 1";
+
+        Cursor cursor = db.rawQuery(query, null);
+        ActivityData activity = null;
+
+        if (cursor.moveToFirst()) {
+            activity = new ActivityData(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_NAME)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
+                    cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME))
+            );
+        }
+        cursor.close();
+        return activity;
+    }
+
     public List<ActivityData> getAllActivities() {
         List<ActivityData> activities = new ArrayList<>();
         String selectQuery = "SELECT * FROM " + TABLE_ACTIVITIES + " ORDER BY " + COLUMN_START_TIMESTAMP + " DESC";
@@ -160,7 +186,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return activity;
     }
-
 
     public LocationData getFirstLocationAfterTimestamp(long timestamp) {
         SQLiteDatabase db = this.getReadableDatabase();
