@@ -1,8 +1,10 @@
 package com.jason.memory;
 
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.widget.Button;
@@ -35,10 +37,16 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private long startTimestamp;
     private Handler handler = new Handler();
     private Runnable updateRunnable;
+    private boolean hideButtonClicked = false;
 
     private TextView tvTime, tvPace, tvDistance;
     private Button btnMap;
     private Button btnMonitorTracking;
+
+    private static final String PREFS_NAME = "MyActivityPrefs";
+    private static final String PREF_ACTIVITY_ID = "activityID";
+    private static final String PREF_HIDE_REASON = "hideReason";
+    private static final String HIDE_REASON_BUTTON = "buttonHide";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,6 +72,9 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
             startActivity(mapIntent);
         });
 
+        TextView btnHide = findViewById(R.id.tvHide);
+        btnHide.setOnClickListener(v -> hideActivity());
+
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
@@ -71,9 +82,19 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
         if (activityId != -1) {
             resumeActivity();
+        } else if(wasActivityHiddenByButton(this)) {
+            activityId = getHiddenActivityId(this);
+            if(activityId == -1) {
+                startNewActivity();
+            } else {
+                resumeActivity();
+            }
         } else {
             startNewActivity();
         }
+
+        // Ensure updates are started
+        startUpdates();
     }
 
     @Override
@@ -98,8 +119,8 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
             startUpdates();
         } else {
             // Handle error: activity not found
-            Toast.makeText(this, "Error: Activity not found", Toast.LENGTH_SHORT).show();
-            finish();
+            Toast.makeText(this, "Error: Activity("+ activityId+") not found\n New Activity started!", Toast.LENGTH_SHORT).show();
+            startNewActivity();
         }
     }
 
@@ -232,7 +253,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Stop Activity");
         builder.setMessage("What would you like to do with this activity?");
-        builder.setPositiveButton("Stop and Save", new DialogInterface.OnClickListener() {
+        builder.setPositiveButton("Save", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
                 finalizeActivity();
@@ -254,14 +275,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         builder.show();
     }
 
-    private void discardActivity() {
-        handler.removeCallbacks(updateRunnable);
-        dbHelper.deleteActivity(activityId);
-        Toast.makeText(this, "Activity discarded", Toast.LENGTH_SHORT).show();
-        finish();
-    }
-
-
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
@@ -275,8 +288,18 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         } else {
             Toast.makeText(this, "Unable to save activity: location data missing", Toast.LENGTH_SHORT).show();
         }
+        clearHideFlags();  // Clear flags when finalizing
         finish();
     }
+
+    private void discardActivity() {
+        handler.removeCallbacks(updateRunnable);
+        dbHelper.deleteActivity(activityId);
+        Toast.makeText(this, "Activity discarded", Toast.LENGTH_SHORT).show();
+        clearHideFlags();  // Clear flags when discarding
+        finish();
+    }
+
 
     private double calculateDistance(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
@@ -313,9 +336,51 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         showStopActivityDialog();
     }
 
+    private void hideActivity() {
+        // Stop all background processes
+        handler.removeCallbacks(updateRunnable);
+
+        // Set a flag to indicate that the activity was hidden
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(PREF_HIDE_REASON, HIDE_REASON_BUTTON);
+        editor.putLong(PREF_ACTIVITY_ID, activityId);
+        editor.apply();
+
+        hideButtonClicked = true;  // Set the flag
+
+        // Finish the activity
+        finish();
+    }
+
+    // Method for other activities to check if MyActivity was hidden
+    public static boolean wasActivityHiddenByButton(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        String hideReason = prefs.getString(PREF_HIDE_REASON, null);
+        return HIDE_REASON_BUTTON.equals(hideReason);
+    }
+
+    // Method to get the hidden activity ID
+    public static long getHiddenActivityId(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        return prefs.getLong(PREF_ACTIVITY_ID, -1);
+    }
+
+    private void clearHideFlags() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.remove(PREF_HIDE_REASON);
+        editor.remove(PREF_ACTIVITY_ID);
+        editor.apply();
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
         handler.removeCallbacks(updateRunnable);
+
+        if (!hideButtonClicked) {
+            clearHideFlags();
+        }
     }
 }
