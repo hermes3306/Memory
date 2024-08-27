@@ -67,6 +67,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button btnMemoryActivity = findViewById(R.id.memoryButton);
+        btnMemoryActivity.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MemoryActivity.class);
+            startActivity(intent);
+        });
+
         Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
         btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
             @Override

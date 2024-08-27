@@ -64,6 +64,9 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
     private void updateMap() {
         if (mMap == null) return;
 
+        // Clear the previous end marker
+        mMap.clear();
+
         LocationData latestLocation = dbHelper.getLatestLocation();
         if (latestLocation != null) {
             LatLng latLng = new LatLng(latestLocation.getLatitude(), latestLocation.getLongitude());
@@ -74,7 +77,8 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
             // Optionally, you can draw a polyline of the entire track
             List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
 
-            if(allLocations == null) return;
+            if(allLocations == null || allLocations.isEmpty()) return;
+
             // Add start marker
             LocationData startLocation = allLocations.get(0);
             LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
@@ -82,14 +86,6 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
                     .position(startPoint)
                     .title("Start")
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-
-            // Add end marker
-            LocationData endLocation = allLocations.get(allLocations.size() - 1);
-            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions()
-                    .position(endPoint)
-                    .title("Current")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
             LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
 
@@ -99,7 +95,8 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
                 points.add(point);
                 boundsBuilder.include(point);
             }
-            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
+
+            // Add polyline
             mMap.addPolyline(new PolylineOptions()
                     .addAll(points)
                     .color(0xFFFF0000)
@@ -107,6 +104,14 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
 
             LatLngBounds bounds = boundsBuilder.build();
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+            // Add end marker after everything else
+            LocationData endLocation = allLocations.get(allLocations.size() - 1);
+            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(endPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
         }
     }
 
