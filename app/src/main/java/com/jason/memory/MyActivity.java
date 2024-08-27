@@ -153,6 +153,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
             // Optionally, you can draw a polyline of the entire track
             List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
 
+            if(allLocations == null) return;
             // Add start marker
             LocationData startLocation = allLocations.get(0);
             LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
@@ -280,10 +281,8 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private double calculateDistance(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
         double totalDistance = 0;
-
-        if (locations.size() < 2) {
-            return 0;
-        }
+        if(locations == null) return 0;
+        if (locations.size() < 2) return 0;
 
         for (int i = 0; i < locations.size() - 1; i++) {
             LocationData start = locations.get(i);

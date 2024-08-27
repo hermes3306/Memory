@@ -294,7 +294,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         cursor.close();
-        return locations;
+
+        if (locations.isEmpty()) return null;
+        else return locations;
     }
 
     public List<LocationData> getAllLocationsDesc() {

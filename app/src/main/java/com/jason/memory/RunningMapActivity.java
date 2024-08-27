@@ -15,6 +15,7 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class RunningMapActivity extends FragmentActivity implements OnMapReadyCallback {
@@ -56,43 +57,57 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
     }
 
     private void drawTrack() {
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        if (locations.size() < 2) {
-            Toast.makeText(this, "Not enough location data to draw track", Toast.LENGTH_SHORT).show();
-            return;
+        //updateMap is the same as that of MyActivity
+        updateMap();
+    }
+
+    private void updateMap() {
+        if (mMap == null) return;
+
+        LocationData latestLocation = dbHelper.getLatestLocation();
+        if (latestLocation != null) {
+            LatLng latLng = new LatLng(latestLocation.getLatitude(), latestLocation.getLongitude());
+
+            // Move camera to the latest location
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+
+            // Optionally, you can draw a polyline of the entire track
+            List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+
+            if(allLocations == null) return;
+            // Add start marker
+            LocationData startLocation = allLocations.get(0);
+            LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(startPoint)
+                    .title("Start")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
+            // Add end marker
+            LocationData endLocation = allLocations.get(allLocations.size() - 1);
+            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(endPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+
+            List<LatLng> points = new ArrayList<>();
+            for (LocationData location : allLocations) {
+                LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
+                points.add(point);
+                boundsBuilder.include(point);
+            }
+            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
+            mMap.addPolyline(new PolylineOptions()
+                    .addAll(points)
+                    .color(0xFFFF0000)
+                    .width(3));
+
+            LatLngBounds bounds = boundsBuilder.build();
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
         }
-
-        mMap.clear(); // Clear previous polylines and markers
-
-        PolylineOptions polylineOptions = new PolylineOptions();
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-
-        for (LocationData location : locations) {
-            LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
-            polylineOptions.add(point);
-            boundsBuilder.include(point);
-        }
-
-        mMap.addPolyline(polylineOptions);
-
-        // Add start marker
-        LocationData startLocation = locations.get(0);
-        LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(startPoint)
-                .title("Start")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-
-        // Add end marker
-        LocationData endLocation = locations.get(locations.size() - 1);
-        LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(endPoint)
-                .title("Current")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
     }
 
     @Override
