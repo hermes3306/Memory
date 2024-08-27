@@ -12,12 +12,24 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 
-public class MyActivity extends AppCompatActivity {
+public class MyActivity extends AppCompatActivity implements OnMapReadyCallback {
+    private GoogleMap mMap;
+    private static final long UPDATE_INTERVAL = 1000; // 1 second
     private DatabaseHelper dbHelper;
     private long activityId;
     private long startTimestamp;
@@ -43,7 +55,6 @@ public class MyActivity extends AppCompatActivity {
         btnMonitorTracking = findViewById(R.id.btnMonitorTracking);
         btnMonitorTracking.setOnClickListener(v -> openMonitorActivity());
 
-
         Button btnStopActivity = findViewById(R.id.btnStopActivity);
         btnStopActivity.setOnClickListener(v -> stopActivity());
 
@@ -53,12 +64,22 @@ public class MyActivity extends AppCompatActivity {
             startActivity(mapIntent);
         });
 
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
+
         activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
         if (activityId != -1) {
             resumeActivity();
         } else {
             startNewActivity();
         }
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+        // You can set initial camera position here if needed
     }
 
     private void openMonitorActivity() {
@@ -106,15 +127,65 @@ public class MyActivity extends AppCompatActivity {
         else return "Evening";
     }
 
+
     private void startUpdates() {
         updateRunnable = new Runnable() {
             @Override
             public void run() {
                 updateUI();
-                handler.postDelayed(this, 1000); // Update every second
+                updateMap();
+                handler.postDelayed(this, UPDATE_INTERVAL);
             }
         };
         handler.post(updateRunnable);
+    }
+
+    private void updateMap() {
+        if (mMap == null) return;
+
+        LocationData latestLocation = dbHelper.getLatestLocation();
+        if (latestLocation != null) {
+            LatLng latLng = new LatLng(latestLocation.getLatitude(), latestLocation.getLongitude());
+
+            // Move camera to the latest location
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+
+            // Optionally, you can draw a polyline of the entire track
+            List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+
+            // Add start marker
+            LocationData startLocation = allLocations.get(0);
+            LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(startPoint)
+                    .title("Start")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
+            // Add end marker
+            LocationData endLocation = allLocations.get(allLocations.size() - 1);
+            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(endPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+
+            List<LatLng> points = new ArrayList<>();
+            for (LocationData location : allLocations) {
+                LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
+                points.add(point);
+                boundsBuilder.include(point);
+            }
+            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
+            mMap.addPolyline(new PolylineOptions()
+                    .addAll(points)
+                    .color(0xFFFF0000)
+                    .width(3));
+
+            LatLngBounds bounds = boundsBuilder.build();
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+        }
     }
 
     private void updateUI() {
