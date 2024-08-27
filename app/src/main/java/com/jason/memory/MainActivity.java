@@ -67,6 +67,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        Button btnMemoryActivity = findViewById(R.id.memoryButton);
+        btnMemoryActivity.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MemoryActivity.class);
+            startActivity(intent);
+        });
+
         Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
         btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -90,6 +96,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Start the service when the app starts
+        startServiceIfPermissionsGranted();
+
         updateUI();
 
         // Register BroadcastReceiver
@@ -109,6 +118,15 @@ public class MainActivity extends AppCompatActivity {
 
         // Add this line to check for unfinished activities when the app starts
         checkForUnfinishedActivity();
+    }
+
+    private void startServiceIfPermissionsGranted() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            startLocationService();
+        } else {
+            checkPermissionsAndStartService();
+        }
     }
 
     private void startActivityWithTracking() {
@@ -133,7 +151,6 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(MainActivity.this, MyActivity.class);
         startActivity(intent);
     }
-
 
     private void checkForUnfinishedActivity() {
         DatabaseHelper dbHelper = new DatabaseHelper(this);
@@ -166,7 +183,6 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -192,6 +208,8 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == PERMISSIONS_REQUEST_LOCATION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startLocationService();
+            } else {
+                // Permission denied, you might want to inform the user that the service can't start without permission
             }
         }
     }

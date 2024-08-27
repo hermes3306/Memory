@@ -23,6 +23,8 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -80,17 +82,19 @@ public class ListActivityActivity extends AppCompatActivity {
         }
 
         class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvName, tvDistance, tvAveragePace, tvTime, tvAddress;
+            TextView tvName, tvDate, tvDistance, tvAveragePace, tvTime, tvAddress, tvCalories;
             MapView mapView;
             GoogleMap map;
 
             ViewHolder(View itemView) {
                 super(itemView);
                 tvName = itemView.findViewById(R.id.tvName);
+                tvDate = itemView.findViewById(R.id.tvDate);
                 tvDistance = itemView.findViewById(R.id.tvDistance);
                 tvAveragePace = itemView.findViewById(R.id.tvAveragePace);
                 tvTime = itemView.findViewById(R.id.tvTime);
                 tvAddress = itemView.findViewById(R.id.tvAddress);
+                tvCalories = itemView.findViewById(R.id.tvCalories);
                 mapView = itemView.findViewById(R.id.mapView);
 
                 mapView.onCreate(null);
@@ -103,10 +107,12 @@ public class ListActivityActivity extends AppCompatActivity {
 
             void bind(final ActivityData activity, final OnItemClickListener listener) {
                 tvName.setText(activity.getName());
-                tvDistance.setText(String.format(Locale.getDefault(), "%.2f km", activity.getDistance()));
-                tvAveragePace.setText(String.format(Locale.getDefault(), "%s/km", calculateAveragePace(activity.getElapsedTime(), activity.getDistance())));
-                tvTime.setText(String.format(Locale.getDefault(), "%s", formatElapsedTime(activity.getElapsedTime())));
+                tvDate.setText(formatDate(activity.getStartTimestamp()));
+                tvDistance.setText(String.format(Locale.getDefault(), "%.2f", activity.getDistance()));
+                tvAveragePace.setText(String.format(Locale.getDefault(), "%s", calculateAveragePace(activity.getElapsedTime(), activity.getDistance())));
+                tvTime.setText(formatElapsedTime(activity.getElapsedTime()));
                 tvAddress.setText(activity.getAddress());
+                tvCalories.setText(String.format(Locale.getDefault(), "%d", calculateCalories(activity)));
                 itemView.setOnClickListener(v -> listener.onItemClick(activity));
 
                 if (map != null) {
@@ -171,6 +177,17 @@ public class ListActivityActivity extends AppCompatActivity {
         int averagePaceMinutes = (int) (averagePaceSeconds / 60);
         int averagePaceSecondsRemainder = (int) (averagePaceSeconds % 60);
         return String.format(Locale.getDefault(), "%02d:%02d", averagePaceMinutes, averagePaceSecondsRemainder);
+    }
+
+    private String formatDate(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("M월d일, yyyy h:mm a", Locale.KOREAN);
+        return sdf.format(new Date(timestamp));
+    }
+
+    private int calculateCalories(ActivityData activity) {
+        // Implement your calorie calculation logic here
+        // This is a placeholder calculation
+        return (int) (activity.getDistance() * 60);
     }
 
     @Override

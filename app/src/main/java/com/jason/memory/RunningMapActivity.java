@@ -1,5 +1,6 @@
 package com.jason.memory;
 
+import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentActivity;
 import android.os.Bundle;
 import android.os.Handler;
@@ -17,6 +18,9 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.Manifest;
+import androidx.core.app.ActivityCompat;
+import android.content.pm.PackageManager;
 
 public class RunningMapActivity extends FragmentActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
@@ -42,7 +46,46 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+
+        // Enable zoom controls
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+
+        // Enable compass
+        mMap.getUiSettings().setCompassEnabled(true);
+
+        // Enable my location button
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mMap.setMyLocationEnabled(true);
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        }
+
+        // Enable map toolbar
+        mMap.getUiSettings().setMapToolbarEnabled(true);
+
+        // Add map type control buttons
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+
+
+        // Enable all gestures
+        mMap.getUiSettings().setAllGesturesEnabled(true);
+
         startTrackUpdates();
+    }
+
+
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    mMap.setMyLocationEnabled(true);
+                }
+            }
+        }
     }
 
     private void startTrackUpdates() {
@@ -57,12 +100,15 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
     }
 
     private void drawTrack() {
-        //updateMap is the same as that of MyActivity
         updateMap();
     }
 
+
     private void updateMap() {
         if (mMap == null) return;
+
+        // Clear the previous end marker
+        mMap.clear();
 
         LocationData latestLocation = dbHelper.getLatestLocation();
         if (latestLocation != null) {
@@ -74,7 +120,8 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
             // Optionally, you can draw a polyline of the entire track
             List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
 
-            if(allLocations == null) return;
+            if(allLocations == null || allLocations.isEmpty()) return;
+
             // Add start marker
             LocationData startLocation = allLocations.get(0);
             LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
@@ -82,14 +129,6 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
                     .position(startPoint)
                     .title("Start")
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-
-            // Add end marker
-            LocationData endLocation = allLocations.get(allLocations.size() - 1);
-            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions()
-                    .position(endPoint)
-                    .title("Current")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
             LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
 
@@ -99,7 +138,8 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
                 points.add(point);
                 boundsBuilder.include(point);
             }
-            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
+
+            // Add polyline
             mMap.addPolyline(new PolylineOptions()
                     .addAll(points)
                     .color(0xFFFF0000)
@@ -107,8 +147,17 @@ public class RunningMapActivity extends FragmentActivity implements OnMapReadyCa
 
             LatLngBounds bounds = boundsBuilder.build();
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+            // Add end marker after everything else
+            LocationData endLocation = allLocations.get(allLocations.size() - 1);
+            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(endPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
         }
     }
+
 
     @Override
     public void onBackPressed() {

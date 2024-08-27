@@ -12,16 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import android.content.pm.PackageManager;
-import android.Manifest;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -32,7 +23,14 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
-public class MyActivity extends AppCompatActivity implements OnMapReadyCallback {
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+
+public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
     private static final long UPDATE_INTERVAL = 1000; // 1 second
     private DatabaseHelper dbHelper;
@@ -70,7 +68,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         btnStopActivity.setOnClickListener(v -> stopActivity());
 
         btnMap.setOnClickListener(v -> {
-            Intent mapIntent = new Intent(MyActivity.this, RunningMapActivity.class);
+            Intent mapIntent = new Intent(MyActivity2.this, RunningMapActivity.class);
             mapIntent.putExtra("startTimestamp", startTimestamp);
             startActivity(mapIntent);
         });
@@ -95,51 +93,19 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         } else {
             startNewActivity();
         }
+
+        // Ensure updates are started
+        startUpdates();
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
-        // Enable zoom controls
-        mMap.getUiSettings().setZoomControlsEnabled(true);
-
-        // Enable compass
-        mMap.getUiSettings().setCompassEnabled(true);
-
-        // Enable my location button
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
-        }
-
-        // Enable map toolbar
-        mMap.getUiSettings().setMapToolbarEnabled(true);
-
-        // Set initial map type
-        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-
-        // Enable all gestures
-        mMap.getUiSettings().setAllGesturesEnabled(true);
-
-        startUpdates();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == 1) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                    mMap.setMyLocationEnabled(true);
-                }
-            }
-        }
+        // You can set initial camera position here if needed
     }
 
     private void openMonitorActivity() {
-        Intent monitorIntent = new Intent(MyActivity.this, MonitorActivity.class);
+        Intent monitorIntent = new Intent(MyActivity2.this, MonitorActivity.class);
         monitorIntent.putExtra("ACTIVITY_ID", activityId);
         monitorIntent.putExtra("START_TIMESTAMP", startTimestamp);
         startActivity(monitorIntent);
@@ -183,6 +149,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         else return "Evening";
     }
 
+
     private void startUpdates() {
         updateRunnable = new Runnable() {
             @Override
@@ -197,46 +164,52 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
 
     private void updateMap() {
         if (mMap == null) return;
-
         mMap.clear();  // Clear the map before redrawing
 
-        List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+        LocationData latestLocation = dbHelper.getLatestLocation();
+        if (latestLocation != null) {
+            LatLng latLng = new LatLng(latestLocation.getLatitude(), latestLocation.getLongitude());
 
-        if (allLocations == null || allLocations.isEmpty()) return;
+            // Move camera to the latest location
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
 
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-        List<LatLng> points = new ArrayList<>();
+            // Optionally, you can draw a polyline of the entire track
+            List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
 
-        // Add start marker
-        LocationData startLocation = allLocations.get(0);
-        LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(startPoint)
-                .title("Start")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+            if(allLocations == null) return;
+            // Add start marker
+            LocationData startLocation = allLocations.get(0);
+            LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(startPoint)
+                    .title("Start")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
 
-        // Add end marker (current location)
-        LocationData endLocation = allLocations.get(allLocations.size() - 1);
-        LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(endPoint)
-                .title("Current")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+            // Add end marker
+            LocationData endLocation = allLocations.get(allLocations.size() - 1);
+            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
+            mMap.addMarker(new MarkerOptions()
+                    .position(endPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        for (LocationData location : allLocations) {
-            LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
-            points.add(point);
-            boundsBuilder.include(point);
+            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+
+            List<LatLng> points = new ArrayList<>();
+            for (LocationData location : allLocations) {
+                LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
+                points.add(point);
+                boundsBuilder.include(point);
+            }
+            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
+            mMap.addPolyline(new PolylineOptions()
+                    .addAll(points)
+                    .color(0xFFFF0000)
+                    .width(3));
+
+            LatLngBounds bounds = boundsBuilder.build();
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
         }
-
-        // Draw the polyline
-        mMap.addPolyline(new PolylineOptions()
-                .addAll(points)
-                .color(0xFFFF0000)
-                .width(3));
-
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
     }
 
     private void updateUI() {
@@ -373,7 +346,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         // Finish the activity
         finish();
     }
-
 
     // Method for other activities to check if MyActivity was hidden
     public static boolean wasActivityHiddenByButton(Context context) {

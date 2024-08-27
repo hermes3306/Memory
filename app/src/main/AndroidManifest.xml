@@ -35,6 +35,10 @@
             android:name=".MonitorActivity"
             android:exported="false" />
 
+        <activity
+            android:name=".MemoryActivity"
+            android:exported="false" />
+
         <activity android:name=".MyActivity" />
 
         <activity
