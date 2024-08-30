@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/tasks48"
+                android:gravity="center_vertical"
+                android:text="Activity Name"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvStartTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_vertical|left"
+                android:text="Start Time"
+                android:textSize="16sp" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="250dp"
+                android:layout_marginTop="16dp">
+
+                <fragment
+                    android:id="@+id/map"
+                    android:name="com.google.android.gms.maps.SupportMapFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+            </RelativeLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="16dp">
+
+                <TextView
+                    android:id="@+id/tvDistance"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="0.00"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvElapsedTime"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="0:00"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tvAveragePace"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="0:00"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="KM"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="TIME"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="AVG"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvCalories"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/cal48"
+                android:gravity="center_vertical|left"
+                android:text="0"
+                android:textColor="@color/Cyan"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tvCaloriesText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_vertical|left"
+                android:text=" 칼로리를 소모하였습니다."
+                android:textColor="@android:color/darker_gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_rank"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/rank48"
+                android:gravity="center_horizontal|left"
+                android:text=" -번째로 빠릅니다."
+                android:textColor="@color/Cyan"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_rank_range"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 0-5 KM 운동을 비교해 보세요."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_activity_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/progress48"
+                android:gravity="center_horizontal|left"
+                android:text=" Progress"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/progress_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 거리별 평균 속도를 확인해 보세요."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/textView238"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/memo48"
+                android:gravity="center_horizontal|left"
+                android:text=" Memo"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/memo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 본 활동에는 메모가 없습니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/textView22238"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/weather48"
+                android:gravity="center_horizontal|left"
+                android:text=" How was the weather?"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/weather"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 날씨를 확인하여 모든 활동을 준비하세요."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+
+            <TextView
+                android:id="@+id/textView222238"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/together48"
+                android:gravity="center_horizontal|left"
+                android:text=" Who do you run together?"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_co_runner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 구현되지 않았습니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_save_activity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/pics48"
+                android:gravity="center_horizontal|left"
+                android:text=" Save Activity"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_save_activity_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" csv 파일로 활동을 저장합니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_cloud"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/cloud48v2"
+                android:gravity="center_horizontal|left"
+                android:text=" Upload to Server"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_cloud_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 아직 구현되지 않았습니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tv_strava"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/strava48"
+                android:gravity="center_horizontal|left"
+                android:onClick="onClick"
+                android:text=" Upload to Strava"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_strava_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:onClick="onClick"
+                android:text=" Strava에 연동합니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+
+            <Button
+                android:id="@+id/btnDelete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Delete"
+                android:layout_marginTop="16dp"/>
+
+            <Button
+                android:id="@+id/btnBack"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Back"
+                android:layout_marginTop="16dp"/>
+
+        </LinearLayout>
+    </ScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

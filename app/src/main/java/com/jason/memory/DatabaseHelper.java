@@ -29,13 +29,13 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 2;
-    private static final String TABLE_LOCATIONS = "locations";
+    private static final int DATABASE_VERSION = 4;
+    public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
-    private static final String COLUMN_LATITUDE = "latitude";
-    private static final String COLUMN_LONGITUDE = "longitude";
-    private static final String COLUMN_ALTITUDE = "altitude";
-    private static final String COLUMN_TIMESTAMP = "timestamp";
+    public static final String COLUMN_LATITUDE = "latitude";
+    public static final String COLUMN_LONGITUDE = "longitude";
+    public static final String COLUMN_ALTITUDE = "altitude";
+    public static final String COLUMN_TIMESTAMP = "timestamp";
 
     private static final String TABLE_ACTIVITIES = "activities";
     private static final String COLUMN_ACTIVITY_ID = "id";
@@ -54,6 +54,23 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
         this.context = context;
+    }
+
+    public void beginTransaction() {
+        getWritableDatabase().beginTransaction();
+    }
+
+    public void setTransactionSuccessful() {
+        getWritableDatabase().setTransactionSuccessful();
+    }
+
+    public void endTransaction() {
+        getWritableDatabase().endTransaction();
+    }
+
+    public void clearAllData() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_LOCATIONS, null, null);
     }
 
     @Override
@@ -161,6 +178,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         cursor.close();
         return activity;
+    }
+
+    public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
+        List<LocationData> locationList = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS +
+                " WHERE " + COLUMN_TIMESTAMP + " >= ? AND " + COLUMN_TIMESTAMP + " < ?" +
+                " ORDER BY " + COLUMN_TIMESTAMP + " ASC";
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
+
+        if (cursor.moveToFirst()) {
+            do {
+                LocationData location = new LocationData(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_ID)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_ALTITUDE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP))
+                );
+                locationList.add(location);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return locationList;
     }
 
 
@@ -323,31 +366,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return locationList;
     }
 
-    public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
-        List<LocationData> locationList = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS +
-                " WHERE " + COLUMN_TIMESTAMP + " >= ? AND " + COLUMN_TIMESTAMP + " < ?" +
-                " ORDER BY " + COLUMN_TIMESTAMP + " ASC";
-
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, new String[]{String.valueOf(startTime), String.valueOf(endTime)});
-
-        if (cursor.moveToFirst()) {
-            do {
-                LocationData location = new LocationData(
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_ID)),
-                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE)),
-                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE)),
-                        cursor.getDouble(cursor.getColumnIndex(COLUMN_ALTITUDE)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP))
-                );
-                locationList.add(location);
-            } while (cursor.moveToNext());
-        }
-
-        cursor.close();
-        return locationList;
-    }
 
     public List<LatLng> getAllPositions() {
         List<LatLng> positions = new ArrayList<>();

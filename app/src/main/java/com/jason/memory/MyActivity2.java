@@ -12,6 +12,20 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import android.content.pm.PackageManager;
+import android.Manifest;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -20,19 +34,17 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
-
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
 
 public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
-    private static final long UPDATE_INTERVAL = 1000; // 1 second
+
+    private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
+    private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
+
     private DatabaseHelper dbHelper;
     private long activityId;
     private long startTimestamp;
@@ -42,17 +54,28 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
 
     private TextView tvTime, tvPace, tvDistance;
     private Button btnMap;
-    private Button btnMonitorTracking;
 
-    private static final String PREFS_NAME = "MyActivityPrefs";
+    private static final String PREFS_NAME = "MyActivity2Prefs";
     private static final String PREF_ACTIVITY_ID = "activityID";
     private static final String PREF_HIDE_REASON = "hideReason";
     private static final String HIDE_REASON_BUTTON = "buttonHide";
+
+    private StravaUploader stravaUploader;
+
+    private List<LatLng> mLastPoints = new ArrayList<>();
+    private LatLngBounds mLastBounds;
+    private Marker mStartMarker;
+    private Marker mCurrentMarker;
+    private Polyline mPathPolyline;
+
+    private ExecutorService executorService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my);
+
+        executorService = Executors.newSingleThreadExecutor();
 
         dbHelper = new DatabaseHelper(this);
 
@@ -61,11 +84,13 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         tvDistance = findViewById(R.id.tvDistance);
         btnMap = findViewById(R.id.btnMap);
 
-        btnMonitorTracking = findViewById(R.id.btnMonitorTracking);
-        btnMonitorTracking.setOnClickListener(v -> openMonitorActivity());
+        stravaUploader = new StravaUploader(this);
 
         Button btnStopActivity = findViewById(R.id.btnStopActivity);
         btnStopActivity.setOnClickListener(v -> stopActivity());
+
+        Button btnStrava = findViewById(R.id.btnStrava);
+        btnStrava.setOnClickListener(v-> strava());
 
         btnMap.setOnClickListener(v -> {
             Intent mapIntent = new Intent(MyActivity2.this, RunningMapActivity.class);
@@ -93,22 +118,47 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         } else {
             startNewActivity();
         }
-
-        // Ensure updates are started
-        startUpdates();
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-        // You can set initial camera position here if needed
+
+        // Enable zoom controls
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+
+        // Enable compass
+        mMap.getUiSettings().setCompassEnabled(true);
+
+        // Enable my location button
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            mMap.setMyLocationEnabled(true);
+        } else {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+        }
+
+        // Enable map toolbar
+        mMap.getUiSettings().setMapToolbarEnabled(true);
+
+        // Set initial map type
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+
+        // Enable all gestures
+        mMap.getUiSettings().setAllGesturesEnabled(true);
+
+        startUpdates();
     }
 
-    private void openMonitorActivity() {
-        Intent monitorIntent = new Intent(MyActivity2.this, MonitorActivity.class);
-        monitorIntent.putExtra("ACTIVITY_ID", activityId);
-        monitorIntent.putExtra("START_TIMESTAMP", startTimestamp);
-        startActivity(monitorIntent);
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 1) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                    mMap.setMyLocationEnabled(true);
+                }
+            }
+        }
     }
 
     private void resumeActivity() {
@@ -149,85 +199,117 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         else return "Evening";
     }
 
-
     private void startUpdates() {
         updateRunnable = new Runnable() {
             @Override
             public void run() {
                 updateUI();
-                updateMap();
-                handler.postDelayed(this, UPDATE_INTERVAL);
+                handler.postDelayed(this, UI_UPDATE_INTERVAL);
             }
         };
         handler.post(updateRunnable);
+
+        // Start map updates separately
+        startMapUpdates();
+    }
+
+    private void startMapUpdates() {
+        final Runnable mapUpdateRunnable = new Runnable() {
+            @Override
+            public void run() {
+                updateMap();
+                handler.postDelayed(this, MAP_UPDATE_INTERVAL);
+            }
+        };
+        handler.postDelayed(mapUpdateRunnable, MAP_UPDATE_INTERVAL);
     }
 
     private void updateMap() {
         if (mMap == null) return;
-        mMap.clear();  // Clear the map before redrawing
 
-        LocationData latestLocation = dbHelper.getLatestLocation();
-        if (latestLocation != null) {
-            LatLng latLng = new LatLng(latestLocation.getLatitude(), latestLocation.getLongitude());
-
-            // Move camera to the latest location
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-
-            // Optionally, you can draw a polyline of the entire track
+        executorService.execute(() -> {
             List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+            runOnUiThread(() -> {
+                if (allLocations != null && !allLocations.isEmpty()) {
+                    updateMapWithLocations(allLocations);
+                }
+            });
+        });
+    }
 
-            if(allLocations == null) return;
-            // Add start marker
-            LocationData startLocation = allLocations.get(0);
-            LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions()
+    private void updateMapWithLocations(List<LocationData> allLocations) {
+        List<LatLng> newPoints = new ArrayList<>();
+        for (LocationData location : allLocations) {
+            newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
+        }
+
+        // Update start marker if needed
+        if (mStartMarker == null && !newPoints.isEmpty()) {
+            LatLng startPoint = newPoints.get(0);
+            mStartMarker = mMap.addMarker(new MarkerOptions()
                     .position(startPoint)
                     .title("Start")
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        }
 
-            // Add end marker
-            LocationData endLocation = allLocations.get(allLocations.size() - 1);
-            LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-            mMap.addMarker(new MarkerOptions()
-                    .position(endPoint)
-                    .title("Current")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-
-            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-
-            List<LatLng> points = new ArrayList<>();
-            for (LocationData location : allLocations) {
-                LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
-                points.add(point);
-                boundsBuilder.include(point);
+        // Update current marker
+        if (!newPoints.isEmpty()) {
+            LatLng currentPoint = newPoints.get(newPoints.size() - 1);
+            if (mCurrentMarker == null) {
+                mCurrentMarker = mMap.addMarker(new MarkerOptions()
+                        .position(currentPoint)
+                        .title("Current")
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+            } else {
+                mCurrentMarker.setPosition(currentPoint);
             }
-            // 폴리라인을 빨간색으로 설정하고 너비를 3으로 지정
-            mMap.addPolyline(new PolylineOptions()
-                    .addAll(points)
+        }
+
+        // Update polyline
+        if (mPathPolyline == null) {
+            mPathPolyline = mMap.addPolyline(new PolylineOptions()
+                    .addAll(newPoints)
                     .color(0xFFFF0000)
                     .width(3));
-
-            LatLngBounds bounds = boundsBuilder.build();
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+        } else {
+            mPathPolyline.setPoints(newPoints);
         }
+
+        // Update camera only if new points are outside the current bounds
+        if (!newPoints.isEmpty()) {
+            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+            for (LatLng point : newPoints) {
+                boundsBuilder.include(point);
+            }
+            LatLngBounds newBounds = boundsBuilder.build();
+
+            if (mLastBounds == null || !mLastBounds.contains(newBounds.northeast) || !mLastBounds.contains(newBounds.southwest)) {
+                mLastBounds = newBounds;
+                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(mLastBounds, 100));
+            }
+        }
+
+        mLastPoints = newPoints;
     }
 
     private void updateUI() {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - startTimestamp;
-        double distance = calculateDistance(startTimestamp, currentTime);
 
         // Update TIME
         String timeString = formatTime(elapsedTime);
-        tvTime.setText("" + timeString);
+        tvTime.setText(timeString);
 
-        // Update DISTANCE
-        String distanceString = String.format(Locale.getDefault(), "%.2f", distance);
-        tvDistance.setText("" + distanceString + " km");
+        // Calculate distance and update UI asynchronously
+        calculateDistance(startTimestamp, currentTime, distance -> {
+            // Update DISTANCE
+            String distanceString = String.format(Locale.getDefault(), "%.2f", distance);
+            tvDistance.setText(distanceString);
 
-        // Update PACE
-        String paceString = calculatePace(elapsedTime, distance);
-        tvPace.setText("" + paceString + " /km");
+            // Update PACE
+            String paceString = calculatePace(elapsedTime, distance);
+            tvPace.setText(paceString);
+        });
     }
 
     private String formatTime(long millis) {
@@ -245,6 +327,37 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         int paceMinutes = (int) (paceSeconds / 60);
         int paceSecondsRemainder = (int) (paceSeconds % 60);
         return String.format(Locale.getDefault(), "%02d:%02d", paceMinutes, paceSecondsRemainder);
+    }
+
+    private void calculateDistance(long startTimestamp, long endTimestamp, DistanceCallback callback) {
+        executorService.execute(() -> {
+            List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
+            double totalDistance = 0;
+            if (locations != null && locations.size() >= 2) {
+                for (int i = 0; i < locations.size() - 1; i++) {
+                    LocationData start = locations.get(i);
+                    LocationData end = locations.get(i + 1);
+                    totalDistance += calculateDistanceBetweenPoints(start, end);
+                }
+            }
+            final double distance = totalDistance;
+            runOnUiThread(() -> callback.onDistanceCalculated(distance));
+        });
+    }
+
+    interface DistanceCallback {
+        void onDistanceCalculated(double distance);
+    }
+
+    private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
+        double earthRadius = 6371; // in kilometers
+        double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
+        double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadius * c; // Distance in kilometers
     }
 
     private void stopActivity() {
@@ -273,57 +386,86 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
                 discardActivity();
             }
         });
+
         builder.setCancelable(false);
         builder.show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
+            stravaUploader.handleAuthResult(resultCode, data);
+        }
+    }
+
+    private void strava() {
+        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
+
+        // Generate GPX file from the current activity
+        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+        File gpxFile = stravaUploader.generateGpxFile(locations);
+
+        if (gpxFile != null) {
+            Toast.makeText(this, "GPX file generated successfully", Toast.LENGTH_SHORT).show();
+
+            // Get activity details
+            ActivityData activity = dbHelper.getActivity(activityId);
+
+            if (activity != null) {
+                Toast.makeText(this, "Starting Strava authentication...", Toast.LENGTH_SHORT).show();
+
+                // Start the authentication and upload process
+                stravaUploader.authenticate(gpxFile, activity.getName(),
+                        "Activity recorded using MyActivity app", activity.getType());
+            } else {
+                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
+            }
+        } else {
+            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
+        }
+
+        Toast.makeText(this, "Finalizing activity...", Toast.LENGTH_SHORT).show();
+        //finalizeActivity();
     }
 
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
-        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
-        LocationData endLocation = dbHelper.getLatestLocation();
 
-        if (startLocation != null && endLocation != null) {
-            double distance = calculateDistance(startTimestamp, endTimestamp);
-            long elapsedTime = endTimestamp - startTimestamp;
-            dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime);
-        } else {
-            Toast.makeText(this, "Unable to save activity("+ activityId+"): location data missing", Toast.LENGTH_SHORT).show();
-        }
-        clearHideFlags();  // Clear flags when finalizing
-        finish();
+        executorService.execute(() -> {
+            LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
+            LocationData endLocation = dbHelper.getLatestLocation();
+
+            if (startLocation != null && endLocation != null) {
+                calculateDistance(startTimestamp, endTimestamp, distance -> {
+                    long elapsedTime = endTimestamp - startTimestamp;
+                    dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime);
+                    runOnUiThread(() -> {
+                        clearHideFlags();
+                        finish();
+                    });
+                });
+            } else {
+                runOnUiThread(() -> {
+                    Toast.makeText(MyActivity2.this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
+                    clearHideFlags();
+                    finish();
+                });
+            }
+        });
     }
 
     private void discardActivity() {
         handler.removeCallbacks(updateRunnable);
-        dbHelper.deleteActivity(activityId);
-        Toast.makeText(this, "Activity(" + activityId + ") discarded", Toast.LENGTH_SHORT).show();
-        clearHideFlags();  // Clear flags when discarding
-        finish();
-    }
-
-    private double calculateDistance(long startTimestamp, long endTimestamp) {
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
-        double totalDistance = 0;
-        if(locations == null) return 0;
-        if (locations.size() < 2) return 0;
-        for (int i = 0; i < locations.size() - 1; i++) {
-            LocationData start = locations.get(i);
-            LocationData end = locations.get(i + 1);
-            totalDistance += calculateDistanceBetweenPoints(start, end);
-        }
-        return totalDistance;
-    }
-
-    private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
-        double earthRadius = 6371; // in kilometers
-        double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
-        double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
-                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return earthRadius * c; // Distance in kilometers
+        executorService.execute(() -> {
+            dbHelper.deleteActivity(activityId);
+            runOnUiThread(() -> {
+                Toast.makeText(MyActivity2.this, "Activity(" + activityId + ") discarded", Toast.LENGTH_SHORT).show();
+                clearHideFlags();
+                finish();
+            });
+        });
     }
 
     @Override
@@ -332,8 +474,7 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void hideActivity() {
-        // Stop all background processes
-        handler.removeCallbacks(updateRunnable);
+        handler.removeCallbacksAndMessages(null);  // This removes all callbacks
 
         // Set a flag to indicate that the activity was hidden
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -371,8 +512,15 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        handler.removeCallbacks(updateRunnable);
-
+        handler.removeCallbacksAndMessages(null);
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+        }
         if (!hideButtonClicked) {
             clearHideFlags();
         }

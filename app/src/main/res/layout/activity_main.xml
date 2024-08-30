@@ -76,12 +76,30 @@
             android:layout_marginTop="8dp"
             android:text="Behavior Analysis" />
 
-        <Button
-            android:id="@+id/btnStartActivity"
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Start Activity" />
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <Button
+                android:id="@+id/btnStartMyActivity"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Start My"
+                android:layout_marginEnd="4dp"/>
+
+            <Button
+                android:id="@+id/btnStartMyActivity2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Start My 2"
+                android:layout_marginStart="4dp"/>
+
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnBackToRun"
@@ -97,7 +115,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="List Activity" />
-
 
     </LinearLayout>
 

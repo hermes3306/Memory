@@ -28,7 +28,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class ListActivityActivity extends AppCompatActivity {
+public class ListActivityActivity2 extends AppCompatActivity {
     private RecyclerView recyclerView;
     private ActivityAdapter adapter;
     private List<ActivityData> activityList;
@@ -46,7 +46,7 @@ public class ListActivityActivity extends AppCompatActivity {
         activityList = dbHelper.getAllActivities();
 
         adapter = new ActivityAdapter(activityList, activity -> {
-            Intent intent = new Intent(ListActivityActivity.this, ActivityDetailActivity2.class);
+            Intent intent = new Intent(ListActivityActivity2.this, ActivityDetailActivity2.class);
             intent.putExtra("ACTIVITY_ID", activity.getId());
             startActivity(intent);
         });

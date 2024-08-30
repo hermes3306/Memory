@@ -84,17 +84,28 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnListActivity = findViewById(R.id.btnListActivity);
         btnListActivity.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ListActivityActivity.class);
+            Intent intent = new Intent(MainActivity.this, ListActivityActivity2.class);
             startActivity(intent);
         });
 
-        Button btnStartActivity = findViewById(R.id.btnStartActivity);
-        btnStartActivity.setOnClickListener(new View.OnClickListener() {
+        // Start MyActivity 버튼에 대한 리스너 추가
+        Button btnStartMyActivity = findViewById(R.id.btnStartMyActivity);
+        btnStartMyActivity.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivityWithTracking();
+                startActivityWithTracking(MyActivity.class);
             }
         });
+
+        // Start MyActivity2 버튼에 대한 리스너 추가
+        Button btnStartMyActivity2 = findViewById(R.id.btnStartMyActivity2);
+        btnStartMyActivity2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivityWithTracking(MyActivity2.class);
+            }
+        });
+
 
         // Start the service when the app starts
         startServiceIfPermissionsGranted();
@@ -129,7 +140,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void startActivityWithTracking() {
+    private void startActivityWithTracking(final Class<?> activityClass) {
         if (!isLocationServiceRunning()) {
             // If the location service is not running, start it first
             checkPermissionsAndStartService();
@@ -138,19 +149,20 @@ public class MainActivity extends AppCompatActivity {
             new Handler().postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    launchMyActivity();
+                    launchActivity(activityClass);
                 }
             }, 1000); // 1 second delay
         } else {
-            // If the service is already running, just start MyActivity
-            launchMyActivity();
+            // If the service is already running, just start the activity
+            launchActivity(activityClass);
         }
     }
 
-    private void launchMyActivity() {
-        Intent intent = new Intent(MainActivity.this, MyActivity.class);
+    private void launchActivity(Class<?> activityClass) {
+        Intent intent = new Intent(MainActivity.this, activityClass);
         startActivity(intent);
     }
+
 
     private void checkForUnfinishedActivity() {
         DatabaseHelper dbHelper = new DatabaseHelper(this);
