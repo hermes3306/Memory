@@ -46,7 +46,7 @@ public class ListActivityActivity extends AppCompatActivity {
         activityList = dbHelper.getAllActivities();
 
         adapter = new ActivityAdapter(activityList, activity -> {
-            Intent intent = new Intent(ListActivityActivity.this, ActivityDetailActivity2.class);
+            Intent intent = new Intent(ListActivityActivity.this, ActivityDetailActivity.class);
             intent.putExtra("ACTIVITY_ID", activity.getId());
             startActivity(intent);
         });

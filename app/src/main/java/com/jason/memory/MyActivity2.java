@@ -183,8 +183,9 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         String activityName = dayOfWeek + " " + timeOfDay + " " + activityType;
 
         LocationData currentLocation = dbHelper.getLatestLocation();
+        String simpleAddress = currentLocation.getSimpleAddress(this);
         if (currentLocation != null) {
-            activityId = dbHelper.insertActivity(activityType, activityName, startTimestamp, currentLocation.getId());
+            activityId = dbHelper.insertActivity(activityType, activityName, startTimestamp, currentLocation.getId(),simpleAddress);
             startUpdates();
         } else {
             Toast.makeText(this, "Unable to start activity: No location data", Toast.LENGTH_SHORT).show();
@@ -432,30 +433,40 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
+        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
+        LocationData endLocation = dbHelper.getLatestLocation();
 
-        executorService.execute(() -> {
-            LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
-            LocationData endLocation = dbHelper.getLatestLocation();
+        if (startLocation != null && endLocation != null) {
+            calculateDistance(startTimestamp, endTimestamp, distance -> {
+                long elapsedTime = endTimestamp - startTimestamp;
 
-            if (startLocation != null && endLocation != null) {
-                calculateDistance(startTimestamp, endTimestamp, distance -> {
-                    long elapsedTime = endTimestamp - startTimestamp;
-                    dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime);
-                    runOnUiThread(() -> {
-                        clearHideFlags();
-                        finish();
-                    });
-                });
-            } else {
-                runOnUiThread(() -> {
-                    Toast.makeText(MyActivity2.this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
-                    clearHideFlags();
-                    finish();
-                });
-            }
-        });
+                // Get the current activity to retrieve the address
+                ActivityData currentActivity = dbHelper.getActivity(activityId);
+                String address = "";
+
+                if (currentActivity != null) {
+                    // If the activity has an address, use it
+                    address = currentActivity.getAddress();
+                }
+
+                // If the address is empty, try to get it from the end location
+                if (address.isEmpty()) {
+                    address = endLocation.getSimpleAddress(this);
+                }
+
+                // Update the activity with all the information, including the address
+                dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
+
+                // Clear flags and finish the activity
+                clearHideFlags();
+                finish();
+            });
+        } else {
+            Toast.makeText(this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
+            clearHideFlags();
+            finish();
+        }
     }
-
     private void discardActivity() {
         handler.removeCallbacks(updateRunnable);
         executorService.execute(() -> {

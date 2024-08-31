@@ -29,7 +29,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -48,6 +48,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_DESC = "description";
     private static final String COLUMN_DISTANCE = "distance";
     private static final String COLUMN_ELAPSED_TIME = "elapsed_time";
+    private static final String COLUMN_ADDRESS = "address"; // New column for address
     private Context context;
 
     // Constructor
@@ -101,7 +102,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + COLUMN_END_LOCATION + " INTEGER,"
                     + COLUMN_DESC + " TEXT,"
                     + COLUMN_DISTANCE + " REAL,"
-                    + COLUMN_ELAPSED_TIME + " INTEGER"
+                    + COLUMN_ELAPSED_TIME + " INTEGER,"
+                    + COLUMN_ADDRESS + " TEXT" // New column
                     + ")";
             db.execSQL(CREATE_ACTIVITIES_TABLE);
         }
@@ -113,71 +115,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         // Drop older tables if existed
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
+        // db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
+        // db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
+        if (oldVersion < 5) {
+            // Add the new address column to the existing table
+            db.execSQL("ALTER TABLE " + TABLE_ACTIVITIES + " ADD COLUMN " + COLUMN_ADDRESS + " TEXT");
+        }
 
         // Create tables again
         onCreate(db);
-    }
-
-
-    public long insertActivity(String activityType, String name, long startTimestamp, long startLocationId) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_ACTIVITY_TYPE, activityType);
-        values.put(COLUMN_ACTIVITY_NAME, name);
-        values.put(COLUMN_START_TIMESTAMP, startTimestamp);
-        values.put(COLUMN_START_LOCATION, startLocationId);
-        values.put(COLUMN_DESC, "Activity started");
-        return db.insert(TABLE_ACTIVITIES, null, values);
-    }
-
-
-    public void updateActivity(long activityId, long endTimestamp, long startLocationId, long endLocationId, double distance, long elapsedTime) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        ContentValues values = new ContentValues();
-        values.put(COLUMN_END_TIMESTAMP, endTimestamp);
-        values.put(COLUMN_START_LOCATION, startLocationId);
-        values.put(COLUMN_END_LOCATION, endLocationId);
-        values.put(COLUMN_DISTANCE, distance);
-        values.put(COLUMN_ELAPSED_TIME, elapsedTime);
-        values.put(COLUMN_DESC, "Activity completed");
-        db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
-    }
-
-
-
-    public ActivityData getUnfinishedActivity() {
-        SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT a.*, l.latitude, l.longitude FROM " + TABLE_ACTIVITIES + " a " +
-                "LEFT JOIN " + TABLE_LOCATIONS + " l ON a." + COLUMN_START_LOCATION + " = l." + COLUMN_ID +
-                " WHERE a." + COLUMN_END_TIMESTAMP + " IS NULL " +
-                "ORDER BY a." + COLUMN_START_TIMESTAMP + " DESC LIMIT 1";
-
-        Cursor cursor = db.rawQuery(query, null);
-        ActivityData activity = null;
-
-        if (cursor.moveToFirst()) {
-            double latitude = cursor.getDouble(cursor.getColumnIndex("latitude"));
-            double longitude = cursor.getDouble(cursor.getColumnIndex("longitude"));
-            String address = getSimpleAddress(latitude, longitude);
-
-            activity = new ActivityData(
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_NAME)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_TIMESTAMP)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_TIMESTAMP)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
-                    cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
-                    address
-            );
-        }
-
-        cursor.close();
-        return activity;
     }
 
     public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
@@ -206,11 +152,62 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return locationList;
     }
 
+    public long insertActivity(String activityType, String name, long startTimestamp, long startLocationId, String address) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ACTIVITY_TYPE, activityType);
+        values.put(COLUMN_ACTIVITY_NAME, name);
+        values.put(COLUMN_START_TIMESTAMP, startTimestamp);
+        values.put(COLUMN_START_LOCATION, startLocationId);
+        values.put(COLUMN_DESC, "Activity started");
+        values.put(COLUMN_ADDRESS, address); // Add address
+        return db.insert(TABLE_ACTIVITIES, null, values);
+    }
+
+    public void updateActivity(long activityId, long endTimestamp, long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_END_TIMESTAMP, endTimestamp);
+        values.put(COLUMN_START_LOCATION, startLocationId);
+        values.put(COLUMN_END_LOCATION, endLocationId);
+        values.put(COLUMN_DISTANCE, distance);
+        values.put(COLUMN_ELAPSED_TIME, elapsedTime);
+        values.put(COLUMN_DESC, "Activity completed");
+        values.put(COLUMN_ADDRESS, address); // Update address
+        db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
+    }
+
+    public ActivityData getUnfinishedActivity() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT * FROM " + TABLE_ACTIVITIES +
+                " WHERE " + COLUMN_END_TIMESTAMP + " IS NULL " +
+                "ORDER BY " + COLUMN_START_TIMESTAMP + " DESC LIMIT 1";
+
+        Cursor cursor = db.rawQuery(query, null);
+        ActivityData activity = null;
+
+        if (cursor.moveToFirst()) {
+            activity = new ActivityData(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_NAME)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_TIMESTAMP)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
+                    cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ADDRESS))
+            );
+        }
+
+        cursor.close();
+        return activity;
+    }
 
     public List<ActivityData> getAllActivities() {
         List<ActivityData> activities = new ArrayList<>();
-        String selectQuery = "SELECT a.*, l.latitude, l.longitude FROM " + TABLE_ACTIVITIES + " a " +
-                "LEFT JOIN " + TABLE_LOCATIONS + " l ON a." + COLUMN_START_LOCATION + " = l." + COLUMN_ID +
+        String selectQuery = "SELECT * FROM " + TABLE_ACTIVITIES +
                 " ORDER BY " + COLUMN_START_TIMESTAMP + " DESC";
 
         SQLiteDatabase db = this.getReadableDatabase();
@@ -218,10 +215,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         if (cursor.moveToFirst()) {
             do {
-                double latitude = cursor.getDouble(cursor.getColumnIndex("latitude"));
-                double longitude = cursor.getDouble(cursor.getColumnIndex("longitude"));
-                String address = getSimpleAddress(latitude, longitude);
-
                 ActivityData activity = new ActivityData(
                         cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
@@ -232,7 +225,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
                         cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
                         cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
-                        address
+                        cursor.getString(cursor.getColumnIndex(COLUMN_ADDRESS))
                 );
 
                 activities.add(activity);
@@ -282,7 +275,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
                     cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
                     cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),""
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_ADDRESS))
             );
         }
         cursor.close();

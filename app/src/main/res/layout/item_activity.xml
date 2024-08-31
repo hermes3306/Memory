@@ -43,7 +43,7 @@
         <ImageView
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:src="@drawable/wifi_off"
+            android:src="@drawable/summary32"
             android:layout_gravity="center_vertical" />
 
     </LinearLayout>

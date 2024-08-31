@@ -82,11 +82,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button btnListActivity = findViewById(R.id.btnListActivity);
-        btnListActivity.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ListActivityActivity2.class);
-            startActivity(intent);
-        });
+
 
         // Start MyActivity 버튼에 대한 리스너 추가
         Button btnStartMyActivity = findViewById(R.id.btnStartMyActivity);
@@ -104,6 +100,20 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 startActivityWithTracking(MyActivity2.class);
             }
+        });
+
+
+        Button btnListActivity = findViewById(R.id.btnListActivity);
+        btnListActivity.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ListActivityActivity.class);
+            startActivity(intent);
+        });
+
+
+        Button btnListCloud = findViewById(R.id.btnListCloud);
+        btnListCloud.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ListCloudActivity.class);
+            startActivity(intent);
         });
 
 

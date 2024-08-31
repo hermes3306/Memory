@@ -49,9 +49,10 @@
         <activity
             android:name=".RunningMapActivity"
             android:label="@string/title_activity_running_map" />
+        <activity android:name=".ListCloudActivity" />
         <activity android:name=".ListActivityActivity" />
-        <activity android:name=".ListActivityActivity2" />
-        <activity android:name=".ActivityDetailActivity2" />
+        <activity android:name=".ActivityDetailActivity" />
+        <activity android:name=".ActivityCloudDetailActivity" />
         <activity
             android:name=".BehaviorAnalysisActivity"
             android:exported="false" />

@@ -34,15 +34,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
 
-public class ActivityDetailActivity2 extends AppCompatActivity implements OnMapReadyCallback {
+public class ActivityDetailActivity extends AppCompatActivity implements OnMapReadyCallback {
     private TextView tvName, tvStartTime, tvDistance, tvElapsedTime, tvAveragePace, tvCalories;
     private GoogleMap mMap;
     private DatabaseHelper dbHelper;
@@ -102,7 +97,11 @@ public class ActivityDetailActivity2 extends AppCompatActivity implements OnMapR
         stravaUploader = new StravaUploader(this);
 
         dbHelper = new DatabaseHelper(this);
+
         long activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
+        String activityFilename = getIntent().getStringExtra("ACTIVITY_FILENAME");
+        //String fileContent = cloudHelper.fetchContent(cloudHelper.getFullUrl(activityFilename));\
+
         activity = dbHelper.getActivity(activityId);
 
         if (activity != null) {
@@ -241,7 +240,7 @@ public class ActivityDetailActivity2 extends AppCompatActivity implements OnMapR
 
             @Override
             protected void onPostExecute(String result) {
-                Toast.makeText(ActivityDetailActivity2.this, result, Toast.LENGTH_LONG).show();
+                Toast.makeText(ActivityDetailActivity.this, result, Toast.LENGTH_LONG).show();
             }
         }.execute();
     }
