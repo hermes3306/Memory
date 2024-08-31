@@ -38,10 +38,14 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
     private GoogleMap mMap;
     private ActivityData activity;
     private Button btnBack;
-    private static final String UPLOAD_URL = "http://58.233.69.198/moment/upload.php";
-    private static final String BASE_URL = "http://58.233.69.198/moment/upload/";
+
+    private static final String BASE_URL = "http://58.233.69.198/moment/";
+    private static final String UPLOAD_DIR = "upload/";
+
     private String activityFilename;
     private List<LocationData> locations;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +56,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         initializeViews();
 
         activityFilename = getIntent().getStringExtra("ACTIVITY_FILENAME");
-        if (activityFilename == null) {
+        if (activityFilename == null || activityFilename.isEmpty()) {
             Log.e(TAG, "--m-- onCreate: No activity filename provided");
             Toast.makeText(this, "No activity filename provided", Toast.LENGTH_SHORT).show();
             finish();
@@ -64,7 +68,11 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        } else {
+            Log.e(TAG, "--m-- onCreate: Map fragment not found");
+        }
     }
 
     private void initializeViews() {
@@ -80,12 +88,13 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         btnBack.setOnClickListener(v -> finish());
     }
 
+
     private class FetchActivityDataTask extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... filenames) {
             Log.d(TAG, "--m-- FetchActivityDataTask: Fetching data for file: " + filenames[0]);
             try {
-                URL url = new URL(BASE_URL + filenames[0]);
+                URL url = new URL(BASE_URL + UPLOAD_DIR + filenames[0]);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                 StringBuilder content = new StringBuilder();
@@ -110,6 +119,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
             } else {
                 Log.e(TAG, "--m-- onPostExecute: Failed to fetch activity data");
                 Toast.makeText(ActivityCloudDetailActivity.this, "Failed to fetch activity data", Toast.LENGTH_SHORT).show();
+                finish();
             }
         }
     }
@@ -120,22 +130,14 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         if (lines.length < 2) {
             Log.e(TAG, "--m-- parseActivityData: Invalid activity data");
             Toast.makeText(this, "Invalid activity data", Toast.LENGTH_SHORT).show();
+            finish();
             return;
         }
 
         locations = new ArrayList<>();
-
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+
         try {
-            String[] firstLine = lines[1].split(",");
-            String[] lastLine = lines[lines.length - 1].split(",");
-
-            Date startDate = sdf.parse(firstLine[2] + "," + firstLine[3]);
-            Date endDate = sdf.parse(lastLine[2] + "," + lastLine[3]);
-
-            long startTimestamp = startDate.getTime();
-            long endTimestamp = endDate.getTime();
-
             for (int i = 1; i < lines.length; i++) {
                 String[] parts = lines[i].split(",");
                 if (parts.length >= 4) {
@@ -146,6 +148,15 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
                 }
             }
 
+            if (locations.size() < 2) {
+                Log.e(TAG, "--m-- parseActivityData: Not enough valid location data");
+                Toast.makeText(this, "Not enough valid location data", Toast.LENGTH_SHORT).show();
+                finish();
+                return;
+            }
+
+            long startTimestamp = locations.get(0).getTimestamp();
+            long endTimestamp = locations.get(locations.size() - 1).getTimestamp();
             double distance = calculateTotalDistance(locations);
             long elapsedTime = endTimestamp - startTimestamp;
             String name = activityFilename.replace(".csv", "");
@@ -164,15 +175,21 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
             );
 
             Log.d(TAG, "--m-- parseActivityData: Activity parsed successfully");
-            displayActivityDetails();
-            if (mMap != null) {
-                drawActivityTrack();
-            }
-        } catch (ParseException e) {
+            runOnUiThread(() -> {
+                displayActivityDetails();
+                if (mMap != null) {
+                    drawActivityTrack();
+                }
+            });
+        } catch (ParseException | NumberFormatException e) {
             Log.e(TAG, "--m-- parseActivityData: Error parsing activity data", e);
-            Toast.makeText(this, "Error parsing activity data", Toast.LENGTH_SHORT).show();
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Error parsing activity data", Toast.LENGTH_SHORT).show();
+                finish();
+            });
         }
     }
+
 
     private double calculateTotalDistance(List<LocationData> locations) {
         Log.d(TAG, "--m-- calculateTotalDistance: Calculating total distance");
@@ -219,7 +236,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
     private void drawActivityTrack() {
         Log.d(TAG, "--m-- drawActivityTrack: Drawing activity track on map");
-        if (locations.size() < 2) {
+        if (locations == null || locations.size() < 2) {
             Log.w(TAG, "--m-- drawActivityTrack: Not enough location data to draw track");
             Toast.makeText(this, "Not enough location data to draw track", Toast.LENGTH_SHORT).show();
             return;
@@ -227,7 +244,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
         PolylineOptions polylineOptions = new PolylineOptions()
                 .color(Color.RED)
-                .width(3);
+                .width(5);
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
 
         for (LocationData location : locations) {
@@ -236,14 +253,18 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
             boundsBuilder.include(point);
         }
 
+        mMap.clear();
         mMap.addPolyline(polylineOptions);
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
 
         addMarker(locations.get(0), "Start", BitmapDescriptorFactory.HUE_GREEN);
         addMarker(locations.get(locations.size() - 1), "End", BitmapDescriptorFactory.HUE_RED);
+
+        LatLngBounds bounds = boundsBuilder.build();
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
         Log.d(TAG, "--m-- drawActivityTrack: Activity track drawn successfully");
     }
+
 
     private void addMarker(LocationData location, String title, float markerColor) {
         LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
