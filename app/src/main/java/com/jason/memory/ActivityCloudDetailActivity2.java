@@ -45,8 +45,6 @@ public class ActivityCloudDetailActivity2 extends AppCompatActivity implements O
     private String activityFilename;
     private List<LocationData> locations;
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -87,7 +85,6 @@ public class ActivityCloudDetailActivity2 extends AppCompatActivity implements O
         btnBack = findViewById(R.id.btnBack);
         btnBack.setOnClickListener(v -> finish());
     }
-
 
     private class FetchActivityDataTask extends AsyncTask<String, Void, String> {
         @Override
@@ -190,7 +187,6 @@ public class ActivityCloudDetailActivity2 extends AppCompatActivity implements O
         }
     }
 
-
     private double calculateTotalDistance(List<LocationData> locations) {
         Log.d(TAG, "--m-- calculateTotalDistance: Calculating total distance");
         double distance = 0;
@@ -229,8 +225,15 @@ public class ActivityCloudDetailActivity2 extends AppCompatActivity implements O
     public void onMapReady(GoogleMap googleMap) {
         Log.d(TAG, "--m-- onMapReady: Google Map is ready");
         mMap = googleMap;
+        mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setCompassEnabled(true);
+
         if (locations != null && !locations.isEmpty()) {
             drawActivityTrack();
+        } else {
+            Log.w(TAG, "--m-- onMapReady: No location data available");
+            Toast.makeText(this, "No location data available to display", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -242,29 +245,63 @@ public class ActivityCloudDetailActivity2 extends AppCompatActivity implements O
             return;
         }
 
-        PolylineOptions polylineOptions = new PolylineOptions()
-                .color(Color.RED)
-                .width(5);
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+        new AsyncTask<Void, Void, PolylineOptions>() {
+            @Override
+            protected PolylineOptions doInBackground(Void... voids) {
+                PolylineOptions polylineOptions = new PolylineOptions()
+                        .color(Color.RED)
+                        .width(5);
 
-        for (LocationData location : locations) {
-            LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
-            polylineOptions.add(point);
-            boundsBuilder.include(point);
-        }
+                List<LatLng> smoothedPoints = smoothLocations(locations);
+                for (LatLng point : smoothedPoints) {
+                    polylineOptions.add(point);
+                }
 
-        mMap.clear();
-        mMap.addPolyline(polylineOptions);
+                return polylineOptions;
+            }
 
-        addMarker(locations.get(0), "Start", BitmapDescriptorFactory.HUE_GREEN);
-        addMarker(locations.get(locations.size() - 1), "End", BitmapDescriptorFactory.HUE_RED);
+            @Override
+            protected void onPostExecute(PolylineOptions polylineOptions) {
+                mMap.clear();
+                mMap.addPolyline(polylineOptions);
 
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+                LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+                for (LatLng point : polylineOptions.getPoints()) {
+                    boundsBuilder.include(point);
+                }
 
-        Log.d(TAG, "--m-- drawActivityTrack: Activity track drawn successfully");
+                addMarker(locations.get(0), "Start", BitmapDescriptorFactory.HUE_GREEN);
+                addMarker(locations.get(locations.size() - 1), "End", BitmapDescriptorFactory.HUE_RED);
+
+                LatLngBounds bounds = boundsBuilder.build();
+                mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+
+                Log.d(TAG, "--m-- drawActivityTrack: Activity track drawn successfully");
+            }
+        }.execute();
     }
 
+    private List<LatLng> smoothLocations(List<LocationData> rawLocations) {
+        List<LatLng> smoothedPoints = new ArrayList<>();
+        int windowSize = 5; // Adjust this value to change the smoothing level
+
+        for (int i = 0; i < rawLocations.size(); i++) {
+            double latSum = 0, lonSum = 0;
+            int count = 0;
+
+            for (int j = Math.max(0, i - windowSize / 2); j < Math.min(rawLocations.size(), i + windowSize / 2 + 1); j++) {
+                latSum += rawLocations.get(j).getLatitude();
+                lonSum += rawLocations.get(j).getLongitude();
+                count++;
+            }
+
+            double smoothedLat = latSum / count;
+            double smoothedLon = lonSum / count;
+            smoothedPoints.add(new LatLng(smoothedLat, smoothedLon));
+        }
+
+        return smoothedPoints;
+    }
 
     private void addMarker(LocationData location, String title, float markerColor) {
         LatLng point = new LatLng(location.getLatitude(), location.getLongitude());

@@ -1,5 +1,6 @@
 package com.jason.memory;
 
+import android.app.AlertDialog;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -31,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import android.app.AlertDialog;
+import android.widget.Button;
 
 public class ActivityCloudDetailActivity extends AppCompatActivity implements OnMapReadyCallback {
     private static final String TAG = "ActivityCloudDetailActivity";
@@ -71,8 +74,19 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         } else {
             Log.e(TAG, "--m-- onCreate: Map fragment not found");
         }
-    }
 
+        // Set up delete button
+        Button btnDelete = findViewById(R.id.btnDelete);
+        btnDelete.setOnClickListener(v -> {
+            // Show a confirmation dialog before deleting
+            new AlertDialog.Builder(this)
+                    .setTitle("Delete Activity")
+                    .setMessage("Are you sure you want to delete this activity?")
+                    .setPositiveButton("Yes", (dialog, which) -> deleteActivityFile())
+                    .setNegativeButton("No", null)
+                    .show();
+        });
+    }
     private void initializeViews() {
         Log.d(TAG, "--m-- initializeViews: Initializing views");
         tvName = findViewById(R.id.tvName);
@@ -154,7 +168,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
             long startTimestamp = locations.get(0).getTimestamp();
             long endTimestamp = locations.get(locations.size() - 1).getTimestamp();
-            double distance = calculateTotalDistance(locations);
+            double distance = calculateDistance(locations);
             long elapsedTime = endTimestamp - startTimestamp;
             String name = activityFilename.replace(".csv", "");
 
@@ -170,6 +184,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
                     elapsedTime,
                     "Address not available"
             );
+
 
             Log.d(TAG, "--m-- parseActivityData: Activity parsed successfully");
             runOnUiThread(() -> {
@@ -187,28 +202,28 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         }
     }
 
-    private double calculateTotalDistance(List<LocationData> locations) {
-        Log.d(TAG, "--m-- calculateTotalDistance: Calculating total distance");
-        double distance = 0;
+
+
+    private double calculateDistance(List<LocationData> locations) {
+        double totalDistance = 0;
+        if (locations == null || locations.size() < 2) return 0;
         for (int i = 0; i < locations.size() - 1; i++) {
             LocationData start = locations.get(i);
             LocationData end = locations.get(i + 1);
-            distance += calculateDistance(start.getLatitude(), start.getLongitude(),
-                    end.getLatitude(), end.getLongitude());
+            totalDistance += calculateDistanceBetweenPoints(start, end);
         }
-        Log.d(TAG, "--m-- calculateTotalDistance: Total distance: " + distance);
-        return distance;
+        return totalDistance;
     }
 
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        double earthRadius = 6371; // kilometers
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
+    private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
+        double earthRadius = 6371; // in kilometers
+        double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
+        double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return earthRadius * c;
+        return earthRadius * c; // Distance in kilometers
     }
 
     private void displayActivityDetails() {
@@ -337,4 +352,47 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
     private int estimateCaloriesBurned(long elapsedTime, double distance) {
         return (int) (distance * 60);
     }
+
+    private void deleteActivityFile() {
+        new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(Void... voids) {
+                try {
+                    URL url = new URL(BASE_URL + "delete.php?filename=" + activityFilename);
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("POST");
+                    connection.setDoOutput(true);
+
+                    int responseCode = connection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                        String inputLine;
+                        StringBuilder response = new StringBuilder();
+                        while ((inputLine = in.readLine()) != null) {
+                            response.append(inputLine);
+                        }
+                        in.close();
+
+                        // Check if the server response indicates successful deletion
+                        return response.toString().trim().equalsIgnoreCase("success");
+                    }
+                    return false;
+                } catch (IOException e) {
+                    Log.e(TAG, "Error deleting file: " + e.getMessage());
+                    return false;
+                }
+            }
+
+            @Override
+            protected void onPostExecute(Boolean success) {
+                if (success) {
+                    Toast.makeText(ActivityCloudDetailActivity.this, "Activity deleted successfully", Toast.LENGTH_SHORT).show();
+                    finish(); // Close the activity after successful deletion
+                } else {
+                    Toast.makeText(ActivityCloudDetailActivity.this, "Failed to delete activity", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }.execute();
+    }
+
 }

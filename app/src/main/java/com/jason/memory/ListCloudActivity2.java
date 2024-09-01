@@ -8,7 +8,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -36,14 +35,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
-public class ListCloudActivity extends AppCompatActivity {
-    private static final String TAG = ListCloudActivity.class.getSimpleName();
+public class ListCloudActivity2 extends AppCompatActivity {
+    private static final String TAG = ListCloudActivity2.class.getSimpleName();
 
     private RecyclerView recyclerView;
     private ActivityAdapter adapter;
@@ -55,7 +52,6 @@ public class ListCloudActivity extends AppCompatActivity {
     private boolean isLoading = false;
     private boolean hasMoreData = true;
 
-    private Set<String> processedFiles = new HashSet<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,30 +60,22 @@ public class ListCloudActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- onCreate: Initializing ListCloudActivity");
 
         recyclerView = findViewById(R.id.recyclerView);
-        if (recyclerView == null) {
-            Log.e(TAG, "--m-- onCreate: RecyclerView not found in layout");
-            Toast.makeText(this, "Error initializing UI", Toast.LENGTH_LONG).show();
-            finish();
-            return;
-        }
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         cloudHelper = new CloudHelper();
-        cloudHelper.clearCache();
-
         activityList = new ArrayList<>();
-        processedFiles = new HashSet<>();
+
+        fetchActivityList();
 
         adapter = new ActivityAdapter(activityList, activity -> {
-            Intent intent = new Intent(ListCloudActivity.this, ActivityCloudDetailActivity.class);
+            Intent intent = new Intent(ListCloudActivity2.this, ActivityCloudDetailActivity.class);
             intent.putExtra("ACTIVITY_FILENAME", activity.getFilename());
             startActivity(intent);
         });
 
-        recyclerView.setAdapter(adapter);
-        Log.d(TAG, "--m-- onCreate: RecyclerView and Adapter set up");
 
-        fetchActivityList();
+        recyclerView.setAdapter(adapter);
+        Log.d(TAG, "--m-- onCreate: Activity list fetch initiated");
 
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -105,10 +93,7 @@ public class ListCloudActivity extends AppCompatActivity {
                 }
             }
         });
-
-        Log.d(TAG, "--m-- onCreate: Activity list fetch initiated");
     }
-
 
     private void loadMoreActivities() {
         isLoading = true;
@@ -118,82 +103,64 @@ public class ListCloudActivity extends AppCompatActivity {
                 hasMoreData = false;
             } else {
                 for (String file : newFiles) {
-                    if (file.endsWith(".csv") && !processedFiles.contains(file)) {
-                        processedFiles.add(file);
-                        ActivityData activity = cloudHelper.getActivityDataFromFile(file);
-                        if (activity != null) {
-                            activity.setId(activityList.size() + 1);
-                            activity.setFilename(file);
-                            runOnUiThread(() -> {
-                                activityList.add(activity);
-                                adapter.notifyItemInserted(activityList.size() - 1);
-                            });
-                        }
+                    if (file.endsWith(".csv")) {
+                        ActivityData activity = new ActivityData();
+                        activity.setId(activityList.size() + 1);
+                        activity.setFilename(file);
+                        activity.setName(file.substring(0, file.lastIndexOf('.')));
+                        activityList.add(activity);
                     }
                 }
                 currentPage++;
             }
             runOnUiThread(() -> {
+                adapter.notifyDataSetChanged();
                 isLoading = false;
             });
         }).start();
     }
 
-
-
     private void fetchActivityList() {
-        Log.d(TAG, "--m-- fetchActivityList: Starting to fetch file list");
         new Thread(() -> {
-            try {
-                String fileList = cloudHelper.getFileList();
-                if (fileList != null && !fileList.isEmpty()) {
-                    Log.d(TAG, "--m-- fetchActivityList: File list retrieved successfully");
-                    activityList.clear();
-                    processedFiles.clear();
-                    parseFileList(fileList);
-                    runOnUiThread(() -> {
-                        adapter.notifyDataSetChanged();
-                        Log.d(TAG, "--m-- fetchActivityList: UI updated with new data. List size: " + activityList.size());
-                        if (activityList.isEmpty()) {
-                            Toast.makeText(this, "No activities found", Toast.LENGTH_LONG).show();
-                        }
-                    });
-                } else {
-                    Log.e(TAG, "--m-- fetchActivityList: File list is null or empty");
-                    runOnUiThread(() -> Toast.makeText(this, "Failed to retrieve activity list", Toast.LENGTH_LONG).show());
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "--m-- fetchActivityList: Error fetching file list", e);
-                runOnUiThread(() -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            Log.d(TAG, "--m-- fetchActivityList: Starting to fetch file list");
+            String fileList = cloudHelper.getFileList();
+            if (fileList != null) {
+                Log.d(TAG, "--m-- fetchActivityList: File list retrieved successfully");
+                parseFileList(fileList);
+                runOnUiThread(() -> {
+                    adapter.notifyDataSetChanged();
+                    Log.d(TAG, "--m-- fetchActivityList: UI updated with new data");
+                });
+            } else {
+                Log.e(TAG, "--m-- fetchActivityList: Failed to retrieve file list");
             }
         }).start();
     }
-
 
     private void parseFileList(String fileList) {
         Log.d(TAG, "--m-- parseFileList: Raw file list: " + fileList);
         String[] files = fileList.split("<br>");
         for (String file : files) {
             file = file.trim();
-            if (!file.isEmpty() && !processedFiles.contains(file) && file.endsWith(".csv")) {
+            if (!file.isEmpty()) {
                 Log.d(TAG, "--m-- parseFileList: Processing file: " + file);
-                processedFiles.add(file);
-                ActivityData activity = cloudHelper.getActivityDataFromFile(file);
-                if (activity != null) {
-                    activity.setId(activityList.size() + 1);
-                    activity.setFilename(file);
-                    activityList.add(activity);
-                    Log.d(TAG, "--m-- parseFileList: Added activity: " + activity.toString());
+                if (file.endsWith(".csv")) {
+                    ActivityData activity = cloudHelper.getActivityDataFromFile(file);
+                    if (activity != null) {
+                        activity.setId(activityList.size() + 1);
+                        activity.setFilename(file);
+                        activityList.add(activity);
+                        Log.d(TAG, "--m-- parseFileList: Added activity: " + activity.toString());
+                    } else {
+                        Log.w(TAG, "--m-- parseFileList: Failed to parse activity from file: " + file);
+                    }
                 } else {
-                    Log.e(TAG, "--m-- parseFileList: Failed to parse activity from file: " + file);
+                    Log.d(TAG, "--m-- parseFileList: Skipping non-CSV file: " + file);
                 }
-            } else {
-                Log.d(TAG, "--m-- parseFileList: Skipping file: " + file);
             }
         }
-        Log.d(TAG, "--m-- parseFileList: Finished parsing. Total activities: " + activityList.size());
+        Log.d(TAG, "--m-- parseFileList: Finished parsing file list. Total activities: " + activityList.size());
     }
-
 
     private class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.ViewHolder> {
         private List<ActivityData> activities;
@@ -251,6 +218,7 @@ public class ListCloudActivity extends AppCompatActivity {
 
             void bind(final ActivityData activity, final OnItemClickListener listener) {
                 tvName.setText(activity.getName());
+                // Only load other data if it's not already loaded
                 if (activity.getStartTimestamp() == 0) {
                     loadActivityDetails(activity);
                 } else {
@@ -286,6 +254,7 @@ public class ListCloudActivity extends AppCompatActivity {
                 }
             }
 
+
             private void loadMapData(ActivityData activity) {
                 if (map == null || activity == null) return;
 
@@ -301,6 +270,7 @@ public class ListCloudActivity extends AppCompatActivity {
                     isMapDataLoaded = true;
                 }).start();
             }
+
 
             private void drawActivityTrack(List<LocationData> locations) {
                 if (map == null || locations.size() < 2) return;
@@ -319,6 +289,7 @@ public class ListCloudActivity extends AppCompatActivity {
 
                 map.addPolyline(polylineOptions);
 
+                // Add start and end markers
                 addMarker(locations.get(0), "Start", BitmapDescriptorFactory.HUE_GREEN);
                 addMarker(locations.get(locations.size() - 1), "End", BitmapDescriptorFactory.HUE_RED);
 
@@ -346,6 +317,8 @@ public class ListCloudActivity extends AppCompatActivity {
                 mapView.onDestroy();
             }
         }
+
+
     }
 
     interface OnItemClickListener {
@@ -375,6 +348,8 @@ public class ListCloudActivity extends AppCompatActivity {
     }
 
     private int calculateCalories(ActivityData activity) {
+        // Implement your calorie calculation logic here
+        // This is a placeholder calculation
         return (int) (activity.getDistance() * 60);
     }
 
@@ -420,33 +395,12 @@ public class ListCloudActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
-    @Override
-    protected void onRestart() {
-        super.onRestart();
-        Log.d(TAG, "--m-- onRestart: Restarting ListCloudActivity");
-
-        // Clear all data and reset state
-        cloudHelper.clearCache();
-        activityList.clear();
-        processedFiles.clear();
-        currentPage = 1;
-        hasMoreData = true;
-
-        // Update the UI
-        runOnUiThread(() -> {
-            adapter.notifyDataSetChanged();
-        });
-
-        // Fetch fresh data
-        fetchActivityList();
-    }
-
 
     private static class CloudHelper {
         private static final String BASE_URL = "http://58.233.69.198/moment/";
         private Map<String, String> contentCache = new HashMap<>();
 
-        private static final int PAGE_SIZE = 5;
+        private static final int PAGE_SIZE = 20;
 
         public List<String> getFileList(int page) {
             String url = BASE_URL + "list.php?ext=csv&page=" + page + "&limit=" + PAGE_SIZE;
@@ -457,120 +411,82 @@ public class ListCloudActivity extends AppCompatActivity {
             return new ArrayList<>();
         }
 
-        public void clearCache() {
-            contentCache.clear();
-            Log.d(TAG, "--m-- clearCache: Content cache cleared");
-        }
-
         public String getFileList() {
             Log.d(TAG, "--m-- getFileList: Fetching file list from server");
             String result = fetchContent(BASE_URL + "list.php?ext=csv");
             if (result != null) {
-                Log.d(TAG, "--m-- getFileList: File list retrieved successfully. Raw response: " + result);
+                Log.d(TAG, "--m-- getFileList: File list retrieved successfully");
             } else {
                 Log.e(TAG, "--m-- getFileList: Failed to retrieve file list");
             }
             return result;
         }
 
+
         public ActivityData getActivityDataFromFile(String fileName) {
-            try {
-                Log.d(TAG, "--m-- getActivityDataFromFile: Fetching data for file: " + fileName);
-                String fileContent = fetchContent(getFullUrl(fileName));
-                if (fileContent != null && !fileContent.isEmpty()) {
-                    Log.d(TAG, "--m-- getActivityDataFromFile: Content fetched, length: " + fileContent.length());
-                    Log.d(TAG, "--m-- getActivityDataFromFile: First 100 characters: " + fileContent.substring(0, Math.min(fileContent.length(), 100)));
+            Log.d(TAG, "--m-- getActivityDataFromFile: Fetching data for file: " + fileName);
+            String fileContent = fetchContent(getFullUrl(fileName));
+            if (fileContent != null) {
+                Log.d(TAG, "--m-- getActivityDataFromFile: Content fetched, length: " + fileContent.length());
+                Log.d(TAG, "--m-- getActivityDataFromFile: First 100 characters: " + fileContent.substring(0, Math.min(fileContent.length(), 100)));
 
-                    String[] lines = fileContent.split("\n");
-                    Log.d(TAG, "--m-- getActivityDataFromFile: Number of lines: " + lines.length);
+                // Extract name from fileName (remove .csv extension)
+                String name = fileName.substring(0, fileName.lastIndexOf('.'));
 
-                    if (lines.length > 1) {
-                        String[] headerLine = lines[0].split(",");
-                        String[] firstDataLine = lines[1].split(",");
-                        String[] lastDataLine = lines[lines.length - 1].split(",");
+                // Parse the content
+                String[] lines = fileContent.split("\n");
+                if (lines.length > 1) {
+                    String[] firstDataLine = lines[1].split(",");
+                    String[] lastDataLine = lines[lines.length - 1].split(",");
 
-                        Log.d(TAG, "--m-- getActivityDataFromFile: Header: " + Arrays.toString(headerLine));
-                        Log.d(TAG, "--m-- getActivityDataFromFile: First data line: " + Arrays.toString(firstDataLine));
-                        Log.d(TAG, "--m-- getActivityDataFromFile: Last data line: " + Arrays.toString(lastDataLine));
+                    if (firstDataLine.length >= 4 && lastDataLine.length >= 4) {
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+                            Date startDate = sdf.parse(firstDataLine[2] + "," + firstDataLine[3]);
+                            Date endDate = sdf.parse(lastDataLine[2] + "," + lastDataLine[3]);
 
-                        // Find the indices for latitude, longitude, date, and time
-                        int latIndex = findIndex(headerLine, "latitude", 0);
-                        int lonIndex = findIndex(headerLine, "longitude", 1);
-                        int dateIndex = findIndex(headerLine, "date", 2);
-                        int timeIndex = findIndex(headerLine, "time", 3);
+                            long startTimestamp = startDate.getTime();
+                            long endTimestamp = endDate.getTime();
+                            long elapsedTime = endTimestamp - startTimestamp;
 
-                        if (latIndex != -1 && lonIndex != -1 && dateIndex != -1 && timeIndex != -1) {
-                            try {
-                                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
-                                Date startDate = sdf.parse(firstDataLine[dateIndex] + "," + firstDataLine[timeIndex]);
-                                Date endDate = sdf.parse(lastDataLine[dateIndex] + "," + lastDataLine[timeIndex]);
+                            double startLat = Double.parseDouble(firstDataLine[0]);
+                            double startLon = Double.parseDouble(firstDataLine[1]);
+                            double endLat = Double.parseDouble(lastDataLine[0]);
+                            double endLon = Double.parseDouble(lastDataLine[1]);
 
-                                long startTimestamp = startDate.getTime();
-                                long endTimestamp = endDate.getTime();
-                                long elapsedTime = endTimestamp - startTimestamp;
+                            double distance = calculateDistance(startLat, startLon, endLat, endLon);
 
-                                List<LocationData> locations = getLocationDataFromFile(fileName);
-                                double distance = calculateDistance(locations);
-
-                                String name = fileName.substring(0, fileName.lastIndexOf('.'));
-                                ActivityData activityData = new ActivityData(0, fileName, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "Address not available");
-
+                            ActivityData activityData = new ActivityData(0, fileName, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "Address not available");
+                            if (activityData != null) {
                                 Log.d(TAG, "--m-- getActivityDataFromFile: Parsed ActivityData: " + activityData.toString());
-                                return activityData;
-                            } catch (ParseException | NumberFormatException e) {
-                                Log.e(TAG, "--m-- getActivityDataFromFile: Error parsing data from file: " + fileName, e);
                             }
-                        } else {
-                            Log.e(TAG, "--m-- getActivityDataFromFile: Required columns not found in file: " + fileName);
+                            return activityData;
+                        } catch (ParseException | NumberFormatException e) {
+                            Log.e(TAG, "--m-- getActivityDataFromFile: Error parsing data from file: " + fileName, e);
                         }
                     } else {
-                        Log.e(TAG, "--m-- getActivityDataFromFile: Not enough data in file: " + fileName);
+                        Log.e(TAG, "--m-- getActivityDataFromFile: Invalid data format in file: " + fileName);
                     }
                 } else {
-                    Log.e(TAG, "--m-- getActivityDataFromFile: Failed to fetch content for file: " + fileName);
+                    Log.e(TAG, "--m-- getActivityDataFromFile: Not enough data in file: " + fileName);
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "--m-- getActivityDataFromFile: Error processing file: " + fileName, e);
+            } else {
+                Log.e(TAG, "--m-- getActivityDataFromFile: Failed to fetch content for file: " + fileName);
             }
             return null;
         }
 
-        private int findIndex(String[] array, String target, int defaultIndex) {
-            for (int i = 0; i < array.length; i++) {
-                if (array[i].toLowerCase().contains(target)) {
-                    return i;
-                }
-            }
-            return defaultIndex;
+        private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+            // Implement distance calculation (e.g., using Haversine formula)
+            // This is a placeholder implementation
+            return Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2)) * 111.32;
         }
 
-
-
-        private double calculateDistance(List<LocationData> locations) {
-            double totalDistance = 0;
-            if (locations == null || locations.size() < 2) return 0;
-            for (int i = 0; i < locations.size() - 1; i++) {
-                LocationData start = locations.get(i);
-                LocationData end = locations.get(i + 1);
-                totalDistance += calculateDistanceBetweenPoints(start, end);
-            }
-            return totalDistance;
-        }
-
-        private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
-            double earthRadius = 6371; // in kilometers
-            double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
-            double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
-            double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
-                            Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return earthRadius * c; // Distance in kilometers
-        }
 
         private String getFullUrl(String fileName) {
             return BASE_URL + UPLOAD_DIR + fileName;
         }
+
 
         public List<LocationData> getLocationDataFromFile(String fileName) {
             String fullUrl = getFullUrl(fileName);
@@ -591,6 +507,7 @@ public class ListCloudActivity extends AppCompatActivity {
                         }
                     } catch (ParseException | NumberFormatException e) {
                         Log.e(TAG, "--m-- Error parsing line: " + lines[i], e);
+                        // Continue to next line instead of breaking the whole process
                     }
                 }
                 Log.d(TAG, "--m-- getLocationDataFromFile: Parsed " + locations.size() + " locations from file: " + fileName);
@@ -609,14 +526,8 @@ public class ListCloudActivity extends AppCompatActivity {
             Log.d(TAG, "--m-- fetchContent: Fetching content from URL: " + urlString);
             try {
                 URL url = new URL(urlString);
-
-
-
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
-                connection.setConnectTimeout(15000); // 15 seconds
-                connection.setReadTimeout(15000); // 15 seconds
-
 
                 int responseCode = connection.getResponseCode();
                 Log.d(TAG, "--m-- fetchContent: Response code: " + responseCode);
@@ -632,6 +543,7 @@ public class ListCloudActivity extends AppCompatActivity {
                     String content = result.toString();
                     Log.d(TAG, "--m-- fetchContent: Successfully fetched content from URL: " + urlString);
 
+                    // Cache the content
                     contentCache.put(urlString, content);
 
                     return content;
@@ -674,5 +586,6 @@ public class ListCloudActivity extends AppCompatActivity {
                 return null;
             }
         }
+
     }
 }
