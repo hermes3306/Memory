@@ -15,6 +15,23 @@ public class ActivityData {
     private long elapsedTime;
     private String address;
 
+    public ActivityData() {
+    }
+
+    public void updateFrom(ActivityData other) {
+        if (other == null) return;
+
+        this.type = other.type;
+        this.name = other.name;
+        this.startTimestamp = other.startTimestamp;
+        this.endTimestamp = other.endTimestamp;
+        this.startLocationId = other.startLocationId;
+        this.endLocationId = other.endLocationId;
+        this.distance = other.distance;
+        this.elapsedTime = other.elapsedTime;
+        this.address = other.address;
+        // Don't update id and filename as they should remain the same
+    }
 
     public ActivityData(long id, String filename, String type, String name, long startTimestamp, long endTimestamp,
                         long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
