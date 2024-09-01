@@ -249,6 +249,25 @@
                 android:textSize="16sp" />
 
             <TextView
+                android:id="@+id/tv_save_database"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:drawableLeft="@drawable/db48"
+                android:gravity="center_horizontal|left"
+                android:text=" Save on Database"
+                android:textSize="18sp" />
+
+            <TextView
+                android:id="@+id/tv_save_database_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="35sp"
+                android:gravity="center_horizontal|left"
+                android:text=" 데이터베이스에 저장합니다."
+                android:textColor="@color/Gray"
+                android:textSize="16sp" />
+
+            <TextView
                 android:id="@+id/tv_cloud"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

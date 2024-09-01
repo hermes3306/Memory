@@ -22,6 +22,8 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.location.Address;
 import android.location.Geocoder;
+import android.util.Log;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_ELAPSED_TIME = "elapsed_time";
     private static final String COLUMN_ADDRESS = "address"; // New column for address
     private Context context;
+    private static final String TAG = "DatabaseHelper";
 
     // Constructor
     public DatabaseHelper(Context context) {
@@ -460,4 +463,73 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return location;
     }
+
+    public void createLocationsInTransaction(List<LocationData> locations) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        try {
+            db.beginTransaction();
+
+            for (LocationData location : locations) {
+                ContentValues values = new ContentValues();
+                values.put(COLUMN_LATITUDE, location.getLatitude());
+                values.put(COLUMN_LONGITUDE, location.getLongitude());
+                values.put(COLUMN_ALTITUDE, location.getAltitude());
+                values.put(COLUMN_TIMESTAMP, location.getTimestamp());
+
+                db.insert(TABLE_LOCATIONS, null, values);
+            }
+
+            db.setTransactionSuccessful();
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error inserting locations in transaction", e);
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public long insertOrUpdateActivityWithLocations(ActivityData activity, List<LocationData> locations) {
+        long activityId;
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        try {
+            db.beginTransaction();
+
+            // Insert or update the activity
+            ContentValues activityValues = new ContentValues();
+            activityValues.put(COLUMN_ACTIVITY_TYPE, activity.getType());
+            activityValues.put(COLUMN_ACTIVITY_NAME, activity.getName());
+            activityValues.put(COLUMN_START_TIMESTAMP, activity.getStartTimestamp());
+            activityValues.put(COLUMN_END_TIMESTAMP, activity.getEndTimestamp());
+            activityValues.put(COLUMN_DISTANCE, activity.getDistance());
+            activityValues.put(COLUMN_ELAPSED_TIME, activity.getElapsedTime());
+            activityValues.put(COLUMN_ADDRESS, activity.getAddress());
+
+            if (activity.getId() > 0) {
+                // Update existing activity
+                db.update(TABLE_ACTIVITIES, activityValues, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activity.getId())});
+                activityId = activity.getId();
+            } else {
+                // Insert new activity
+                activityId = db.insert(TABLE_ACTIVITIES, null, activityValues);
+            }
+
+            // Insert locations
+            for (LocationData location : locations) {
+                ContentValues locationValues = new ContentValues();
+                locationValues.put(COLUMN_LATITUDE, location.getLatitude());
+                locationValues.put(COLUMN_LONGITUDE, location.getLongitude());
+                locationValues.put(COLUMN_ALTITUDE, location.getAltitude());
+                locationValues.put(COLUMN_TIMESTAMP, location.getTimestamp());
+
+                db.insert(TABLE_LOCATIONS, null, locationValues);
+            }
+
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+
+        return activityId;
+    }
+
 }

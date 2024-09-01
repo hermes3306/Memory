@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,10 +23,15 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLConnection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -41,12 +47,28 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
     private GoogleMap mMap;
     private ActivityData activity;
     private Button btnBack;
+    private DatabaseHelper dbHelper;
 
     private static final String BASE_URL = "http://58.233.69.198/moment/";
     private static final String UPLOAD_DIR = "upload/";
 
     private String activityFilename;
     private List<LocationData> locations;
+    private TextView tvSaveDatabase;
+    private TextView tvSaveDatabaseInfo;
+    private TextView tvStrava;
+    private TextView tvStravaInfo;
+
+    private Button btnDelete;
+    private static final int STRAVA_AUTH_REQUEST_CODE = 1001;
+    private StravaUploader stravaUploader;
+    private static final String ACTIVITY_FOLDER = "memory_activity";
+    private TextView tvSaveActivity;
+    private TextView tvSaveActivityInfo;
+    private TextView tvCloud;
+    private TextView tvCloudInfo;
+    private static final String UPLOAD_URL = "http://58.233.69.198/moment/upload.php";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,6 +77,9 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         Log.d(TAG, "--m-- onCreate: Starting ActivityCloudDetailActivity");
 
         initializeViews();
+        setupClickListeners();
+        stravaUploader = new StravaUploader(this);
+        dbHelper = new DatabaseHelper(this);
 
         activityFilename = getIntent().getStringExtra("ACTIVITY_FILENAME");
         if (activityFilename == null || activityFilename.isEmpty()) {
@@ -86,9 +111,11 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
                     .setNegativeButton("No", null)
                     .show();
         });
+
+
     }
+
     private void initializeViews() {
-        Log.d(TAG, "--m-- initializeViews: Initializing views");
         tvName = findViewById(R.id.tvName);
         tvStartTime = findViewById(R.id.tvStartTime);
         tvDistance = findViewById(R.id.tvDistance);
@@ -96,8 +123,212 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         tvAveragePace = findViewById(R.id.tvAveragePace);
         tvCalories = findViewById(R.id.tvCalories);
 
+        btnDelete = findViewById(R.id.btnDelete);
         btnBack = findViewById(R.id.btnBack);
+
+        tvSaveActivity = findViewById(R.id.tv_save_activity);
+        tvSaveActivityInfo = findViewById(R.id.tv_save_activity_info);
+
+        tvCloud = findViewById(R.id.tv_cloud);
+        tvCloudInfo = findViewById(R.id.tv_cloud_info);
+
+        tvSaveDatabase = findViewById(R.id.tv_save_database);
+        tvSaveDatabaseInfo = findViewById(R.id.tv_save_database_info);
+
+        tvStrava = findViewById(R.id.tv_strava);
+        tvStravaInfo = findViewById(R.id.tv_strava_info);
+    }
+
+    private void setupClickListeners() {
+        btnDelete.setOnClickListener(v -> deleteActivityFile());
         btnBack.setOnClickListener(v -> finish());
+
+        tvSaveActivity.setOnClickListener(v -> saveActivityToFile());
+        tvSaveActivityInfo.setOnClickListener(v -> saveActivityToFile());
+
+        tvCloud.setOnClickListener(v -> saveAndUploadActivity());
+        tvCloudInfo.setOnClickListener(v -> saveAndUploadActivity());
+
+        View.OnClickListener saveToDbListener = v -> saveToDatabase();
+        tvSaveDatabase.setOnClickListener(saveToDbListener);
+        tvSaveDatabaseInfo.setOnClickListener(saveToDbListener);
+
+        tvStrava.setOnClickListener(v -> uploadToStrava());
+        tvStravaInfo.setOnClickListener(v -> uploadToStrava());
+    }
+
+
+    private void saveAndUploadActivity() {
+        File savedFile = saveActivityToFile();
+        if (savedFile != null) {
+            uploadFile(savedFile);
+        }
+    }
+
+    private void saveToDatabase() {
+        if (activity != null) {
+            if (locations != null && !locations.isEmpty()) {
+                long activityId = dbHelper.insertOrUpdateActivityWithLocations(activity, locations);
+
+                if (activityId > 0) {
+                    Toast.makeText(this, "Activity and locations saved to database", Toast.LENGTH_SHORT).show();
+                    // Update the activity's ID if it was a new insert
+                    if (activity.getId() <= 0) {
+                        activity.setId(activityId);
+                    }
+                } else {
+                    Toast.makeText(this, "Failed to save activity and locations", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "No location data available for this activity", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "No activity data to save", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void goBack() {
+        finish();
+    }
+
+
+    private File saveActivityToFile() {
+        if (activity == null) {
+            Toast.makeText(this, "No activity data to save", Toast.LENGTH_SHORT).show();
+            return null;
+        }
+
+        SimpleDateFormat fileNameFormat = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
+        String fileName = fileNameFormat.format(new Date(activity.getStartTimestamp())) + ".csv";
+
+        File directory = new File(getExternalFilesDir(null), ACTIVITY_FOLDER);
+        if (!directory.exists()) {
+            directory.mkdirs();
+        }
+
+        File file = new File(directory, fileName);
+
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.append("x,y,d,t\n");
+
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+
+            for (LocationData location : locations) {
+                writer.append(String.format(Locale.US, "%.8f,%.8f,%s\n",
+                        location.getLatitude(),
+                        location.getLongitude(),
+                        dateFormat.format(new Date(location.getTimestamp()))));
+            }
+
+            Toast.makeText(this, "Activity saved to " + fileName, Toast.LENGTH_SHORT).show();
+            return file;
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to save activity: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            return null;
+        }
+    }
+
+
+
+    private void uploadFile(File file) {
+        final String serverUrl = UPLOAD_URL;  // Assuming Config._uploadURL is defined somewhere
+
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(Void... voids) {
+                HttpURLConnection httpUrlConnection = null;
+                try {
+                    URL url = new URL(serverUrl);
+                    httpUrlConnection = (HttpURLConnection) url.openConnection();
+                    httpUrlConnection.setUseCaches(false);
+                    httpUrlConnection.setDoInput(true);
+                    httpUrlConnection.setDoOutput(true);
+                    httpUrlConnection.setConnectTimeout(15000);
+
+                    httpUrlConnection.setRequestMethod("POST");
+                    httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
+                    httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
+
+                    String boundary = "*****";
+                    String crlf = "\r\n";
+                    String twoHyphens = "--";
+
+                    httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+
+                    DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+
+                    request.writeBytes(twoHyphens + boundary + crlf);
+                    request.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + file.getName() + "\"" + crlf);
+                    request.writeBytes("Content-Type: " + URLConnection.guessContentTypeFromName(file.getName()) + crlf);
+                    request.writeBytes("Content-Transfer-Encoding: binary" + crlf);
+                    request.writeBytes(crlf);
+                    request.flush();
+
+                    FileInputStream fileInputStream = new FileInputStream(file);
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    long totalBytesRead = 0;
+                    long fileSize = file.length();
+
+                    while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                        request.write(buffer, 0, bytesRead);
+                        totalBytesRead += bytesRead;
+                        int progress = (int) ((totalBytesRead * 100) / fileSize);
+                        Log.d("Upload", "Progress: " + progress + "%");
+                        // You can use publishProgress(progress) here if you want to update UI
+                    }
+
+                    request.writeBytes(crlf);
+                    request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
+
+                    request.flush();
+                    request.close();
+
+                    int responseCode = httpUrlConnection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(httpUrlConnection.getInputStream()));
+                        String inputLine;
+                        StringBuilder response = new StringBuilder();
+                        while ((inputLine = in.readLine()) != null) {
+                            response.append(inputLine);
+                        }
+                        in.close();
+                        return "Upload successful. Server response: " + response.toString();
+                    } else {
+                        return "Upload failed. Server returned: " + responseCode;
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return "Upload failed: " + e.getMessage();
+                } finally {
+                    if (httpUrlConnection != null) {
+                        httpUrlConnection.disconnect();
+                    }
+                }
+            }
+
+            @Override
+            protected void onPostExecute(String result) {
+                Toast.makeText(ActivityCloudDetailActivity.this, result, Toast.LENGTH_LONG).show();
+            }
+        }.execute();
+    }
+
+
+
+
+
+    private void uploadToStrava() {
+        File gpxFile = stravaUploader.generateGpxFile(locations);
+
+        if (gpxFile != null) {
+            stravaUploader.authenticate(gpxFile, activity.getName(),
+                    "Activity recorded using MyActivity app", activity.getType());
+        } else {
+            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private class FetchActivityDataTask extends AsyncTask<String, Void, String> {

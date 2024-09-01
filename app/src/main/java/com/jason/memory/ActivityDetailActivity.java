@@ -59,48 +59,14 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_detail2);
 
-        tvName = findViewById(R.id.tvName);
-        tvStartTime = findViewById(R.id.tvStartTime);
-        tvDistance = findViewById(R.id.tvDistance);
-        tvElapsedTime = findViewById(R.id.tvElapsedTime);
-        tvAveragePace = findViewById(R.id.tvAveragePace);
-        tvCalories = findViewById(R.id.tvCalories);
-
-
-
-        TextView tvStrava = findViewById(R.id.tv_strava);
-        TextView tvStravaInfo = findViewById(R.id.tv_strava_info);
-
-        tvStrava.setOnClickListener(v -> uploadToStrava());
-        tvStravaInfo.setOnClickListener(v -> uploadToStrava());
-
-
-        btnDelete = findViewById(R.id.btnDelete);
-        btnDelete.setOnClickListener(v -> deleteActivity());
-
-        btnBack = findViewById(R.id.btnBack);
-        btnBack.setOnClickListener(v -> goBack());
-
-        tvSaveActivity = findViewById(R.id.tv_save_activity);
-        tvSaveActivityInfo = findViewById(R.id.tv_save_activity_info);
-
-        tvSaveActivity.setOnClickListener(v -> saveActivityToFile());
-        tvSaveActivityInfo.setOnClickListener(v-> saveActivityToFile());
-
-        tvCloud = findViewById(R.id.tv_cloud);
-        tvCloudInfo = findViewById(R.id.tv_cloud_info);
-
-        tvCloud.setOnClickListener(v-> saveAndUploadActivity());
-        tvCloudInfo.setOnClickListener(v-> saveAndUploadActivity());
-
+        initializeViews();
+        setupClickListeners();
 
         stravaUploader = new StravaUploader(this);
-
         dbHelper = new DatabaseHelper(this);
 
         long activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
         String activityFilename = getIntent().getStringExtra("ACTIVITY_FILENAME");
-        //String fileContent = cloudHelper.fetchContent(cloudHelper.getFullUrl(activityFilename));\
 
         activity = dbHelper.getActivity(activityId);
 
@@ -111,6 +77,41 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+    }
+
+    private void initializeViews() {
+        tvName = findViewById(R.id.tvName);
+        tvStartTime = findViewById(R.id.tvStartTime);
+        tvDistance = findViewById(R.id.tvDistance);
+        tvElapsedTime = findViewById(R.id.tvElapsedTime);
+        tvAveragePace = findViewById(R.id.tvAveragePace);
+        tvCalories = findViewById(R.id.tvCalories);
+
+        btnDelete = findViewById(R.id.btnDelete);
+        btnBack = findViewById(R.id.btnBack);
+
+        tvSaveActivity = findViewById(R.id.tv_save_activity);
+        tvSaveActivityInfo = findViewById(R.id.tv_save_activity_info);
+
+        tvCloud = findViewById(R.id.tv_cloud);
+        tvCloudInfo = findViewById(R.id.tv_cloud_info);
+    }
+
+    private void setupClickListeners() {
+        TextView tvStrava = findViewById(R.id.tv_strava);
+        TextView tvStravaInfo = findViewById(R.id.tv_strava_info);
+
+        tvStrava.setOnClickListener(v -> uploadToStrava());
+        tvStravaInfo.setOnClickListener(v -> uploadToStrava());
+
+        btnDelete.setOnClickListener(v -> deleteActivity());
+        btnBack.setOnClickListener(v -> goBack());
+
+        tvSaveActivity.setOnClickListener(v -> saveActivityToFile());
+        tvSaveActivityInfo.setOnClickListener(v -> saveActivityToFile());
+
+        tvCloud.setOnClickListener(v -> saveAndUploadActivity());
+        tvCloudInfo.setOnClickListener(v -> saveAndUploadActivity());
     }
 
     private void saveAndUploadActivity() {
