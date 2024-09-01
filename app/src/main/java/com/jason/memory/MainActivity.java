@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -73,6 +74,8 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+
+
         Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
         btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -82,6 +85,17 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        ImageView settingsIcon = findViewById(R.id.settingsIcon);
+
+        // 클릭 리스너 설정
+        settingsIcon.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, SettingActivity.class);
+                // SettingActivity 시작
+                startActivity(intent);
+            }
+        });
 
 
         // Start MyActivity 버튼에 대한 리스너 추가
@@ -113,6 +127,12 @@ public class MainActivity extends AppCompatActivity {
         Button btnListCloud = findViewById(R.id.btnListCloud);
         btnListCloud.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, ListCloudActivity.class);
+            startActivity(intent);
+        });
+
+        Button btnListFile = findViewById(R.id.btnListFile);
+        btnListCloud.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, ListFileActivity.class);
             startActivity(intent);
         });
 

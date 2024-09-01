@@ -15,6 +15,14 @@ public class ActivityData {
     private long elapsedTime;
     private String address;
 
+    public ActivityData(String filename) {
+        this.filename = filename;
+    }
+
+    public String getFilename() {
+        return filename;
+    }
+
     public ActivityData() {
     }
 
@@ -73,10 +81,6 @@ public class ActivityData {
     public long getEndLocationId() { return endLocationId; }
     public double getDistance() { return distance; }
     public long getElapsedTime() { return elapsedTime; }
-    // Getter and setter for filename
-    public String getFilename() { return filename; }
-
-
     // Setters (if needed)
     public void setId(long id) {this.id = id; }
     public void setName(String name) { this.name = name; }
