@@ -60,6 +60,8 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 
     implementation("androidx.browser:browser:1.5.0")
+    implementation("com.android.volley:volley:1.2.1")
+
 
 
 }
