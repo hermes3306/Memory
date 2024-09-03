@@ -101,7 +101,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Start My"
+                android:text="Run1"
                 android:layout_marginEnd="4dp"/>
 
             <Button
@@ -109,7 +109,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Start My 2"
+                android:text="Run2"
                 android:layout_marginStart="4dp"/>
 
         </LinearLayout>
@@ -125,7 +125,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="List"
+                android:text="Act"
                 android:layout_marginEnd="4dp"/>
 
             <Button
@@ -140,7 +140,7 @@
                 android:id="@+id/btnFileList"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="View Files" />
+                android:text="File" />
 
         </LinearLayout>
 

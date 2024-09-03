@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,6 +43,12 @@ import com.google.android.gms.maps.model.PolylineOptions;
 public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
 
+    private static final String PREFS_NAME = "MyActivityPrefs";
+    private static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
+    private static final String PREF_ACTIVITY_ID = "activityID";
+    private static final String PREF_HIDE_REASON = "hideReason";
+    private static final String HIDE_REASON_BUTTON = "buttonHide";
+
     private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
     private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -55,10 +62,7 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     private TextView tvTime, tvPace, tvDistance;
     private Button btnMap;
 
-    private static final String PREFS_NAME = "MyActivity2Prefs";
-    private static final String PREF_ACTIVITY_ID = "activityID";
-    private static final String PREF_HIDE_REASON = "hideReason";
-    private static final String HIDE_REASON_BUTTON = "buttonHide";
+
 
     private StravaUploader stravaUploader;
 
@@ -118,6 +122,23 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         } else {
             startNewActivity();
         }
+        applyKeepScreenOnSetting();
+    }
+
+    private void applyKeepScreenOnSetting() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean keepScreenOn = prefs.getBoolean(PREF_KEEP_SCREEN_ON, false);
+        if (keepScreenOn) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        applyKeepScreenOnSetting();
     }
 
     @Override

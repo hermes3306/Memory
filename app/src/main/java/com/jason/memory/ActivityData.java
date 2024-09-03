@@ -1,8 +1,11 @@
 package com.jason.memory;
 
 
+import java.io.Serializable;
 
-public class ActivityData {
+public class ActivityData implements Serializable {
+    private static final long serialVersionUID = 1L; // Add this line
+
     private long id;
     private String filename; // New field
     private String type;
@@ -17,6 +20,7 @@ public class ActivityData {
 
     public ActivityData() {
     }
+
 
     public void updateFrom(ActivityData other) {
         if (other == null) return;

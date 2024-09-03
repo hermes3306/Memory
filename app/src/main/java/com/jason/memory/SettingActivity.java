@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
@@ -13,8 +14,10 @@ import android.os.Environment;
 import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.ProgressBar;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,6 +26,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -35,6 +39,9 @@ import java.util.List;
 import java.util.Locale;
 
 public class SettingActivity extends AppCompatActivity {
+    private static final String PREFS_NAME = "MyActivityPrefs";
+    private static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
+    private Switch switchKeepScreenOn;
 
     private static final String TAG = "SettingActivity";
     private static final String BASE_URL = "http://58.233.69.198:8080/moment/";
@@ -56,6 +63,9 @@ public class SettingActivity extends AppCompatActivity {
     private int processedFiles = 0;
 
     private TextView statusTextView;
+    private Button initActivityButton;
+    private Button migrateButton;
+    private boolean isInitialized = false;
 
     private BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
         @Override
@@ -73,6 +83,9 @@ public class SettingActivity extends AppCompatActivity {
 
         dbHelper = new DatabaseHelper(this);
         initializeViews();
+
+
+
         setClickListeners();
         registerDownloadReceiver();
     }
@@ -86,6 +99,11 @@ public class SettingActivity extends AppCompatActivity {
         statusTextView = findViewById(R.id.statusTextView);
         listServerFilesButton = findViewById(R.id.listServerFilesButton);
         listActivitiesButton = findViewById(R.id.listActivitiesButton);
+        initActivityButton = findViewById(R.id.initActivityButton);
+        migrateButton = findViewById(R.id.migrateButton);
+        switchKeepScreenOn = findViewById(R.id.switchKeepScreenOn);
+
+
     }
 
     private void setClickListeners() {
@@ -95,6 +113,26 @@ public class SettingActivity extends AppCompatActivity {
         deleteFilesButton.setOnClickListener(v -> deleteFiles());
         listServerFilesButton.setOnClickListener(v -> listServerFiles());
         listActivitiesButton.setOnClickListener(v -> listActivities());
+        initActivityButton.setOnClickListener(v -> initializeActivities());
+        migrateButton.setOnClickListener(v -> migrateFiles());
+
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean keepScreenOn = prefs.getBoolean(PREF_KEEP_SCREEN_ON, false);
+        switchKeepScreenOn.setChecked(keepScreenOn);
+        switchKeepScreenOn.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean(PREF_KEEP_SCREEN_ON, isChecked);
+            editor.apply();
+
+            // 현재 액티비티에 즉시 적용
+            if (isChecked) {
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+        });
+
+
     }
 
     private void listServerFiles() {
@@ -124,6 +162,91 @@ public class SettingActivity extends AppCompatActivity {
             }
         }).start();
     }
+
+    private void initializeActivities() {
+        new AlertDialog.Builder(this)
+                .setTitle("Initialize Activities")
+                .setMessage("This will delete all existing activities. Are you sure?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    dbHelper.deleteAllActivities();
+                    isInitialized = true;
+                    Toast.makeText(this, "All activities deleted", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void migrateFiles() {
+        if (!isInitialized) {
+            Toast.makeText(this, "Please initialize activities first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        File appDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MemoryApp");
+        File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
+
+        if (files == null || files.length == 0) {
+            Toast.makeText(this, "No files to migrate", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        progressBar.setMax(files.length);
+        progressBar.setProgress(0);
+        progressBar.setVisibility(View.VISIBLE);
+        statusTextView.setText("Migrating 0/" + files.length + " files");
+
+        new Thread(() -> {
+            int processedFiles = 0;
+            for (File file : files) {
+                ActivityData activity = parseActivityFromFile(file);
+                if (activity != null) {
+                    long id = dbHelper.insertActivity(activity);
+                    if (id != -1) {
+                        processedFiles++;
+                        int finalProcessedFiles = processedFiles;
+                        runOnUiThread(() -> {
+                            progressBar.setProgress(finalProcessedFiles);
+                            statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length + " files: " + file.getName());
+                        });
+                    } else {
+                        Log.e("SettingActivity", "Failed to insert activity from file: " + file.getName());
+                    }
+                }
+            }
+            runOnUiThread(() -> {
+                progressBar.setVisibility(View.GONE);
+                statusTextView.setText("Migration completed");
+                Toast.makeText(this, "Migration completed", Toast.LENGTH_SHORT).show();
+            });
+        }).start();
+    }
+
+    private ActivityData parseActivityFromFile(File file) {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            String line = reader.readLine(); // Assuming the first line contains the data
+            String[] parts = line.split(",");
+            if (parts.length >= 7) {
+                return new ActivityData(
+                        0, // id will be set by the database
+                        file.getName(), // filename
+                        parts[0], // activity type
+                        parts[1], // activity name
+                        Long.parseLong(parts[2]), // start timestamp
+                        Long.parseLong(parts[3]), // end timestamp
+                        Long.parseLong(parts[4]), // start location id
+                        Long.parseLong(parts[5]), // end location id
+                        Double.parseDouble(parts[6]), // distance
+                        Long.parseLong(parts[7]), // elapsed time
+                        file.getName() // using filename as address for this example
+                );
+            }
+        } catch (IOException | NumberFormatException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
 
 
     private void showFileListDialog(String[] files) {

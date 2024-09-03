@@ -2,6 +2,7 @@ package com.jason.memory;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -34,6 +35,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,8 +46,9 @@ import java.util.Map;
 import java.util.Set;
 
 public class ListCloudActivity extends AppCompatActivity {
+    private boolean isAscendingOrder = true;
+    private final ActivityNameComparator comparator = new ActivityNameComparator();
     private static final String TAG = ListCloudActivity.class.getSimpleName();
-
     private RecyclerView recyclerView;
     private ActivityAdapter adapter;
     private List<ActivityData> activityList;
@@ -54,8 +58,8 @@ public class ListCloudActivity extends AppCompatActivity {
     private int currentPage = 1;
     private boolean isLoading = false;
     private boolean hasMoreData = true;
-
     private Set<String> processedFiles = new HashSet<>();
+    private static final int ACTIVITY_DETAIL_REQUEST = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,7 +85,7 @@ public class ListCloudActivity extends AppCompatActivity {
         adapter = new ActivityAdapter(activityList, activity -> {
             Intent intent = new Intent(ListCloudActivity.this, ActivityCloudDetailActivity.class);
             intent.putExtra("ACTIVITY_FILENAME", activity.getFilename());
-            startActivity(intent);
+            startActivityForResult(intent, ACTIVITY_DETAIL_REQUEST);
         });
 
         recyclerView.setAdapter(adapter);
@@ -110,8 +114,85 @@ public class ListCloudActivity extends AppCompatActivity {
     }
 
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == ACTIVITY_DETAIL_REQUEST && resultCode == RESULT_OK) {
+            ActivityData updatedActivity = (ActivityData) data.getSerializableExtra("UPDATED_ACTIVITY");
+            if (updatedActivity != null) {
+                updateActivityInList(updatedActivity);
+            }
+        }
+    }
+
+    private void updateActivityInList(ActivityData updatedActivity) {
+        for (int i = 0; i < activityList.size(); i++) {
+            if (activityList.get(i).getFilename().equals(updatedActivity.getFilename())) {
+                activityList.set(i, updatedActivity);
+                adapter.notifyItemChanged(i);
+                break;
+            }
+        }
+    }
+
+
+    private void toggleSortOrder() {
+        isAscendingOrder = !isAscendingOrder;
+        sortActivityList();
+    }
+
+    private void sortActivityList() {
+        if (isAscendingOrder) {
+            Collections.sort(activityList, comparator);
+        } else {
+            Collections.sort(activityList, Collections.reverseOrder(comparator));
+        }
+        runOnUiThread(() -> adapter.notifyDataSetChanged());
+    }
+
+    private void fetchActivityList() {
+        Log.d(TAG, "--m-- fetchActivityList: Starting to fetch file list");
+        showProgressBar(true);
+        new Thread(() -> {
+            try {
+                List<String> files = cloudHelper.getFileList(currentPage);
+                for (String file : files) {
+                    if (file.endsWith(".csv") && !processedFiles.contains(file)) {
+                        processedFiles.add(file);
+                        ActivityData activity = cloudHelper.getActivityDataFromFile(file);
+                        if (activity != null) {
+                            activity.setId(activityList.size() + 1);
+                            activity.setFilename(file);
+                            activityList.add(activity);
+                        }
+                    }
+                }
+                currentPage++;
+
+                // Sort the list after adding all activities
+                sortActivityList();
+
+                runOnUiThread(() -> {
+                    adapter.notifyDataSetChanged();
+                    if (activityList.isEmpty()) {
+                        Toast.makeText(this, "No activities found", Toast.LENGTH_LONG).show();
+                    }
+                    showProgressBar(false);
+                });
+            } catch (Exception e) {
+                Log.e(TAG, "--m-- fetchActivityList: Error fetching file list", e);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    showProgressBar(false);
+                });
+            }
+        }).start();
+    }
+
     private void loadMoreActivities() {
+        if (isLoading) return;
         isLoading = true;
+        showProgressBar(true);
         new Thread(() -> {
             List<String> newFiles = cloudHelper.getFileList(currentPage);
             if (newFiles.isEmpty()) {
@@ -124,51 +205,29 @@ public class ListCloudActivity extends AppCompatActivity {
                         if (activity != null) {
                             activity.setId(activityList.size() + 1);
                             activity.setFilename(file);
-                            runOnUiThread(() -> {
-                                activityList.add(activity);
-                                adapter.notifyItemInserted(activityList.size() - 1);
-                            });
+                            activityList.add(activity);
                         }
                     }
                 }
                 currentPage++;
+
+                // Sort the list after adding new activities
+                sortActivityList();
             }
             runOnUiThread(() -> {
+                adapter.notifyDataSetChanged();
                 isLoading = false;
+                showProgressBar(false);
             });
         }).start();
     }
 
 
-
-    private void fetchActivityList() {
-        Log.d(TAG, "--m-- fetchActivityList: Starting to fetch file list");
-        new Thread(() -> {
-            try {
-                String fileList = cloudHelper.getFileList();
-                if (fileList != null && !fileList.isEmpty()) {
-                    Log.d(TAG, "--m-- fetchActivityList: File list retrieved successfully");
-                    activityList.clear();
-                    processedFiles.clear();
-                    parseFileList(fileList);
-                    runOnUiThread(() -> {
-                        adapter.notifyDataSetChanged();
-                        Log.d(TAG, "--m-- fetchActivityList: UI updated with new data. List size: " + activityList.size());
-                        if (activityList.isEmpty()) {
-                            Toast.makeText(this, "No activities found", Toast.LENGTH_LONG).show();
-                        }
-                    });
-                } else {
-                    Log.e(TAG, "--m-- fetchActivityList: File list is null or empty");
-                    runOnUiThread(() -> Toast.makeText(this, "Failed to retrieve activity list", Toast.LENGTH_LONG).show());
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "--m-- fetchActivityList: Error fetching file list", e);
-                runOnUiThread(() -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
-        }).start();
+    private void showProgressBar(boolean show) {
+        runOnUiThread(() -> {
+            findViewById(R.id.progressBar).setVisibility(show ? View.VISIBLE : View.GONE);
+        });
     }
-
 
     private void parseFileList(String fileList) {
         Log.d(TAG, "--m-- parseFileList: Raw file list: " + fileList);
@@ -224,10 +283,12 @@ public class ListCloudActivity extends AppCompatActivity {
 
         class ViewHolder extends RecyclerView.ViewHolder {
             TextView tvName, tvDate, tvDistance, tvAveragePace, tvTime, tvAddress, tvCalories;
-            MapView mapView;
-            GoogleMap map;
-            boolean isMapReady = false;
-            private boolean isMapDataLoaded = false;
+            private MapView mapView;
+            private GoogleMap map;
+            private boolean isMapReady = false;
+            private ActivityData boundActivity;
+            private String boundActivityFilename;
+            private OnItemClickListener listener;
 
             ViewHolder(View itemView) {
                 super(itemView);
@@ -238,29 +299,41 @@ public class ListCloudActivity extends AppCompatActivity {
                 tvTime = itemView.findViewById(R.id.tvTime);
                 tvAddress = itemView.findViewById(R.id.tvAddress);
                 tvCalories = itemView.findViewById(R.id.tvCalories);
-                mapView = itemView.findViewById(R.id.mapView);
 
+                mapView = itemView.findViewById(R.id.mapView);
                 mapView.onCreate(null);
-                mapView.getMapAsync(googleMap -> {
-                    MapsInitializer.initialize(itemView.getContext());
-                    map = googleMap;
-                    map.getUiSettings().setAllGesturesEnabled(false);
-                    isMapReady = true;
-                });
+                mapView.getMapAsync(this::onMapReady);
+            }
+
+            private void onMapReady(GoogleMap googleMap) {
+                this.map = googleMap;
+                isMapReady = true;
+                if (boundActivity != null) {
+                    loadMapData();
+                }
             }
 
             void bind(final ActivityData activity, final OnItemClickListener listener) {
+                this.boundActivity = activity;
+                this.boundActivityFilename = activity.getFilename();
+                this.listener = listener;
+
                 tvName.setText(activity.getName());
                 if (activity.getStartTimestamp() == 0) {
                     loadActivityDetails(activity);
                 } else {
                     displayActivityDetails(activity);
                 }
-                itemView.setOnClickListener(v -> listener.onItemClick(activity));
 
-                if (isMapReady && !isMapDataLoaded && itemView.isShown()) {
-                    loadMapData(activity);
+                if (isMapReady) {
+                    loadMapData();
                 }
+
+                itemView.setOnClickListener(v -> {
+                    if (this.listener != null) {
+                        this.listener.onItemClick(activity);
+                    }
+                });
             }
 
             private void loadActivityDetails(ActivityData activity) {
@@ -280,35 +353,30 @@ public class ListCloudActivity extends AppCompatActivity {
                 tvTime.setText(formatElapsedTime(activity.getElapsedTime()));
                 tvAddress.setText(activity.getAddress());
                 tvCalories.setText(String.format(Locale.getDefault(), "%d", calculateCalories(activity)));
-
-                if (isMapReady && !isMapDataLoaded) {
-                    loadMapData(activity);
-                }
             }
 
-            private void loadMapData(ActivityData activity) {
-                if (map == null || activity == null) return;
+            private void loadMapData() {
+                if (map == null || boundActivity == null) return;
 
-                new Thread(() -> {
-                    try {
-                        List<LocationData> locations = cloudHelper.getLocationDataFromFile(activity.getFilename());
-                        if (locations != null && !locations.isEmpty()) {
-                            itemView.post(() -> drawActivityTrack(locations));
-                        }
-                    } catch (Exception e) {
-                        Log.e(TAG, "Error loading map data for " + activity.getFilename(), e);
+                map.clear();
+                new AsyncTask<Void, Void, List<LocationData>>() {
+                    @Override
+                    protected List<LocationData> doInBackground(Void... voids) {
+                        return cloudHelper.getLocationDataFromFile(boundActivityFilename);
                     }
-                    isMapDataLoaded = true;
-                }).start();
+
+                    @Override
+                    protected void onPostExecute(List<LocationData> locations) {
+                        if (locations != null && !locations.isEmpty() && boundActivityFilename.equals(boundActivity.getFilename())) {
+                            drawActivityTrack(locations);
+                        }
+                    }
+                }.execute();
             }
 
             private void drawActivityTrack(List<LocationData> locations) {
-                if (map == null || locations.size() < 2) return;
-
                 map.clear();
-                PolylineOptions polylineOptions = new PolylineOptions()
-                        .color(Color.RED)
-                        .width(3f);
+                PolylineOptions polylineOptions = new PolylineOptions().color(Color.RED).width(5);
                 LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
 
                 for (LocationData location : locations) {
@@ -318,12 +386,11 @@ public class ListCloudActivity extends AppCompatActivity {
                 }
 
                 map.addPolyline(polylineOptions);
-
                 addMarker(locations.get(0), "Start", BitmapDescriptorFactory.HUE_GREEN);
                 addMarker(locations.get(locations.size() - 1), "End", BitmapDescriptorFactory.HUE_RED);
 
                 LatLngBounds bounds = boundsBuilder.build();
-                map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50));
+                map.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50));
             }
 
             private void addMarker(LocationData location, String title, float markerColor) {
@@ -345,7 +412,36 @@ public class ListCloudActivity extends AppCompatActivity {
             void onDestroy() {
                 mapView.onDestroy();
             }
+
+            private String formatDate(long timestamp) {
+                SimpleDateFormat sdf = new SimpleDateFormat("M월d일, yyyy h:mm a", Locale.KOREAN);
+                return sdf.format(new Date(timestamp));
+            }
+
+            private String formatElapsedTime(long millis) {
+                long seconds = millis / 1000;
+                long minutes = seconds / 60;
+                long hours = minutes / 60;
+                return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes % 60, seconds % 60);
+            }
+
+            private String calculateAveragePace(long elapsedTime, double distance) {
+                if (distance < 0.01) {
+                    return "--:--";
+                }
+                long averagePaceSeconds = (long) (elapsedTime / 1000 / distance);
+                int averagePaceMinutes = (int) (averagePaceSeconds / 60);
+                int averagePaceSecondsRemainder = (int) (averagePaceSeconds % 60);
+                return String.format(Locale.getDefault(), "%02d:%02d", averagePaceMinutes, averagePaceSecondsRemainder);
+            }
+
+            private int calculateCalories(ActivityData activity) {
+                return (int) (activity.getDistance() * 60);
+            }
         }
+
+
+
     }
 
     interface OnItemClickListener {
@@ -384,22 +480,23 @@ public class ListCloudActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- onResume: Resuming ListCloudActivity");
         if (recyclerView != null) {
             for (int i = 0; i < recyclerView.getChildCount(); i++) {
-                RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
-                if (holder instanceof ActivityAdapter.ViewHolder) {
-                    ((ActivityAdapter.ViewHolder) holder).onResume();
+                RecyclerView.ViewHolder viewHolder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+                if (viewHolder instanceof ActivityAdapter.ViewHolder) {
+                    ((ActivityAdapter.ViewHolder) viewHolder).onResume();
                 }
             }
         }
     }
+
 
     @Override
     protected void onPause() {
         Log.d(TAG, "--m-- onPause: Pausing ListCloudActivity");
         if (recyclerView != null) {
             for (int i = 0; i < recyclerView.getChildCount(); i++) {
-                RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
-                if (holder instanceof ActivityAdapter.ViewHolder) {
-                    ((ActivityAdapter.ViewHolder) holder).onPause();
+                RecyclerView.ViewHolder viewHolder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+                if (viewHolder instanceof ActivityAdapter.ViewHolder) {
+                    ((ActivityAdapter.ViewHolder) viewHolder).onPause();
                 }
             }
         }
@@ -411,33 +508,32 @@ public class ListCloudActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- onDestroy: Destroying ListCloudActivity");
         if (recyclerView != null) {
             for (int i = 0; i < recyclerView.getChildCount(); i++) {
-                RecyclerView.ViewHolder holder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
-                if (holder instanceof ActivityAdapter.ViewHolder) {
-                    ((ActivityAdapter.ViewHolder) holder).onDestroy();
+                RecyclerView.ViewHolder viewHolder = recyclerView.getChildViewHolder(recyclerView.getChildAt(i));
+                if (viewHolder instanceof ActivityAdapter.ViewHolder) {
+                    ((ActivityAdapter.ViewHolder) viewHolder).onDestroy();
                 }
             }
         }
         super.onDestroy();
     }
 
+
     @Override
     protected void onRestart() {
         super.onRestart();
         Log.d(TAG, "--m-- onRestart: Restarting ListCloudActivity");
 
-        // Clear all data and reset state
         cloudHelper.clearCache();
+        cloudHelper.clearLocationCache();
         activityList.clear();
         processedFiles.clear();
         currentPage = 1;
         hasMoreData = true;
 
-        // Update the UI
         runOnUiThread(() -> {
             adapter.notifyDataSetChanged();
         });
 
-        // Fetch fresh data
         fetchActivityList();
     }
 
@@ -445,7 +541,7 @@ public class ListCloudActivity extends AppCompatActivity {
     private static class CloudHelper {
         private static final String BASE_URL = "http://58.233.69.198/moment/";
         private Map<String, String> contentCache = new HashMap<>();
-
+        private Map<String, List<LocationData>> locationCache = new HashMap<>();
         private static final int PAGE_SIZE = 5;
 
         public List<String> getFileList(int page) {
@@ -572,7 +668,12 @@ public class ListCloudActivity extends AppCompatActivity {
             return BASE_URL + UPLOAD_DIR + fileName;
         }
 
+
         public List<LocationData> getLocationDataFromFile(String fileName) {
+            if (locationCache.containsKey(fileName)) {
+                return locationCache.get(fileName);
+            }
+
             String fullUrl = getFullUrl(fileName);
             Log.d(TAG, "--m-- getLocationDataFromFile: Fetching location data from URL: " + fullUrl);
             List<LocationData> locations = new ArrayList<>();
@@ -594,10 +695,15 @@ public class ListCloudActivity extends AppCompatActivity {
                     }
                 }
                 Log.d(TAG, "--m-- getLocationDataFromFile: Parsed " + locations.size() + " locations from file: " + fileName);
+                locationCache.put(fileName, locations);
             } else {
                 Log.e(TAG, "--m-- getLocationDataFromFile: Failed to fetch content for file: " + fileName);
             }
             return locations;
+        }
+
+        public void clearLocationCache() {
+            locationCache.clear();
         }
 
         public String fetchContent(String urlString) {
@@ -675,4 +781,12 @@ public class ListCloudActivity extends AppCompatActivity {
             }
         }
     }
+
+    private class ActivityNameComparator implements Comparator<ActivityData> {
+        @Override
+        public int compare(ActivityData a1, ActivityData a2) {
+            return a1.getName().compareTo(a2.getName());
+        }
+    }
+
 }

@@ -155,6 +155,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return locationList;
     }
 
+    public long insertActivity(ActivityData activity) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_ACTIVITY_TYPE, activity.getType());
+        values.put(COLUMN_ACTIVITY_NAME, activity.getName());
+        values.put(COLUMN_START_TIMESTAMP, activity.getStartTimestamp());
+        values.put(COLUMN_END_TIMESTAMP, activity.getEndTimestamp());
+        values.put(COLUMN_DISTANCE, activity.getDistance());
+        values.put(COLUMN_ELAPSED_TIME, activity.getElapsedTime());
+        values.put(COLUMN_ADDRESS, activity.getAddress());
+
+        return db.insert(TABLE_ACTIVITIES, null, values);
+    }
+
+
     public long insertActivity(String activityType, String name, long startTimestamp, long startLocationId, String address) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -178,6 +193,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_DESC, "Activity completed");
         values.put(COLUMN_ADDRESS, address); // Update address
         db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
+    }
+
+    public void deleteAllActivities() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_ACTIVITIES, null, null);
     }
 
     public ActivityData getUnfinishedActivity() {

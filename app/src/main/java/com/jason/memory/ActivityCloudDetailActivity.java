@@ -1,6 +1,7 @@
 package com.jason.memory;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -114,6 +115,21 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
 
     }
+
+    // In ActivityCloudDetailActivity
+    private void closeActivity() {
+        finish();
+    }
+
+    private void closeActivityWithUpdate(ActivityData updatedActivity) {
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra("UPDATED_ACTIVITY", updatedActivity);
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
+
+
 
     private void initializeViews() {
         tvName = findViewById(R.id.tvName);
