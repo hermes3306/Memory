@@ -47,7 +47,6 @@ import java.util.Set;
 
 public class ListCloudActivity extends AppCompatActivity {
     private boolean isAscendingOrder = true;
-    private final ActivityNameComparator comparator = new ActivityNameComparator();
     private static final String TAG = ListCloudActivity.class.getSimpleName();
     private RecyclerView recyclerView;
     private ActivityAdapter adapter;
@@ -142,11 +141,7 @@ public class ListCloudActivity extends AppCompatActivity {
     }
 
     private void sortActivityList() {
-        if (isAscendingOrder) {
-            Collections.sort(activityList, comparator);
-        } else {
-            Collections.sort(activityList, Collections.reverseOrder(comparator));
-        }
+        Collections.sort(activityList, new ActivityTimestampComparator());
         runOnUiThread(() -> adapter.notifyDataSetChanged());
     }
 
@@ -542,7 +537,7 @@ public class ListCloudActivity extends AppCompatActivity {
         private static final String BASE_URL = "http://58.233.69.198/moment/";
         private Map<String, String> contentCache = new HashMap<>();
         private Map<String, List<LocationData>> locationCache = new HashMap<>();
-        private static final int PAGE_SIZE = 5;
+        private static final int PAGE_SIZE = 20;
 
         public List<String> getFileList(int page) {
             String url = BASE_URL + "list.php?ext=csv&page=" + page + "&limit=" + PAGE_SIZE;
@@ -783,9 +778,19 @@ public class ListCloudActivity extends AppCompatActivity {
     }
 
     private class ActivityTimestampComparator implements Comparator<ActivityData> {
+        private boolean ascending = false; // Default to descending order
+
+        public ActivityTimestampComparator() {}
+
+        public ActivityTimestampComparator(boolean ascending) {
+            this.ascending = ascending;
+        }
+
         @Override
         public int compare(ActivityData a1, ActivityData a2) {
-            return Long.compare(a2.getStartTimestamp(), a1.getStartTimestamp());
+            return ascending
+                    ? Long.compare(a1.getStartTimestamp(), a2.getStartTimestamp())
+                    : Long.compare(a2.getStartTimestamp(), a1.getStartTimestamp());
         }
     }
 
