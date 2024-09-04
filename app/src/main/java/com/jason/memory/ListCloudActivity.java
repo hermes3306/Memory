@@ -778,19 +778,9 @@ public class ListCloudActivity extends AppCompatActivity {
     }
 
     private class ActivityTimestampComparator implements Comparator<ActivityData> {
-        private boolean ascending = false; // Default to descending order
-
-        public ActivityTimestampComparator() {}
-
-        public ActivityTimestampComparator(boolean ascending) {
-            this.ascending = ascending;
-        }
-
         @Override
         public int compare(ActivityData a1, ActivityData a2) {
-            return ascending
-                    ? Long.compare(a1.getStartTimestamp(), a2.getStartTimestamp())
-                    : Long.compare(a2.getStartTimestamp(), a1.getStartTimestamp());
+            return Long.compare(a2.getStartTimestamp(), a1.getStartTimestamp());
         }
     }
 

@@ -6,7 +6,7 @@ import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "0.212";
+    private static String version = "0.2122";
     private static String tmp_dir  = "MEMORY.tmp";
 
     public static File getDownloadDir() {

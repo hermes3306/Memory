@@ -1,5 +1,7 @@
 package com.jason.memory;
 
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -62,19 +64,17 @@ public class FileListActivity extends AppCompatActivity {
     }
 
 
-
+    private static final int BATCH_SIZE = 50;
+    private int currentFileIndex = 0;
 
     private void loadFileList() {
         Log.d(TAG, "--m-- loadFileList: Starting to load file list");
         showProgressBar(true);
         new Thread(() -> {
             File directory = Config.getDownloadDir();
-            Log.d(TAG, "--m-- loadFileList: Searching directory: " + directory.getAbsolutePath());
             File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
-            activityList.clear();
             if (files == null || files.length == 0) {
-                Log.d(TAG, "--m-- loadFileList: No CSV files found or directory does not exist");
                 runOnUiThread(() -> {
                     showProgressBar(false);
                     showNoFilesMessage();
@@ -82,24 +82,32 @@ public class FileListActivity extends AppCompatActivity {
                 return;
             }
 
-            Log.d(TAG, "--m-- loadFileList: Found " + files.length + " CSV files");
-            for (File file : files) {
-                ActivityData activity = parseActivityDataFromFile(file);
-                if (activity != null) {
-                    activityList.add(activity);
-                }
-            }
-
-            sortActivityList();
-
-            runOnUiThread(() -> {
-                adapter.notifyDataSetChanged();
-                showProgressBar(false);
-                Log.d(TAG, "--m-- loadFileList: Finished loading. Total activities: " + activityList.size());
-            });
+            loadNextBatch(files);
         }).start();
     }
 
+    private void loadNextBatch(File[] files) {
+        int endIndex = Math.min(currentFileIndex + BATCH_SIZE, files.length);
+        for (int i = currentFileIndex; i < endIndex; i++) {
+            ActivityData activity = parseActivityDataFromFile(files[i]);
+            if (activity != null) {
+                activityList.add(activity);
+            }
+        }
+
+        sortActivityList();
+
+        runOnUiThread(() -> {
+            adapter.notifyDataSetChanged();
+            if (endIndex < files.length) {
+                currentFileIndex = endIndex;
+                loadNextBatch(files);
+            } else {
+                showProgressBar(false);
+            }
+            Log.d(TAG, "--m-- loadFileList: Loaded batch. Total activities: " + activityList.size());
+        });
+    }
 
 
     private ActivityData parseActivityDataFromFile(File file) {
@@ -107,33 +115,60 @@ public class FileListActivity extends AppCompatActivity {
         try (BufferedReader reader = new BufferedReader(new java.io.FileReader(file))) {
             String line;
             reader.readLine(); // Skip header
-            if ((line = reader.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length < 4) {
-                    Log.e(TAG, "--m-- parseActivityDataFromFile: Invalid CSV format in file: " + file.getName());
-                    return null;
-                }
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
-                Date startDate = sdf.parse(parts[2] + "," + parts[3]);
-                long startTimestamp = startDate.getTime();
 
-                // Read the last line to get the end timestamp
-                String lastLine = line;
-                while ((line = reader.readLine()) != null) {
-                    lastLine = line;
-                }
-                parts = lastLine.split(",");
-                if (parts.length < 4) {
+
+            String firstLine = reader.readLine();
+            if (firstLine == null) {
+                Log.e(TAG, "--m-- parseActivityDataFromFile: Empty file: " + file.getName());
+                return null;
+            }
+
+            String[] firstParts = firstLine.split(",");
+            if (firstParts.length < 4) {
+                Log.e(TAG, "--m-- parseActivityDataFromFile: Invalid CSV format in file: " + file.getName());
+                return null;
+            }
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+            Date startDate = sdf.parse(firstParts[2] + "," + firstParts[3]);
+            long startTimestamp = startDate.getTime();
+
+            // Read the last line to get the end timestamp
+            String lastLine = firstLine;
+            String previousLine = null;
+
+
+            while ((line = reader.readLine()) != null) {
+                previousLine = lastLine;
+                lastLine = line;
+            }
+
+
+            String[] lastParts = lastLine.split(",");
+            if (lastParts.length < 4) {
+                if (previousLine != null) {
+                    lastParts = previousLine.split(",");
+                } else {
                     Log.e(TAG, "--m-- parseActivityDataFromFile: Invalid CSV format in last line of file: " + file.getName());
                     return null;
                 }
-                Date endDate = sdf.parse(parts[2] + "," + parts[3]);
-                long endTimestamp = endDate.getTime();
-
-                String name = file.getName().replace(".csv", "");
-                Log.d(TAG, "--m-- parseActivityDataFromFile: Successfully parsed activity: " + name);
-                return new ActivityData(0, file.getName(), "run", name, startTimestamp, endTimestamp, 0, 0, 0, endTimestamp - startTimestamp, "Address not available");
             }
+
+            Date endDate = sdf.parse(lastParts[2] + "," + lastParts[3]);
+            long endTimestamp = endDate.getTime();
+
+            String name = file.getName().replace(".csv", "");
+            double distance = calculateDistance(firstParts, lastParts);
+            long elapsedTime = endTimestamp - startTimestamp;
+            String address = "";
+            try{
+                address = getAddress(Double.parseDouble(firstParts[0]), Double.parseDouble(firstParts[1]));
+            }catch(Exception e) {
+                Log.e(TAG, "--m-- " + e.getMessage());
+            }
+
+            Log.d(TAG, "--m-- parseActivityDataFromFile: Successfully parsed activity: " + name);
+            return new ActivityData(0, file.getName(), "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, address);
         } catch (IOException | ParseException e) {
             Log.e(TAG, "--m-- parseActivityDataFromFile: Error parsing file: " + file.getName(), e);
         } catch (ArrayIndexOutOfBoundsException e) {
@@ -141,6 +176,44 @@ public class FileListActivity extends AppCompatActivity {
         }
         return null;
     }
+
+    private double calculateDistance(String[] start, String[] end) {
+        try {
+            double lat1 = Double.parseDouble(start[0]);
+            double lon1 = Double.parseDouble(start[1]);
+            double lat2 = Double.parseDouble(end[0]);
+            double lon2 = Double.parseDouble(end[1]);
+
+            // Implement distance calculation using Haversine formula
+            // This is a simplified version, you may want to use a more accurate method
+            final int R = 6371; // Radius of the earth in km
+            double dLat = Math.toRadians(lat2 - lat1);
+            double dLon = Math.toRadians(lon2 - lon1);
+            double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }catch(Exception e) {
+            Log.e(TAG, "--m-- " + e.getMessage());
+            return 0;
+        }
+    }
+
+    private String getAddress(double latitude, double longitude) {
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                return address.getAddressLine(0);
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error getting address", e);
+        }
+        return "Address not available";
+    }
+
 
     private void sortActivityList() {
         Log.d(TAG, "--m-- sortActivityList: Sorting activity list");
