@@ -782,10 +782,10 @@ public class ListCloudActivity extends AppCompatActivity {
         }
     }
 
-    private class ActivityNameComparator implements Comparator<ActivityData> {
+    private class ActivityTimestampComparator implements Comparator<ActivityData> {
         @Override
         public int compare(ActivityData a1, ActivityData a2) {
-            return a1.getName().compareTo(a2.getName());
+            return Long.compare(a2.getStartTimestamp(), a1.getStartTimestamp());
         }
     }
 
