@@ -26,11 +26,14 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -68,15 +71,98 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         long activityId = getIntent().getLongExtra("ACTIVITY_ID", -1);
         String activityFilename = getIntent().getStringExtra("ACTIVITY_FILENAME");
 
-        activity = dbHelper.getActivity(activityId);
+        if (activityId != -1) {
+            activity = dbHelper.getActivity(activityId);
+        } else if (activityFilename != null && !activityFilename.isEmpty()) {
+            activity = loadActivityFromFile(activityFilename);
+        }
 
         if (activity != null) {
             displayActivityDetails();
+        } else {
+            Toast.makeText(this, "Failed to load activity", Toast.LENGTH_SHORT).show();
+            finish();
         }
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+    }
+
+    private ActivityData loadActivityFromFile(String filename) {
+        File file = new File(getExternalFilesDir(null), ACTIVITY_FOLDER + "/" + filename);
+        if (!file.exists()) {
+            return null;
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            String[] headerParts = reader.readLine().split(","); // Read header
+            String[] firstDataParts = reader.readLine().split(","); // Read first data line
+            String lastLine = null;
+            while ((line = reader.readLine()) != null) {
+                lastLine = line;
+            }
+            String[] lastDataParts = lastLine.split(",");
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+            Date startDate = sdf.parse(firstDataParts[2] + "," + firstDataParts[3]);
+            Date endDate = sdf.parse(lastDataParts[2] + "," + lastDataParts[3]);
+
+            long startTimestamp = startDate.getTime();
+            long endTimestamp = endDate.getTime();
+            long elapsedTime = endTimestamp - startTimestamp;
+
+            List<LocationData> locations = loadLocationsFromFile(file);
+            double distance = calculateDistance(locations);
+
+            String name = filename.substring(0, filename.lastIndexOf('.'));
+            return new ActivityData(0, filename, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "Address not available");
+        } catch (IOException | ParseException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private List<LocationData> loadLocationsFromFile(File file) {
+        List<LocationData> locations = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            reader.readLine(); // Skip header
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                double lat = Double.parseDouble(parts[0]);
+                double lon = Double.parseDouble(parts[1]);
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+                Date date = sdf.parse(parts[2] + "," + parts[3]);
+                locations.add(new LocationData(0, lat, lon, 0, date.getTime()));
+            }
+        } catch (IOException | ParseException e) {
+            e.printStackTrace();
+        }
+        return locations;
+    }
+
+    private double calculateDistance(List<LocationData> locations) {
+        double totalDistance = 0;
+        if (locations == null || locations.size() < 2) return 0;
+        for (int i = 0; i < locations.size() - 1; i++) {
+            LocationData start = locations.get(i);
+            LocationData end = locations.get(i + 1);
+            totalDistance += calculateDistanceBetweenPoints(start, end);
+        }
+        return totalDistance;
+    }
+
+    private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
+        double earthRadius = 6371; // in kilometers
+        double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
+        double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadius * c; // Distance in kilometers
     }
 
     private void initializeViews() {
@@ -312,7 +398,13 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private void drawActivityTrack() {
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
+        List<LocationData> locations;
+        if (activity.getId() > 0) {
+            locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
+        } else {
+            locations = loadLocationsFromFile(new File(getExternalFilesDir(null), ACTIVITY_FOLDER + "/" + activity.getFilename()));
+        }
+
         if (locations.size() < 2) {
             Toast.makeText(this, "Not enough location data to draw track", Toast.LENGTH_SHORT).show();
             return;
