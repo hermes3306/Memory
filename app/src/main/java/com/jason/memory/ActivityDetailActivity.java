@@ -49,7 +49,7 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     private Button btnBack;
     private static final int STRAVA_AUTH_REQUEST_CODE = 1001;
     private StravaUploader stravaUploader;
-    private static final String ACTIVITY_FOLDER = "memory_activity";
+
     private TextView tvSaveActivity;
     private TextView tvSaveActivityInfo;
     private TextView tvCloud;
@@ -90,7 +90,8 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private ActivityData loadActivityFromFile(String filename) {
-        File file = new File(getExternalFilesDir(null), ACTIVITY_FOLDER + "/" + filename);
+        File directory = Config.getDownloadDir();
+        File file = new File(directory, filename);
         if (!file.exists()) {
             return null;
         }
@@ -216,7 +217,8 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         SimpleDateFormat fileNameFormat = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
         String fileName = fileNameFormat.format(new Date(activity.getStartTimestamp())) + ".csv";
 
-        File directory = new File(getExternalFilesDir(null), ACTIVITY_FOLDER);
+        File directory = Config.getDownloadDir();
+
         if (!directory.exists()) {
             directory.mkdirs();
         }
@@ -402,7 +404,8 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         if (activity.getId() > 0) {
             locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
         } else {
-            locations = loadLocationsFromFile(new File(getExternalFilesDir(null), ACTIVITY_FOLDER + "/" + activity.getFilename()));
+            File directory = Config.getDownloadDir();
+            locations = loadLocationsFromFile(new File(directory, activity.getFilename()));
         }
 
         if (locations.size() < 2) {

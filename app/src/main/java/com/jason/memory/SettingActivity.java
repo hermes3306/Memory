@@ -182,7 +182,7 @@ public class SettingActivity extends AppCompatActivity {
             return;
         }
 
-        File appDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MemoryApp");
+        File appDir = Config.getDownloadDir();
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files == null || files.length == 0) {
@@ -333,7 +333,7 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void uploadFiles() {
-        File appDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MemoryApp");
+        File appDir = Config.getDownloadDir();
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -404,8 +404,6 @@ public class SettingActivity extends AppCompatActivity {
         }
     }
 
-
-
     private void updateUploadProgressUI(String fileName, boolean success) {
         runOnUiThread(() -> {
             statusTextView.setText("Uploading " + processedFiles + "/" + totalFiles + " files");
@@ -421,9 +419,8 @@ public class SettingActivity extends AppCompatActivity {
         });
     }
 
-
     private void listFiles() {
-        File appDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MemoryApp");
+        File appDir = Config.getDownloadDir();
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -446,7 +443,7 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void deleteFiles() {
-        File appDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "MemoryApp");
+        File appDir = Config.getDownloadDir();
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -470,8 +467,6 @@ public class SettingActivity extends AppCompatActivity {
             Log.d(TAG, "--m-- No files to delete");
         }
     }
-
-
 
     private void fetchFileList() {
         Log.d(TAG, "--m-- Fetching file list from: " + FILE_LIST_URL);
@@ -535,8 +530,9 @@ public class SettingActivity extends AppCompatActivity {
         String fileUrl = BASE_URL + UPLOAD_DIR + fileName;
         Log.d(TAG, "--m-- Downloading file from: " + fileUrl);
 
-        File destinationDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File appDir = new File(destinationDir, "MemoryApp");
+
+        File appDir = Config.getDownloadDir();
+
         if (!appDir.exists()) {
             boolean created = appDir.mkdirs();
             Log.d(TAG, "--m-- App directory created: " + created);

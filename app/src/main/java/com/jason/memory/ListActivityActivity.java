@@ -3,6 +3,7 @@ package com.jason.memory;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +36,7 @@ public class ListActivityActivity extends AppCompatActivity {
     private ActivityAdapter adapter;
     private List<ActivityData> activityList;
     private DatabaseHelper dbHelper;
+    private static final String TAG = "ListActivityActivity";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,6 +48,7 @@ public class ListActivityActivity extends AppCompatActivity {
 
         dbHelper = new DatabaseHelper(this);
         activityList = dbHelper.getAllActivities();
+        loadActivitiesFromDatabase();
 
         adapter = new ActivityAdapter(activityList, activity -> {
             Intent intent = new Intent(ListActivityActivity.this, ActivityDetailActivity.class);
@@ -135,13 +138,32 @@ public class ListActivityActivity extends AppCompatActivity {
         new Thread(() -> {
             // Load activities from database
             activityList = dbHelper.getAllActivities();
-            sortActivityList();
 
             runOnUiThread(() -> {
-                adapter.notifyDataSetChanged();
+                if (activityList.isEmpty()) {
+                    showNoFilesMessage();
+                } else {
+                    sortActivityList();
+                    adapter = new ActivityAdapter(activityList, activity -> {
+                        Intent intent = new Intent(ListActivityActivity.this, ActivityDetailActivity.class);
+                        intent.putExtra("ACTIVITY_ID", activity.getId());
+                        startActivity(intent);
+                    }, dbHelper);
+                    recyclerView.setAdapter(adapter);
+                }
                 showProgressBar(false);
             });
         }).start();
+    }
+
+    private void showNoFilesMessage() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this);
+        builder.setTitle("No Activities Found")
+                .setMessage("There are no activities in the database.")
+                .setPositiveButton("OK", (dialog, which) -> finish())
+                .setCancelable(false)
+                .show();
+        Log.d(TAG, "--m-- showNoFilesMessage: Displayed no activities message");
     }
 
 }

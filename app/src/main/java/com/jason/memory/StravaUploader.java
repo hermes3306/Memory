@@ -68,7 +68,7 @@ public class StravaUploader {
 
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
         dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        File gpxFile = new File(context.getExternalFilesDir(null), "activity.gpx");
+        File gpxFile = new File(Config.getTmpDir(),"activity.gpx");
 
         try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(gpxFile), StandardCharsets.UTF_8)) {
             writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
@@ -263,7 +263,6 @@ public class StravaUploader {
             }
         }).start();
     }
-
 
     private void uploadActivity(File gpxFile, String name, String description, String activityType, String accessToken) {
         new Thread(() -> {
