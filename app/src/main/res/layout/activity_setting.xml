@@ -38,6 +38,79 @@
             android:text="Keep Screen On"
             android:layout_marginTop="16dp"/>
 
+        <LinearLayout
+            android:id="@+id/idnew_runTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Run:"
+                android:layout_gravity="center_vertical"
+                android:textSize="14sp"/>
+
+            <RadioGroup
+                android:id="@+id/idnew_runTypeRadioGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginLeft="16dp">
+
+                <RadioButton
+                    android:id="@+id/idnew_memoryRadioButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Memory"
+                    android:layout_marginRight="16dp"/>
+
+                <RadioButton
+                    android:id="@+id/idnew_momentRadioButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Moment"/>
+            </RadioGroup>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/idnew_saveTypeLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Save:"
+                android:layout_gravity="center_vertical"
+                android:textSize="14sp"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginLeft="16dp">
+
+                <CheckBox
+                    android:id="@+id/idnew_save_server"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Server"
+                    android:layout_marginRight="16dp"/>
+
+                <CheckBox
+                    android:id="@+id/idnew_save_Strava"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Strava"/>
+            </LinearLayout>
+        </LinearLayout>
+
         <Button
             android:id="@+id/fileDownloadButton"
             android:layout_width="match_parent"
