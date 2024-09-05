@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,16 +36,11 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MyActivity extends AppCompatActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
-
-    private static final String PREFS_NAME = "MyActivityPrefs";
-    private static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
-    private static final String PREF_ACTIVITY_ID = "activityID";
-    private static final String PREF_HIDE_REASON = "hideReason";
-    private static final String HIDE_REASON_BUTTON = "buttonHide";
-
     private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
     private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -55,9 +51,9 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private Runnable updateRunnable;
     private boolean hideButtonClicked = false;
 
-    private TextView tvTime, tvPace, tvDistance;
+    private TextView tvTime, tvPace, tvCalories, tvDistance;
     private Button btnMap;
-
+    private TextView tvDateStr;
 
 
 
@@ -68,36 +64,24 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private Marker mStartMarker;
     private Marker mCurrentMarker;
     private Polyline mPathPolyline;
+    private TextView tvSetting;
+    private CheckBox checkBoxServer;
+    private CheckBox checkBoxStrava;
+    private ExecutorService executorService;
+
+    private static final int SETTINGS_REQUEST_CODE = 1001;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_my);
+        updateLayoutBasedOnRunType();
 
+        executorService = Executors.newSingleThreadExecutor();
         dbHelper = new DatabaseHelper(this);
-
-        tvTime = findViewById(R.id.tvTime);
-        tvPace = findViewById(R.id.tvPace);
-        tvDistance = findViewById(R.id.tvDistance);
-        btnMap = findViewById(R.id.btnMap);
-
         stravaUploader = new StravaUploader(this);
 
-
-        Button btnStopActivity = findViewById(R.id.btnStopActivity);
-        btnStopActivity.setOnClickListener(v -> stopActivity());
-
-        Button btnStrava = findViewById(R.id.btnStrava);
-        btnStrava.setOnClickListener(v-> strava());
-
-        btnMap.setOnClickListener(v -> {
-            Intent mapIntent = new Intent(MyActivity.this, RunningMapActivity.class);
-            mapIntent.putExtra("startTimestamp", startTimestamp);
-            startActivity(mapIntent);
-        });
-
-        TextView btnHide = findViewById(R.id.tvHide);
-        btnHide.setOnClickListener(v -> hideActivity());
+        initializeViews();
+        setClickListeners();
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -119,9 +103,52 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         applyKeepScreenOnSetting();
     }
 
+    private void updateLayoutBasedOnRunType() {
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        String currentRunType = prefs.getString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
+
+        if (currentRunType.equals(Config.RUN_TYPE_MEMORY)) {
+            setContentView(R.layout.activity_my);
+        } else {
+            setContentView(R.layout.activity_my2);
+        }
+    }
+
+    private void initializeViews() {
+        tvDateStr = findViewById(R.id.idnew_date_str);
+        tvTime = findViewById(R.id.tvTime);
+        tvPace = findViewById(R.id.tvPace);
+        tvCalories = findViewById(R.id.tvCalories);
+        tvDistance = findViewById(R.id.tvDistance);
+        btnMap = findViewById(R.id.btnMap);
+        tvSetting = findViewById(R.id.tvSetting);
+        checkBoxServer = findViewById(R.id.idnew_save_server);
+        checkBoxStrava = findViewById(R.id.idnew_save_Strava);
+    }
+
+    private void setClickListeners() {
+        TextView btnHide = findViewById(R.id.tvHide);
+        btnHide.setOnClickListener(v -> hideActivity());
+        tvSetting.setOnClickListener(v -> openSettingActivity());
+    }
+
+    private void openSettingActivity() {
+        Intent settingIntent = new Intent(MyActivity.this, SettingActivity.class);
+        startActivityForResult(settingIntent, SETTINGS_REQUEST_CODE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == SETTINGS_REQUEST_CODE) {
+            recreate();
+        }
+    }
+
+
     private void applyKeepScreenOnSetting() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean keepScreenOn = prefs.getBoolean(PREF_KEEP_SCREEN_ON, false);
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        boolean keepScreenOn = prefs.getBoolean(Config.PREF_KEEP_SCREEN_ON, false);
         if (keepScreenOn) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
@@ -356,6 +383,22 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         // Update PACE
         String paceString = calculatePace(elapsedTime, distance);
         tvPace.setText(paceString);
+        // Update DATE STRING
+        String dateString = formatDateString(currentTime);
+        tvDateStr.setText(dateString);
+
+        String caloriesString = Utility.calculateCalories(this,distance);
+        tvCalories.setText(caloriesString);
+    }
+
+    private String formatDateString(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy년MM월dd일 HH:mm:ss", Locale.KOREA);
+        String formattedDate = sdf.format(new Date(timestamp));
+
+        // Replace AM/PM with 오전/오후
+        formattedDate = formattedDate.replace("AM", "오전").replace("PM", "오후");
+
+        return formattedDate;
     }
 
     private String formatTime(long millis) {
@@ -406,14 +449,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     }
 
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
-            stravaUploader.handleAuthResult(resultCode, data);
-        }
-    }
-
     private void strava() {
         Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
 
@@ -445,7 +480,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     }
 
 
-
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
@@ -456,29 +490,59 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
             double distance = calculateDistance(startTimestamp, endTimestamp);
             long elapsedTime = endTimestamp - startTimestamp;
 
-            // Get the current activity to retrieve the address
             ActivityData currentActivity = dbHelper.getActivity(activityId);
-            String address = "";
+            String address = (currentActivity != null) ? currentActivity.getAddress() : "";
 
-            if (currentActivity != null) {
-                // If the activity has an address, use it
-                address = currentActivity.getAddress();
-            }
-
-            // If the address is empty, try to get it from the end location
             if (address.isEmpty()) {
                 address = endLocation.getSimpleAddress(this);
             }
 
-            // Update the activity with all the information, including the address
             dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
+
+            // Check preferences and perform uploads
+            SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+            boolean uploadToServer = prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false);
+            boolean uploadToStrava = prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false);
+
+            if (uploadToServer) {
+                uploadToServer();
+            }
+
+            if (uploadToStrava) {
+                uploadToStrava();
+            }
         } else {
             Toast.makeText(this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
         }
-        clearHideFlags();  // Clear flags when finalizing
+
+        clearHideFlags();
         finish();
     }
 
+    private void uploadToServer() {
+        Toast.makeText(this, "Uploading to server...", Toast.LENGTH_SHORT).show();
+        // Implement server upload logic here
+    }
+
+    private void uploadToStrava() {
+        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
+
+        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
+        File gpxFile = stravaUploader.generateGpxFile(locations);
+
+        if (gpxFile != null) {
+            ActivityData activity = dbHelper.getActivity(activityId);
+
+            if (activity != null) {
+                stravaUploader.authenticate(gpxFile, activity.getName(),
+                        "Activity recorded using MyActivity app", activity.getType());
+            } else {
+                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
+            }
+        } else {
+            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
+        }
+    }
 
     private void discardActivity() {
         handler.removeCallbacks(updateRunnable);
@@ -521,10 +585,10 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         handler.removeCallbacksAndMessages(null);  // This removes all callbacks
 
         // Set a flag to indicate that the activity was hidden
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.putString(PREF_HIDE_REASON, HIDE_REASON_BUTTON);
-        editor.putLong(PREF_ACTIVITY_ID, activityId);
+        editor.putString(Config.PREF_HIDE_REASON, Config.HIDE_REASON_BUTTON);
+        editor.putLong(Config.PREF_ACTIVITY_ID, activityId);
         editor.apply();
 
         hideButtonClicked = true;  // Set the flag
@@ -535,22 +599,22 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
 
     // Method for other activities to check if MyActivity was hidden
     public static boolean wasActivityHiddenByButton(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String hideReason = prefs.getString(PREF_HIDE_REASON, null);
-        return HIDE_REASON_BUTTON.equals(hideReason);
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        String hideReason = prefs.getString(Config.PREF_HIDE_REASON, null);
+        return Config.HIDE_REASON_BUTTON.equals(hideReason);
     }
 
     // Method to get the hidden activity ID
     public static long getHiddenActivityId(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        return prefs.getLong(PREF_ACTIVITY_ID, -1);
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        return prefs.getLong(Config.PREF_ACTIVITY_ID, -1);
     }
 
     private void clearHideFlags() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
-        editor.remove(PREF_HIDE_REASON);
-        editor.remove(PREF_ACTIVITY_ID);
+        editor.remove(Config.PREF_HIDE_REASON);
+        editor.remove(Config.PREF_ACTIVITY_ID);
         editor.apply();
     }
 

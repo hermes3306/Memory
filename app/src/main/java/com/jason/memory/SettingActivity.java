@@ -16,7 +16,10 @@ import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -39,8 +42,9 @@ import java.util.List;
 import java.util.Locale;
 
 public class SettingActivity extends AppCompatActivity {
-    private static final String PREFS_NAME = "MyActivityPrefs";
-    private static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
+
+
+
     private Switch switchKeepScreenOn;
 
     private static final String TAG = "SettingActivity";
@@ -67,6 +71,14 @@ public class SettingActivity extends AppCompatActivity {
     private Button migrateButton;
     private boolean isInitialized = false;
 
+    private RadioGroup runTypeRadioGroup;
+    private RadioButton memoryRadioButton;
+    private RadioButton momentRadioButton;
+
+    private CheckBox checkBoxServer;
+    private CheckBox checkBoxStrava;
+
+
     private BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -83,8 +95,6 @@ public class SettingActivity extends AppCompatActivity {
 
         dbHelper = new DatabaseHelper(this);
         initializeViews();
-
-
 
         setClickListeners();
         registerDownloadReceiver();
@@ -103,7 +113,12 @@ public class SettingActivity extends AppCompatActivity {
         migrateButton = findViewById(R.id.migrateButton);
         switchKeepScreenOn = findViewById(R.id.switchKeepScreenOn);
 
+        runTypeRadioGroup = findViewById(R.id.idnew_runTypeRadioGroup);
+        memoryRadioButton = findViewById(R.id.idnew_memoryRadioButton);
+        momentRadioButton = findViewById(R.id.idnew_momentRadioButton);
 
+        checkBoxServer = findViewById(R.id.idnew_save_server);
+        checkBoxStrava = findViewById(R.id.idnew_save_Strava);
     }
 
     private void setClickListeners() {
@@ -116,15 +131,14 @@ public class SettingActivity extends AppCompatActivity {
         initActivityButton.setOnClickListener(v -> initializeActivities());
         migrateButton.setOnClickListener(v -> migrateFiles());
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        boolean keepScreenOn = prefs.getBoolean(PREF_KEEP_SCREEN_ON, false);
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        boolean keepScreenOn = prefs.getBoolean(Config.PREF_KEEP_SCREEN_ON, false);
         switchKeepScreenOn.setChecked(keepScreenOn);
         switchKeepScreenOn.setOnCheckedChangeListener((buttonView, isChecked) -> {
             SharedPreferences.Editor editor = prefs.edit();
-            editor.putBoolean(PREF_KEEP_SCREEN_ON, isChecked);
+            editor.putBoolean(Config.PREF_KEEP_SCREEN_ON, isChecked);
             editor.apply();
 
-            // 현재 액티비티에 즉시 적용
             if (isChecked) {
                 getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             } else {
@@ -132,7 +146,40 @@ public class SettingActivity extends AppCompatActivity {
             }
         });
 
+        String savedRunType = prefs.getString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
 
+        if (savedRunType.equals(Config.RUN_TYPE_MEMORY)) {
+            memoryRadioButton.setChecked(true);
+        } else {
+            momentRadioButton.setChecked(true);
+        }
+
+        runTypeRadioGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            SharedPreferences.Editor editor = prefs.edit();
+            if (checkedId == R.id.idnew_memoryRadioButton) {
+                editor.putString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
+            } else if (checkedId == R.id.idnew_momentRadioButton) {
+                editor.putString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MOMENT);
+            }
+            editor.apply();
+
+            String selectedType = (checkedId == R.id.idnew_memoryRadioButton) ? "Memory" : "Moment";
+            Toast.makeText(this, "Run type set to: " + selectedType, Toast.LENGTH_SHORT).show();
+        });
+
+        checkBoxServer.setChecked(prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false));
+        checkBoxStrava.setChecked(prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false));
+
+        checkBoxServer.setOnCheckedChangeListener((buttonView, isChecked) -> savePreferences());
+        checkBoxStrava.setOnCheckedChangeListener((buttonView, isChecked) -> savePreferences());
+    }
+
+    private void savePreferences() {
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(Config.PREF_UPLOAD_SERVER, checkBoxServer.isChecked());
+        editor.putBoolean(Config.PREF_UPLOAD_STRAVA, checkBoxStrava.isChecked());
+        editor.apply();
     }
 
     private void listServerFiles() {

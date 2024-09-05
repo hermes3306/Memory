@@ -9,6 +9,22 @@ public class Config {
     private static String version = "0.2122";
     private static String tmp_dir  = "MEMORY.tmp";
 
+    public static final String PREFS_NAME = "MyActivityPrefs";
+    public static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
+    public  static final String PREF_RUN_TYPE = "runType";
+    public static final String RUN_TYPE_MEMORY = "memory";
+    public static final String RUN_TYPE_MOMENT = "moment";
+
+    public static final String PREF_ACTIVITY_ID = "activityID";
+    public static final String PREF_HIDE_REASON = "hideReason";
+    public static final String HIDE_REASON_BUTTON = "buttonHide";
+
+    public static final String PREF_UPLOAD_SERVER ="uploadServer";
+    public static final String PREF_UPLOAD_STRAVA ="uploadStrava";
+
+    public static final String WEIGHT = "75.0";
+
+
     public static File getDownloadDir() {
         File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), appname + version);
         if (!directory.exists()) {

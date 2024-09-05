@@ -334,7 +334,6 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         }.execute();
     }
 
-
     private void goBack() {
         finish();
     }
