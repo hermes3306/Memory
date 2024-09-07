@@ -140,6 +140,7 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.ViewHo
         private void drawActivityTrack(ActivityData activity) {
             map.clear();
             List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
+            if (locations == null) return;
             if (locations.size() < 2) return;
 
             PolylineOptions polylineOptions = new PolylineOptions()
