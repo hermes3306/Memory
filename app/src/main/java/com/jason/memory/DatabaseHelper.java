@@ -531,4 +531,100 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return activityId;
     }
 
+
+    public void createPlacesTable() {
+        String CREATE_PLACES_TABLE = "CREATE TABLE IF NOT EXISTS places (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                "country TEXT DEFAULT 'Current Country'," +
+                "type TEXT DEFAULT 'place'," +
+                "name TEXT," +
+                "address TEXT," +
+                "first_visited INTEGER," +
+                "number_of_visits INTEGER DEFAULT 0," +
+                "last_visited INTEGER," +
+                "lat REAL," +
+                "lon REAL," +
+                "alt REAL," +
+                "memo TEXT)";
+        getWritableDatabase().execSQL(CREATE_PLACES_TABLE);
+    }
+
+    // Add this new method
+    public LatLng getLastKnownLocation() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE +
+                " FROM " + TABLE_LOCATIONS +
+                " ORDER BY " + COLUMN_TIMESTAMP + " DESC LIMIT 1";
+
+        Cursor cursor = db.rawQuery(query, null);
+        LatLng lastLocation = null;
+
+        if (cursor.moveToFirst()) {
+            double latitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE));
+            double longitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE));
+            lastLocation = new LatLng(latitude, longitude);
+        }
+
+        cursor.close();
+        return lastLocation;
+    }
+
+    public int updatePlace(Place place) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        // Add all place fields to values
+        return db.update("places", values, "id = ?", new String[]{String.valueOf(place.getId())});
+    }
+
+    public void deletePlace(long id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete("places", "id = ?", new String[]{String.valueOf(id)});
+    }
+
+
+    public long addPlace(Place place) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put("country", place.getCountry());
+        values.put("type", place.getType());
+        values.put("name", place.getName());
+        values.put("address", place.getAddress());
+        values.put("first_visited", place.getFirstVisited());
+        values.put("number_of_visits", place.getNumberOfVisits());
+        values.put("last_visited", place.getLastVisited());
+        values.put("lat", place.getLat());
+        values.put("lon", place.getLon());
+        values.put("alt", place.getAlt());
+        values.put("memo", place.getMemo());
+        return db.insert("places", null, values);
+    }
+
+    public List<Place> getAllPlaces() {
+        List<Place> places = new ArrayList<>();
+        String selectQuery = "SELECT * FROM places";
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+        if (cursor.moveToFirst()) {
+            do {
+                Place place = new Place(
+                        cursor.getLong(cursor.getColumnIndex("id")),
+                        cursor.getString(cursor.getColumnIndex("country")),
+                        cursor.getString(cursor.getColumnIndex("type")),
+                        cursor.getString(cursor.getColumnIndex("name")),
+                        cursor.getString(cursor.getColumnIndex("address")),
+                        cursor.getLong(cursor.getColumnIndex("first_visited")),
+                        cursor.getInt(cursor.getColumnIndex("number_of_visits")),
+                        cursor.getLong(cursor.getColumnIndex("last_visited")),
+                        cursor.getDouble(cursor.getColumnIndex("lat")),
+                        cursor.getDouble(cursor.getColumnIndex("lon")),
+                        cursor.getDouble(cursor.getColumnIndex("alt")),
+                        cursor.getString(cursor.getColumnIndex("memo"))
+                );
+                places.add(place);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return places;
+    }
+
 }

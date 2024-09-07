@@ -7,145 +7,162 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <LinearLayout
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    app:layout_constraintTop_toTopOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintBottom_toBottomOf="parent">
+
+
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Memory"
-                android:textSize="24sp"
-                android:layout_centerInParent="true"/>
-
-            <ImageView
-                android:id="@+id/settingsIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/setting48"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:contentDescription="Settings"/>
-
-        </RelativeLayout>
-
-        <Button
-            android:id="@+id/memoryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Memory"
-            android:layout_marginBottom="16dp"/>
-
-        <Button
-            android:id="@+id/startServiceButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Start Tracking Service"
-            android:layout_marginBottom="16dp"/>
-
-        <Button
-            android:id="@+id/stopServiceButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Stop Tracking Service"
-            android:layout_marginBottom="16dp"/>
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="32dp">
 
         <TextView
-            android:id="@+id/statusTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Status: Tracking is OFF"
-            android:textSize="18sp"
-            android:layout_gravity="center"
-            android:layout_marginBottom="16dp"/>
+            android:text="Memory"
+            android:textSize="24sp"
+            android:layout_centerInParent="true"/>
+
+        <ImageView
+            android:id="@+id/settingsIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/setting48"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:contentDescription="Settings"/>
+
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/memoryButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Memory"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/startServiceButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Start Tracking Service"
+        android:layout_marginBottom="16dp"/>
+
+    <Button
+        android:id="@+id/stopServiceButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Stop Tracking Service"
+        android:layout_marginBottom="16dp"/>
+
+
+    <TextView
+        android:id="@+id/statusTextView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Status: Tracking is OFF"
+        android:textSize="18sp"
+        android:layout_gravity="center"
+        android:layout_marginBottom="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
 
         <Button
             android:id="@+id/monitorButton"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Monitor Tracking"/>
+            android:layout_weight="1"
+            android:text="Tracking"
+            android:layout_marginEnd="4dp"/>
 
         <Button
             android:id="@+id/btnShowMap"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Show Map"
-            android:layout_marginTop="8dp"/>
+            android:layout_weight="1"
+            android:text="Map"
+            android:layout_marginStart="4dp"/>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnBehaviorAnalysis"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Behavior Analysis" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
 
         <Button
-            android:id="@+id/btnBehaviorAnalysis"
-            android:layout_width="match_parent"
+            android:id="@+id/btnStartMyActivity"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Behavior Analysis" />
+            android:layout_weight="1"
+            android:text="Run1"
+            android:layout_marginEnd="4dp"/>
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <Button
+            android:id="@+id/btnStartMyActivity2"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <Button
-                android:id="@+id/btnStartMyActivity"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Run1"
-                android:layout_marginEnd="4dp"/>
-
-            <Button
-                android:id="@+id/btnStartMyActivity2"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Run2"
-                android:layout_marginStart="4dp"/>
-
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp">
-
-            <Button
-                android:id="@+id/btnListActivity"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Act"
-                android:layout_marginEnd="4dp"/>
-
-            <Button
-                android:id="@+id/btnListCloud"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Cloud"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"/>
-
-            <Button
-                android:id="@+id/btnFileList"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="File"
-                android:layout_marginStart="4dp"/>
-
-        </LinearLayout>
-
+            android:layout_weight="1"
+            android:text="Run2"
+            android:layout_marginStart="4dp"/>
     </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
+
+        <Button
+            android:id="@+id/btnListActivity"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Act"
+            android:layout_marginEnd="4dp"/>
+
+        <Button
+            android:id="@+id/btnListCloud"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Pi"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"/>
+
+        <Button
+            android:id="@+id/btnFileList"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="File"
+            android:layout_marginStart="4dp"/>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnMyPlaces"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="My Places"/>
+
+</LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

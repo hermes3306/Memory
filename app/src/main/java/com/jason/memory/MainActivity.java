@@ -74,6 +74,14 @@ public class MainActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+        Button btnMyPlaces = findViewById(R.id.btnMyPlaces);
+        btnMyPlaces.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, PlacesActivity.class);
+                startActivity(intent);
+            }
+        });
 
 
         Button btnBehaviorAnalysis = findViewById(R.id.btnBehaviorAnalysis);
