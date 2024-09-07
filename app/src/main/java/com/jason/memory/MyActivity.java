@@ -483,41 +483,13 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
-        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
-        LocationData endLocation = dbHelper.getLatestLocation();
 
-        if (startLocation != null && endLocation != null) {
-            double distance = calculateDistance(startTimestamp, endTimestamp);
-            long elapsedTime = endTimestamp - startTimestamp;
-
-            ActivityData currentActivity = dbHelper.getActivity(activityId);
-            String address = (currentActivity != null) ? currentActivity.getAddress() : "";
-
-            if (address.isEmpty()) {
-                address = endLocation.getSimpleAddress(this);
-            }
-
-            dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
-
-            // Check preferences and perform uploads
-            SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
-            boolean uploadToServer = prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false);
-            boolean uploadToStrava = prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false);
-
-            if (uploadToServer) {
-                uploadToServer();
-            }
-
-            if (uploadToStrava) {
-                uploadToStrava();
-            }
-        } else {
-            Toast.makeText(this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
-        }
-
-        clearHideFlags();
-        finish();
+        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp, () -> {
+            clearHideFlags();
+            finish();
+        });
     }
+
 
     private void uploadToServer() {
         Toast.makeText(this, "Uploading to server...", Toast.LENGTH_SHORT).show();

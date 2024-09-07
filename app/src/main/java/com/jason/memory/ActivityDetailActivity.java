@@ -202,11 +202,12 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private void saveAndUploadActivity() {
-        File savedFile = saveActivityToFile();
+        File savedFile = Utility.saveActivityToFile(this, activity, dbHelper);
         if (savedFile != null) {
-            uploadFile(savedFile);
+            Utility.uploadFile(this, savedFile);
         }
     }
+
 
     private File saveActivityToFile() {
         if (activity == null) {
@@ -364,18 +365,8 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private void uploadToStrava() {
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
-        File gpxFile = stravaUploader.generateGpxFile(locations);
-
-        if (gpxFile != null) {
-            stravaUploader.authenticate(gpxFile, activity.getName(),
-                    "Activity recorded using MyActivity app", activity.getType());
-        } else {
-            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_SHORT).show();
-        }
+        Utility.uploadToStrava(this, dbHelper, stravaUploader, activity);
     }
-
-
 
     private void displayActivityDetails() {
         tvName.setText(activity.getName());

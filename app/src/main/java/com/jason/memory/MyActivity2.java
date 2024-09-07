@@ -522,56 +522,17 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         //finalizeActivity();
     }
 
+
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
-        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
-        LocationData endLocation = dbHelper.getLatestLocation();
 
-        if (startLocation != null && endLocation != null) {
-            calculateDistance(startTimestamp, endTimestamp, distance -> {
-                long elapsedTime = endTimestamp - startTimestamp;
-
-                // Get the current activity to retrieve the address
-                ActivityData currentActivity = dbHelper.getActivity(activityId);
-                String address = "";
-
-                if (currentActivity != null) {
-                    // If the activity has an address, use it
-                    address = currentActivity.getAddress();
-                }
-
-                // If the address is empty, try to get it from the end location
-                if (address.isEmpty()) {
-                    address = endLocation.getSimpleAddress(this);
-                }
-
-                // Update the activity with all the information, including the address
-                dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
-
-                SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
-                boolean uploadToServer = prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false);
-                boolean uploadToStrava = prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false);
-
-                if (uploadToServer) {
-                    uploadToServer();
-                }
-
-                if (uploadToStrava) {
-                    strava();
-                }
-
-
-                // Clear flags and finish the activity
-                clearHideFlags();
-                finish();
-            });
-        } else {
-            Toast.makeText(this, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
+        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp, () -> {
             clearHideFlags();
             finish();
-        }
+        });
     }
+
 
     private void uploadToStrava() {
         Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();

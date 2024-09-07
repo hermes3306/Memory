@@ -9,6 +9,8 @@ public class Config {
     private static String version = "0.2122";
     private static String tmp_dir  = "MEMORY.tmp";
 
+    public static final String UPLOAD_URL = "http://58.233.69.198:8080/moment/upload.php";
+
     public static final String PREFS_NAME = "MyActivityPrefs";
     public static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
     public  static final String PREF_RUN_TYPE = "runType";
