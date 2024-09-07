@@ -637,4 +637,57 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return places;
     }
 
+    public List<Place> searchPlaces(String name, String address, String type, String memo) {
+        List<Place> searchResults = new ArrayList<>();
+        String query = "SELECT * FROM places WHERE " +
+                "name LIKE ? AND " +
+                "address LIKE ? AND " +
+                "type LIKE ? AND " +
+                "memo LIKE ?";
+
+        String[] selectionArgs = new String[]{
+                "%" + name + "%",
+                "%" + address + "%",
+                "%" + type + "%",
+                "%" + memo + "%"
+        };
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = null;
+
+        try {
+            cursor = db.rawQuery(query, selectionArgs);
+            Log.d("DatabaseHelper", "Search query: " + query);
+            Log.d("DatabaseHelper", "Search parameters: name=" + name + ", address=" + address + ", type=" + type + ", memo=" + memo);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    Place place = new Place(
+                            cursor.getLong(cursor.getColumnIndex("id")),
+                            cursor.getString(cursor.getColumnIndex("country")),
+                            cursor.getString(cursor.getColumnIndex("type")),
+                            cursor.getString(cursor.getColumnIndex("name")),
+                            cursor.getString(cursor.getColumnIndex("address")),
+                            cursor.getLong(cursor.getColumnIndex("first_visited")),
+                            cursor.getInt(cursor.getColumnIndex("number_of_visits")),
+                            cursor.getLong(cursor.getColumnIndex("last_visited")),
+                            cursor.getDouble(cursor.getColumnIndex("lat")),
+                            cursor.getDouble(cursor.getColumnIndex("lon")),
+                            cursor.getDouble(cursor.getColumnIndex("alt")),
+                            cursor.getString(cursor.getColumnIndex("memo"))
+                    );
+                    searchResults.add(place);
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error in searchPlaces: " + e.getMessage());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        Log.d("DatabaseHelper", "Search results count: " + searchResults.size());
+        return searchResults;
+    }
 }

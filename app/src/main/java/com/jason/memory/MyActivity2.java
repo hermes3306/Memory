@@ -34,6 +34,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
@@ -164,6 +165,7 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         applyKeepScreenOnSetting();
     }
 
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -173,6 +175,8 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
 
         // Enable compass
         mMap.getUiSettings().setCompassEnabled(true);
+
+        mMap.getUiSettings().setRotateGesturesEnabled(false);
 
         // Enable my location button
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
@@ -189,6 +193,9 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
 
         // Enable all gestures
         mMap.getUiSettings().setAllGesturesEnabled(true);
+
+        // Set padding to avoid marker cutoff
+        mMap.setPadding(0, 0, 0, 100);
 
         startUpdates();
     }
@@ -283,6 +290,61 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     }
 
     private void updateMapWithLocations(List<LocationData> allLocations) {
+        if (allLocations.size() < 2) return;
+
+        List<LatLng> newPoints = new ArrayList<>();
+        for (LocationData location : allLocations) {
+            newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
+        }
+
+        // Update start marker if needed
+        if (mStartMarker == null && !newPoints.isEmpty()) {
+            LatLng startPoint = newPoints.get(0);
+            mStartMarker = mMap.addMarker(new MarkerOptions()
+                    .position(startPoint)
+                    .title("Start")
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        }
+
+        // Update current marker and rotate map
+        LatLng previousPoint = newPoints.get(newPoints.size() - 2);
+        LatLng currentPoint = newPoints.get(newPoints.size() - 1);
+        float bearing = calculateBearing(previousPoint, currentPoint);
+
+        if (mCurrentMarker == null) {
+            mCurrentMarker = mMap.addMarker(new MarkerOptions()
+                    .position(currentPoint)
+                    .title("Current")
+                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_icon)) // Use an arrow icon
+                    .anchor(0.5f, 0.5f)); // Center the icon
+        } else {
+            mCurrentMarker.setPosition(currentPoint);
+        }
+
+        // Update polyline
+        if (mPathPolyline == null) {
+            mPathPolyline = mMap.addPolyline(new PolylineOptions()
+                    .addAll(newPoints)
+                    .color(0xFFFF0000)
+                    .width(3));
+        } else {
+            mPathPolyline.setPoints(newPoints);
+        }
+
+        // Rotate and move the camera
+        CameraPosition cameraPosition = new CameraPosition.Builder()
+                .target(currentPoint)
+                .zoom(18)  // Adjust zoom level as needed
+                .bearing(bearing)  // Rotate the map so that the bearing is pointing up
+                .tilt(30)  // Optional: adds a tilt to the camera
+                .build();
+
+        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
+
+        mLastPoints = newPoints;
+    }
+
+    private void updateMapWithLocations_orig(List<LocationData> allLocations) {
         List<LatLng> newPoints = new ArrayList<>();
         for (LocationData location : allLocations) {
             newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
@@ -298,15 +360,21 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         }
 
         // Update current marker
-        if (!newPoints.isEmpty()) {
+        if (newPoints.size() >= 2) {
+            LatLng previousPoint = newPoints.get(newPoints.size() - 2);
             LatLng currentPoint = newPoints.get(newPoints.size() - 1);
+            float bearing = calculateBearing(previousPoint, currentPoint);
+
             if (mCurrentMarker == null) {
                 mCurrentMarker = mMap.addMarker(new MarkerOptions()
                         .position(currentPoint)
                         .title("Current")
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.arrow_like_car)) // Use a car icon
+                        .anchor(0.5f, 0.5f) // Center the icon
+                        .rotation(bearing));
             } else {
                 mCurrentMarker.setPosition(currentPoint);
+                mCurrentMarker.setRotation(bearing);
             }
         }
 
@@ -336,6 +404,7 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
 
         mLastPoints = newPoints;
     }
+
 
     private void updateUI() {
         long currentTime = System.currentTimeMillis();
@@ -576,4 +645,19 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
             clearHideFlags();
         }
     }
+
+    private float calculateBearing(LatLng start, LatLng end) {
+        double startLat = Math.toRadians(start.latitude);
+        double startLng = Math.toRadians(start.longitude);
+        double endLat = Math.toRadians(end.latitude);
+        double endLng = Math.toRadians(end.longitude);
+
+        double dLng = endLng - startLng;
+
+        double y = Math.sin(dLng) * Math.cos(endLat);
+        double x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+        return (float) Math.toDegrees(Math.atan2(y, x));
+    }
+
 }
