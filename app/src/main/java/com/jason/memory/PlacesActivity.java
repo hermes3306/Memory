@@ -4,6 +4,7 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,7 +23,9 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import android.location.Address;
 import android.location.Geocoder;
@@ -55,9 +58,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         Button addButton = findViewById(R.id.addButton);
         addButton.setOnClickListener(v -> addNewPlace());
 
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
-        mapFragment.getMapAsync(this);
     }
 
     @Override
@@ -127,7 +127,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             }
         }
 
-        builder.setPositiveButton("Save", null); // We'll set the listener later
+        builder.setPositiveButton("Save", null);
 
         final AlertDialog dialog = builder.create();
         dialog.show();
@@ -162,15 +162,26 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 );
                 long id = dbHelper.addPlace(newPlace);
                 newPlace.setId(id);
-                places.add(newPlace);
+
+                // Update the places list
+                places.clear();
+                places.addAll(dbHelper.getAllPlaces());
+
+                // Notify the adapter of the data change
                 adapter.notifyDataSetChanged();
+
                 updateMap();
                 dialog.dismiss();
+
+                // Show a confirmation message
+                Toast.makeText(PlacesActivity.this, "New place added successfully", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(PlacesActivity.this, "Unable to get current location", Toast.LENGTH_SHORT).show();
             }
         });
     }
+
+
 
     private void showUpdateDialog(Place place) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -180,16 +191,64 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         View dialogView = inflater.inflate(R.layout.dialog_update_place, null);
         builder.setView(dialogView);
 
+        final Spinner nameSpinner = dialogView.findViewById(R.id.nameSpinner);
         final EditText nameInput = dialogView.findViewById(R.id.nameInput);
         final EditText addressInput = dialogView.findViewById(R.id.addressInput);
         final Spinner typeSpinner = dialogView.findViewById(R.id.typeSpinner);
         final EditText countryInput = dialogView.findViewById(R.id.countryInput);
         final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
 
+        addressInput.setText(place.getAddress());
+        countryInput.setText(place.getCountry());
+        visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
+
+        // Get more detailed address information
+        List<String> nameOptions = getAddressOptions(place.getLat(), place.getLon());
+        nameOptions.add("Custom"); // Add a "Custom" option at the end
+        ArrayAdapter<String> nameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, nameOptions);
+        nameAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        nameSpinner.setAdapter(nameAdapter);
+
+        // Set the current name in the spinner or input field
+        int namePosition = nameOptions.indexOf(place.getName());
+        if (namePosition != -1) {
+            nameSpinner.setSelection(namePosition);
+        } else {
+            nameSpinner.setSelection(nameOptions.size() - 1); // Select "Custom"
+            nameInput.setText(place.getName());
+        }
+
+        // Set up listener for nameSpinner
+        nameSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == nameOptions.size() - 1) { // "Custom" selected
+                    nameInput.setVisibility(View.VISIBLE);
+                } else {
+                    nameInput.setVisibility(View.GONE);
+                    nameInput.setText(""); // Clear the custom input
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+            }
+        });
+
+        // Check if visiteDateTextView exists in the layout
+        final TextView visiteDateTextView = dialogView.findViewById(R.id.vistedDateView);
+
         nameInput.setText(place.getName());
         addressInput.setText(place.getAddress());
         countryInput.setText(place.getCountry());
         visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
+
+        // Format and set the last visited date if the TextView exists
+        if (visiteDateTextView != null) {
+            String formattedDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                    .format(new Date(place.getLastVisited()));
+            visiteDateTextView.setText(formattedDate);
+        }
 
         // Set up the type spinner
         ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
@@ -210,9 +269,14 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Set the click listener for the positive button
+
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String newName = nameInput.getText().toString().trim();
+            String newName;
+            if (nameSpinner.getSelectedItemPosition() == nameOptions.size() - 1) {
+                newName = nameInput.getText().toString().trim();
+            } else {
+                newName = nameSpinner.getSelectedItem().toString();
+            }
             String newAddress = addressInput.getText().toString().trim();
             String newType = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
             String newCountry = countryInput.getText().toString().trim();

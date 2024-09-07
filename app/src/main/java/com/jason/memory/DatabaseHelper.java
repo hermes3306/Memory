@@ -611,7 +611,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public List<Place> getAllPlaces() {
         List<Place> places = new ArrayList<>();
-        String selectQuery = "SELECT * FROM places";
+        String selectQuery = "SELECT * FROM places ORDER BY last_visited DESC";
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery(selectQuery, null);
         if (cursor.moveToFirst()) {
