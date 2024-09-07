@@ -55,7 +55,6 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
     private boolean hideButtonClicked = false;
 
     private TextView tvTime, tvPace, tvCalories, tvDistance;
-    private Button btnMap;
     private TextView tvDateStr;
 
 
@@ -97,23 +96,10 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         tvPace = findViewById(R.id.tvPace);
         tvCalories = findViewById(R.id.tvCalories);
         tvDistance = findViewById(R.id.tvDistance);
-        btnMap = findViewById(R.id.btnMap);
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
 
         stravaUploader = new StravaUploader(this);
-
-        Button btnStopActivity = findViewById(R.id.btnStopActivity);
-        btnStopActivity.setOnClickListener(v -> stopActivity());
-
-        Button btnStrava = findViewById(R.id.btnStrava);
-        btnStrava.setOnClickListener(v-> strava());
-
-        btnMap.setOnClickListener(v -> {
-            Intent mapIntent = new Intent(MyActivity2.this, RunningMapActivity.class);
-            mapIntent.putExtra("startTimestamp", startTimestamp);
-            startActivity(mapIntent);
-        });
 
         TextView btnHide = findViewById(R.id.tvHide);
         btnHide.setOnClickListener(v -> hideActivity());
@@ -147,7 +133,6 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         tvTime = findViewById(R.id.tvTime);
         tvPace = findViewById(R.id.tvPace);
         tvDistance = findViewById(R.id.tvDistance);
-        btnMap = findViewById(R.id.btnMap);
         tvSetting = findViewById(R.id.tvSetting);
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
@@ -468,11 +453,15 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         builder.show();
     }
 
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == SETTINGS_REQUEST_CODE) {
-            updateLayoutBasedOnRunType();
+            recreate();
+        }
+        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
+            stravaUploader.handleAuthResult(resultCode, data);
         }
     }
 
@@ -492,71 +481,29 @@ public class MyActivity2 extends AppCompatActivity implements OnMapReadyCallback
         // Other necessary initializations...
     }
 
-    private void strava() {
-        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
-
-        // Generate GPX file from the current activity
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        File gpxFile = stravaUploader.generateGpxFile(locations);
-
-        if (gpxFile != null) {
-            Toast.makeText(this, "GPX file generated successfully", Toast.LENGTH_SHORT).show();
-
-            // Get activity details
-            ActivityData activity = dbHelper.getActivity(activityId);
-
-            if (activity != null) {
-                Toast.makeText(this, "Starting Strava authentication...", Toast.LENGTH_SHORT).show();
-
-                // Start the authentication and upload process
-                stravaUploader.authenticate(gpxFile, activity.getName(),
-                        "Activity recorded using MyActivity app", activity.getType());
-            } else {
-                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
-        }
-
-        Toast.makeText(this, "Finalizing activity...", Toast.LENGTH_SHORT).show();
-        //finalizeActivity();
-    }
-
 
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
 
-        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp, () -> {
-            clearHideFlags();
-            finish();
-        });
-    }
-
-
-    private void uploadToStrava() {
-        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
-
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        File gpxFile = stravaUploader.generateGpxFile(locations);
-
-        if (gpxFile != null) {
-            ActivityData activity = dbHelper.getActivity(activityId);
-
-            if (activity != null) {
-                stravaUploader.authenticate(gpxFile, activity.getName(),
-                        "Activity recorded using MyActivity app", activity.getType());
-            } else {
-                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void uploadToServer() {
-        Toast.makeText(this, "Uploading to server...", Toast.LENGTH_SHORT).show();
-        // Implement server upload logic here
+        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp,
+                () -> {
+                    // This is called when the activity is finalized, but before Strava upload completes
+                    clearHideFlags();
+                    // Don't finish the activity here
+                },
+                success -> {
+                    // This is called when the Strava upload is complete
+                    runOnUiThread(() -> {
+                        if (success) {
+                            Toast.makeText(this, "Activity uploaded to Strava successfully", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, "Failed to upload activity to Strava", Toast.LENGTH_SHORT).show();
+                        }
+                        finish(); // Now we can finish the activity
+                    });
+                }
+        );
     }
 
 

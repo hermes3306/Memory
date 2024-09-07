@@ -6,8 +6,10 @@ import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "0.2122";
-    private static String tmp_dir  = "MEMORY.tmp";
+    private static String version = "0.3";
+    private static String tmp_dir  = "MEMORY.temp";
+
+    public static final String APPNAME = appname + version;
 
     public static final String UPLOAD_URL = "http://58.233.69.198:8080/moment/upload.php";
 

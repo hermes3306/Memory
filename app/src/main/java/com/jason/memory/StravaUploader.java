@@ -1,6 +1,5 @@
 package com.jason.memory;
 
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -26,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import androidx.browser.customtabs.CustomTabsIntent;
-import android.net.Uri;
 
 public class StravaUploader {
     private static final String TAG = "StravaUploader";
@@ -51,18 +49,23 @@ public class StravaUploader {
 
     public static final int AUTH_REQUEST_CODE = 1001;
 
+    public interface StravaUploadCallback {
+        void onStravaUploadComplete(boolean success);
+    }
+
+    private StravaUploadCallback stravaUploadCallback;
+
+
     public StravaUploader(Context context) {
         this.context = context;
         this.executorService = Executors.newSingleThreadExecutor();
-        Log.d(TAG, "StravaUploader initialized");
+        Log.d(TAG, "--m-- StravaUploader initialized");
     }
 
-
-    boolean for_test = true;
-
     public File generateGpxFile(List<LocationData> locations) {
+        Log.d(TAG, "--m-- Generating GPX file");
         if (locations == null || locations.isEmpty()) {
-            Log.e(TAG, "No location data found for the activity");
+            Log.e(TAG, "--m-- No location data found for the activity");
             return null;
         }
 
@@ -92,73 +95,84 @@ public class StravaUploader {
             writer.write("  </trk>\n");
             writer.write("</gpx>");
 
-            Log.d(TAG, "GPX file generated successfully: " + gpxFile.getAbsolutePath());
+            Log.d(TAG, "--m-- GPX file generated successfully: " + gpxFile.getAbsolutePath());
             return gpxFile;
         } catch (IOException e) {
-            Log.e(TAG, "Error generating GPX file", e);
+            Log.e(TAG, "--m-- Error generating GPX file", e);
             return null;
         }
     }
 
-
-
-    public void authenticate(File gpxFile, String name, String description, String activityType) {
+    public void authenticate(File gpxFile, String name, String description, String activityType, StravaUploadCallback callback) {
+        Log.d(TAG, "--m-- Starting authentication process");
         this.gpxFile = gpxFile;
         this.activityName = name;
         this.activityDescription = description;
         this.activityType = activityType;
+        this.stravaUploadCallback = callback;
+
 
         String authUrl = AUTHORIZATION_ENDPOINT + "?client_id=" + CLIENT_ID +
                 "&response_type=code&redirect_uri=" + REDIRECT_URI +
                 "&scope=" + SCOPE;
+        Log.d(TAG, "--m-- Auth URL: " + authUrl);
 
         Intent intent = new Intent(context, StravaAuthActivity.class);
         intent.putExtra("AUTH_URL", authUrl);
         ((Activity) context).startActivityForResult(intent, AUTH_REQUEST_CODE);
+        Log.d(TAG, "--m-- Started StravaAuthActivity for result");
     }
 
     private void startLocalServer() {
+        Log.d(TAG, "--m-- Starting local server");
         executorService.submit(() -> {
             try {
                 serverSocket = new ServerSocket(8080);
                 isServerRunning = true;
-                Log.i(TAG, "Local server started on port 8080");
+                Log.i(TAG, "--m-- Local server started on port 8080");
 
                 while (isServerRunning) {
                     Socket clientSocket = serverSocket.accept();
+                    Log.d(TAG, "--m-- Client connected to local server");
                     handleClientRequest(clientSocket);
                 }
             } catch (IOException e) {
                 if(stopLocalServer_called) {
-                    Log.e(TAG, "Stop local serve called: " + e.getMessage());
-                    showToast("Stop local serve called: " + e.getMessage());
+                    Log.e(TAG, "--m-- Stop local server called: " + e.getMessage());
+                    showToast("Stop local server called: " + e.getMessage());
                     stopLocalServer_called = false;
-                }else {
-                    Log.e(TAG, "Error starting local server: " + e.getMessage());
+                } else {
+                    Log.e(TAG, "--m-- Error starting local server: " + e.getMessage());
                     showToast("Failed to start local server: " + e.getMessage());
                 }
             }
         });
     }
 
-
     public void handleAuthResult(int resultCode, Intent data) {
+        Log.d(TAG, "--m-- Handling auth result. Result code: " + resultCode);
+
+
+
+
         if (resultCode == Activity.RESULT_OK) {
             String authCode = data.getStringExtra("AUTH_CODE");
             if (authCode != null) {
-                Log.d(TAG, "Authorization code received: " + authCode);
+                Log.d(TAG, "--m-- Authorization code received: " + authCode);
                 showToast("Authorization code: " + authCode);
                 exchangeAuthorizationCode(authCode);
             }
         } else {
-            Log.e(TAG, "Authorization failed");
+            Log.e(TAG, "--m-- Authorization failed");
             showToast("Authorization failed");
+            if (stravaUploadCallback != null) {
+                stravaUploadCallback.onStravaUploadComplete(false);
+            }
         }
     }
 
-
-
     private void handleClientRequest(Socket clientSocket) {
+        Log.d(TAG, "--m-- Handling client request");
         try (
                 BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                 OutputStream out = clientSocket.getOutputStream()
@@ -168,54 +182,56 @@ public class StravaUploader {
                 String response = "HTTP/1.1 200 OK\r\n\r\nAuthorization successful! You can close this window.";
                 out.write(response.getBytes(StandardCharsets.UTF_8));
 
-                // Extract the authorization code from the request
                 int codeIndex = request.indexOf("code=");
                 if (codeIndex != -1) {
                     String code = request.substring(codeIndex + 5).split(" ")[0];
-                    Log.d(TAG, "Authorization code received: " + code);
+                    Log.d(TAG, "--m-- Authorization code received: " + code);
                     showToast("Authorization code: " + code);
                     exchangeAuthorizationCode(code);
                 }
             }
         } catch (IOException e) {
-            Log.e(TAG, "Error handling client request: " + e.getMessage());
+            Log.e(TAG, "--m-- Error handling client request: " + e.getMessage());
         } finally {
             try {
                 clientSocket.close();
             } catch (IOException e) {
-                Log.e(TAG, "Error closing client socket: " + e.getMessage());
+                Log.e(TAG, "--m-- Error closing client socket: " + e.getMessage());
             }
         }
     }
 
     boolean stopLocalServer_called = false;
     private void stopLocalServer() {
+        Log.d(TAG, "--m-- Stopping local server");
         isServerRunning = false;
         if (serverSocket != null && !serverSocket.isClosed()) {
             try {
                 stopLocalServer_called = true;
                 serverSocket.close();
+                Log.d(TAG, "--m-- Local server stopped");
             } catch (IOException e) {
-                Log.e(TAG, "Error closing server socket: " + e.getMessage());
+                Log.e(TAG, "--m-- Error closing server socket: " + e.getMessage());
             }
         }
     }
 
-
     public void handleAuthorizationResponse(Uri uri) {
+        Log.d(TAG, "--m-- Handling authorization response");
         if (uri != null && uri.toString().startsWith(REDIRECT_URI)) {
             String code = uri.getQueryParameter("code");
             if (code != null) {
-                Log.d(TAG, "Authorization code received, exchanging for token");
+                Log.d(TAG, "--m-- Authorization code received, exchanging for token");
                 exchangeAuthorizationCode(code);
             } else {
-                Log.e(TAG, "No authorization code found in the response");
+                Log.e(TAG, "--m-- No authorization code found in the response");
                 showToast("Authorization failed: No code received");
             }
         }
     }
 
     private void exchangeAuthorizationCode(String authCode) {
+        Log.d(TAG, "--m-- Exchanging authorization code for access token");
         new Thread(() -> {
             try {
                 URL url = new URL(TOKEN_ENDPOINT);
@@ -244,7 +260,7 @@ public class StravaUploader {
 
                         JSONObject jsonResponse = new JSONObject(response.toString());
                         String accessToken = jsonResponse.getString("access_token");
-                        Log.d(TAG, "Access token received, initiating activity upload");
+                        Log.d(TAG, "--m-- Access token received, initiating activity upload");
                         String truncatedToken = accessToken.substring(0, 5) + "..." +
                                 accessToken.substring(accessToken.length() - 5);
 
@@ -252,22 +268,26 @@ public class StravaUploader {
                         uploadActivity(gpxFile, activityName, activityDescription, activityType, accessToken);
                     }
                 } else {
-                    Log.e(TAG, "Failed to get access token: " + responseCode);
+                    Log.e(TAG, "--m-- Failed to get access token: " + responseCode);
                     showToast("Failed to get access token: " + responseCode);
                 }
                 stopLocalServer();
 
             } catch (IOException | JSONException e) {
-                Log.e(TAG, "Error during token exchange", e);
+                Log.e(TAG, "--m-- Error during token exchange", e);
                 showToast("Error during token exchange: " + e.getMessage());
+                if (stravaUploadCallback != null) {
+                    stravaUploadCallback.onStravaUploadComplete(false);
+                }
             }
+
         }).start();
     }
 
     private void uploadActivity(File gpxFile, String name, String description, String activityType, String accessToken) {
+        Log.d(TAG, "--m-- Starting activity upload");
         new Thread(() -> {
             try {
-                Log.d(TAG, "Starting activity upload");
                 String boundary = "*****" + System.currentTimeMillis() + "*****";
                 URL url = new URL(UPLOAD_URL);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -320,21 +340,23 @@ public class StravaUploader {
 
                     JSONObject jsonResponse = new JSONObject(response.toString());
                     String uploadId = jsonResponse.getString("id");
-                    Log.d(TAG, "Upload initiated. Upload ID: " + uploadId);
+                    Log.d(TAG, "--m-- Upload initiated. Upload ID: " + uploadId);
                     checkUploadStatus(accessToken, uploadId);
                 } else {
-                    Log.e(TAG, "Failed to upload activity: " + responseCode);
+                    Log.e(TAG, "--m-- Failed to upload activity: " + responseCode);
                     showToast("Failed to upload activity: " + responseCode);
                 }
             } catch (IOException | JSONException e) {
-                Log.e(TAG, "Error during activity upload", e);
-                showToast("Error uploading activity: " + e.getMessage());
+                Log.e(TAG, "--m-- Error during activity upload", e);
+                if (stravaUploadCallback != null) {
+                    stravaUploadCallback.onStravaUploadComplete(false);
+                }
             }
         }).start();
     }
 
     private void checkUploadStatus(String accessToken, String uploadId) throws IOException, JSONException {
-        Log.d(TAG, "Checking upload status for ID: " + uploadId);
+        Log.d(TAG, "--m-- Checking upload status for ID: " + uploadId);
         for (int i = 0; i < 60; i++) {
             URL url = new URL(UPLOAD_URL + "/" + uploadId);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -353,14 +375,15 @@ public class StravaUploader {
 
                 JSONObject jsonResponse = new JSONObject(response.toString());
                 String status = jsonResponse.getString("status");
+                Log.d(TAG, "--m-- Upload status: " + status);
                 if ("Your activity is ready.".equals(status)) {
                     String activityId = jsonResponse.getString("activity_id");
-                    Log.d(TAG, "Upload successful! Activity ID: " + activityId);
+                    Log.d(TAG, "--m-- Upload successful! Activity ID: " + activityId);
                     showToast("Upload successful! Activity ID: " + activityId);
                     getActivityDetails(accessToken, activityId);
                     return;
                 } else if (jsonResponse.has("error") && !jsonResponse.isNull("error")) {
-                    Log.e(TAG, "Upload failed: " + jsonResponse.getString("error"));
+                    Log.e(TAG, "--m-- Upload failed: " + jsonResponse.getString("error"));
                     showToast("Upload failed: " + jsonResponse.getString("error"));
                     return;
                 }
@@ -369,16 +392,20 @@ public class StravaUploader {
             try {
                 TimeUnit.SECONDS.sleep(5);
             } catch (InterruptedException e) {
-                Log.e(TAG, "Sleep interrupted", e);
+                Log.e(TAG, "--m-- Sleep interrupted", e);
             }
         }
 
-        Log.e(TAG, "Upload processing timed out");
+        Log.e(TAG, "--m-- Upload processing timed out");
         showToast("Upload processing timed out");
+        if (stravaUploadCallback != null) {
+            stravaUploadCallback.onStravaUploadComplete(false);
+        }
+
     }
 
     private void getActivityDetails(String accessToken, String activityId) throws IOException, JSONException {
-        Log.d(TAG, "Retrieving activity details for ID: " + activityId);
+        Log.d(TAG, "--m-- Retrieving activity details for ID: " + activityId);
         URL url = new URL(ACTIVITIES_URL + "/" + activityId);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
@@ -397,12 +424,13 @@ public class StravaUploader {
             JSONObject activityDetails = new JSONObject(response.toString());
             displayActivityDetails(activityDetails);
         } else {
-            Log.e(TAG, "Failed to retrieve activity details: " + responseCode);
+            Log.e(TAG, "--m-- Failed to retrieve activity details: " + responseCode);
             showToast("Failed to retrieve activity details: " + responseCode);
         }
     }
 
     private void displayActivityDetails(JSONObject activityDetails) throws JSONException {
+        Log.d(TAG, "--m-- Displaying activity details");
         String name = activityDetails.getString("name");
         String type = activityDetails.getString("type");
         double distance = activityDetails.getDouble("distance") / 1000; // Convert to km
@@ -425,12 +453,18 @@ public class StravaUploader {
                 name, type, distance, movingTime, elapsedTime, elevationGain, startDate, activityUrl
         );
 
-        Log.d(TAG, "Activity Details:\n" + details);
+        Log.d(TAG, "--m-- Activity Details:\n" + details);
+
+        if (stravaUploadCallback != null) {
+            stravaUploadCallback.onStravaUploadComplete(true);
+        }
+
         showToast("Activity uploaded successfully!");
         // You might want to show this information in a dialog or a new activity
     }
 
     private void showToast(final String message) {
+        Log.d(TAG, "--m-- Showing toast: " + message);
         ((Activity) context).runOnUiThread(() ->
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         );

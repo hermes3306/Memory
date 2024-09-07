@@ -165,7 +165,12 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         tvCloud.setOnClickListener(v -> saveAndUploadActivity());
         tvCloudInfo.setOnClickListener(v -> saveAndUploadActivity());
 
-        View.OnClickListener saveToDbListener = v -> saveToDatabase();
+        View.OnClickListener saveToDbListener = v -> {
+            boolean saved = saveToDatabase();
+            if (saved) {
+                closeActivityWithUpdate(activity);
+            }
+        };
         tvSaveDatabase.setOnClickListener(saveToDbListener);
         tvSaveDatabaseInfo.setOnClickListener(saveToDbListener);
 
@@ -181,7 +186,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         }
     }
 
-    private void saveToDatabase() {
+    private boolean saveToDatabase() {
         if (activity != null) {
             if (locations != null && !locations.isEmpty()) {
                 long activityId = dbHelper.insertOrUpdateActivityWithLocations(activity, locations);
@@ -192,6 +197,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
                     if (activity.getId() <= 0) {
                         activity.setId(activityId);
                     }
+                    return true;
                 } else {
                     Toast.makeText(this, "Failed to save activity and locations", Toast.LENGTH_SHORT).show();
                 }
@@ -201,6 +207,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         } else {
             Toast.makeText(this, "No activity data to save", Toast.LENGTH_SHORT).show();
         }
+        return false;
     }
 
     private void goBack() {
@@ -341,9 +348,29 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
 
         if (gpxFile != null) {
             stravaUploader.authenticate(gpxFile, activity.getName(),
-                    "Activity recorded using MyActivity app", activity.getType());
+                    "Activity recorded using MyActivity app", activity.getType(),
+                    new StravaUploader.StravaUploadCallback() {
+                        @Override
+                        public void onStravaUploadComplete(boolean success) {
+                            runOnUiThread(() -> {
+                                if (success) {
+                                    Toast.makeText(ActivityCloudDetailActivity.this, "Activity uploaded to Strava successfully", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(ActivityCloudDetailActivity.this, "Failed to upload activity to Strava", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    });
         } else {
             Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
+            stravaUploader.handleAuthResult(resultCode, data);
         }
     }
 

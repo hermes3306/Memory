@@ -143,6 +143,9 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         if (requestCode == SETTINGS_REQUEST_CODE) {
             recreate();
         }
+        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
+            stravaUploader.handleAuthResult(resultCode, data);
+        }
     }
 
 
@@ -267,49 +270,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         handler.postDelayed(mapUpdateRunnable, MAP_UPDATE_INTERVAL);
     }
 
-    private void updateMap_orig() {
-        if (mMap == null || dbHelper == null) return;
-
-        List<LocationData> allLocations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        if (allLocations == null || allLocations.isEmpty()) return;
-
-        mMap.clear();  // Clear the map before redrawing
-
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-        List<LatLng> points = new ArrayList<>();
-
-        // Add start marker
-        LocationData startLocation = allLocations.get(0);
-        LatLng startPoint = new LatLng(startLocation.getLatitude(), startLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(startPoint)
-                .title("Start")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-
-        // Add end marker (current location)
-        LocationData endLocation = allLocations.get(allLocations.size() - 1);
-        LatLng endPoint = new LatLng(endLocation.getLatitude(), endLocation.getLongitude());
-        mMap.addMarker(new MarkerOptions()
-                .position(endPoint)
-                .title("Current")
-                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-
-        for (LocationData location : allLocations) {
-            LatLng point = new LatLng(location.getLatitude(), location.getLongitude());
-            points.add(point);
-            boundsBuilder.include(point);
-        }
-
-        // Draw the polyline
-        mMap.addPolyline(new PolylineOptions()
-                .addAll(points)
-                .color(0xFFFF0000)
-                .width(3));
-
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
-    }
-
     private void updateMap() {
         if (mMap == null) return;
 
@@ -418,10 +378,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         return String.format(Locale.getDefault(), "%02d:%02d", paceMinutes, paceSecondsRemainder);
     }
 
-    private void stopActivity() {
-        showStopActivityDialog();
-    }
-
     private void showStopActivityDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Stop Activity");
@@ -448,73 +404,30 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         builder.show();
     }
 
-
-    private void strava() {
-        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
-
-        // Generate GPX file from the current activity
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        File gpxFile = stravaUploader.generateGpxFile(locations);
-
-        if (gpxFile != null) {
-            Toast.makeText(this, "GPX file generated successfully", Toast.LENGTH_SHORT).show();
-
-            // Get activity details
-            ActivityData activity = dbHelper.getActivity(activityId);
-
-            if (activity != null) {
-                Toast.makeText(this, "Starting Strava authentication...", Toast.LENGTH_SHORT).show();
-
-                // Start the authentication and upload process
-                stravaUploader.authenticate(gpxFile, activity.getName(),
-                        "Activity recorded using MyActivity app", activity.getType());
-            } else {
-                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
-        }
-
-        Toast.makeText(this, "Finalizing activity...", Toast.LENGTH_SHORT).show();
-        //finalizeActivity();
-    }
-
-
     private void finalizeActivity() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
 
-        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp, () -> {
-            clearHideFlags();
-            finish();
-        });
+        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp,
+                () -> {
+                    // This is called when the activity is finalized, but before Strava upload completes
+                    clearHideFlags();
+                    // Don't finish the activity here
+                },
+                success -> {
+                    // This is called when the Strava upload is complete
+                    runOnUiThread(() -> {
+                        if (success) {
+                            Toast.makeText(this, "Activity uploaded to Strava successfully", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, "Failed to upload activity to Strava", Toast.LENGTH_SHORT).show();
+                        }
+                        finish(); // Now we can finish the activity
+                    });
+                }
+        );
     }
 
-
-    private void uploadToServer() {
-        Toast.makeText(this, "Uploading to server...", Toast.LENGTH_SHORT).show();
-        // Implement server upload logic here
-    }
-
-    private void uploadToStrava() {
-        Toast.makeText(this, "Preparing to upload to Strava...", Toast.LENGTH_SHORT).show();
-
-        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, System.currentTimeMillis());
-        File gpxFile = stravaUploader.generateGpxFile(locations);
-
-        if (gpxFile != null) {
-            ActivityData activity = dbHelper.getActivity(activityId);
-
-            if (activity != null) {
-                stravaUploader.authenticate(gpxFile, activity.getName(),
-                        "Activity recorded using MyActivity app", activity.getType());
-            } else {
-                Toast.makeText(this, "Unable to upload: Activity data not found", Toast.LENGTH_LONG).show();
-            }
-        } else {
-            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_LONG).show();
-        }
-    }
 
     private void discardActivity() {
         handler.removeCallbacks(updateRunnable);

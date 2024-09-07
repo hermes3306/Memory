@@ -202,12 +202,11 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private void saveAndUploadActivity() {
-        File savedFile = Utility.saveActivityToFile(this, activity, dbHelper);
+        File savedFile = saveActivityToFile();
         if (savedFile != null) {
-            Utility.uploadFile(this, savedFile);
+            uploadFile(savedFile);
         }
     }
-
 
     private File saveActivityToFile() {
         if (activity == null) {
@@ -365,8 +364,30 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private void uploadToStrava() {
-        Utility.uploadToStrava(this, dbHelper, stravaUploader, activity);
+        List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
+        File gpxFile = stravaUploader.generateGpxFile(locations);
+
+        if (gpxFile != null) {
+            stravaUploader.authenticate(gpxFile, activity.getName(),
+                    "Activity recorded using MyActivity app", activity.getType(),
+                    new StravaUploader.StravaUploadCallback() {
+                        @Override
+                        public void onStravaUploadComplete(boolean success) {
+                            runOnUiThread(() -> {
+                                if (success) {
+                                    Toast.makeText(ActivityDetailActivity.this, "Activity uploaded to Strava successfully", Toast.LENGTH_SHORT).show();
+                                } else {
+                                    Toast.makeText(ActivityDetailActivity.this, "Failed to upload activity to Strava", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    });
+        } else {
+            Toast.makeText(this, "Unable to upload: GPX file generation failed", Toast.LENGTH_SHORT).show();
+        }
     }
+
+
 
     private void displayActivityDetails() {
         tvName.setText(activity.getName());
@@ -398,7 +419,7 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
             locations = loadLocationsFromFile(new File(directory, activity.getFilename()));
         }
 
-        if (locations.size() < 2) {
+        if (locations == null || locations.size() < 2) {
             Toast.makeText(this, "Not enough location data to draw track", Toast.LENGTH_SHORT).show();
             return;
         }

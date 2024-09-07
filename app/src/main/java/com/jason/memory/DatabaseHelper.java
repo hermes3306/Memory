@@ -259,27 +259,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return activities;
     }
 
-    private String getSimpleAddress(double latitude, double longitude) {
-        Geocoder geocoder = new Geocoder(context, Locale.getDefault());
-        try {
-            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
-            if (!addresses.isEmpty()) {
-                Address address = addresses.get(0);
-                String thoroughfare = address.getThoroughfare(); // Street name
-                String subLocality = address.getSubLocality(); // Neighborhood
-                if (subLocality != null && thoroughfare != null) {
-                    return subLocality + " " + thoroughfare;
-                } else if (subLocality != null) {
-                    return subLocality;
-                } else if (thoroughfare != null) {
-                    return thoroughfare;
-                }
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return "Unknown location";
-    }
 
     public ActivityData getActivity(long id) {
         SQLiteDatabase db = this.getReadableDatabase();
