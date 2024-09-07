@@ -11,6 +11,7 @@ public class Config {
 
     public static final String APPNAME = appname + version;
 
+    public static final String BASE_URL = "http://58.233.69.198:8080/moment/";
     public static final String UPLOAD_URL = "http://58.233.69.198:8080/moment/upload.php";
 
     public static final String PREFS_NAME = "MyActivityPrefs";

@@ -115,16 +115,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Start MyActivity2 버튼에 대한 리스너 추가
-        Button btnStartMyActivity2 = findViewById(R.id.btnStartMyActivity2);
-        btnStartMyActivity2.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivityWithTracking(MyActivity2.class);
-            }
-        });
-
-
         Button btnListActivity = findViewById(R.id.btnListActivity);
         btnListActivity.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, ListActivityActivity.class);

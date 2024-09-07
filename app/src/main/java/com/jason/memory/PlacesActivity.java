@@ -1,6 +1,8 @@
 package com.jason.memory;
 
 import android.app.AlertDialog;
+import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,6 +10,7 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,7 +25,10 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.gson.Gson;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -39,6 +45,9 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private List<Place> places;
     private DatabaseHelper dbHelper;
     private GoogleMap mMap;
+    private ImageButton syncButton;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,38 +60,164 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         RecyclerView recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        places = dbHelper.getAllPlaces();
-        adapter = new PlacesAdapter(places, this::onPlaceClick);
+        adapter = new PlacesAdapter(this::onPlaceClick, dbHelper);
         recyclerView.setAdapter(adapter);
 
-        Button addButton = findViewById(R.id.addButton);
+        // Initialize the places list
+        places = dbHelper.getAllPlaces();
+        adapter.submitList(places);
+
+        syncButton = findViewById(R.id.syncButton);
+        syncButton.setOnClickListener(v -> syncWithServer());
+
+        ImageButton addButton = findViewById(R.id.addButton);
         addButton.setOnClickListener(v -> addNewPlace());
+
+        ImageButton searchButton = findViewById(R.id.searchButton);
+        searchButton.setOnClickListener(v -> searchPlace());
+
+        ImageButton saveButton = findViewById(R.id.saveButton);
+        saveButton.setOnClickListener(v -> savePlace());
 
     }
 
+    private void onPlaceClick(Place place) {
+        showUpdateDialog(place);
+    }
+
+    private void syncWithServer() {
+        new AlertDialog.Builder(this)
+                .setTitle("Sync with Server")
+                .setMessage("Do you want to download and merge the latest data from the server?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    Utility.downloadAndMergeServerData(this, dbHelper, this::onSyncComplete);
+                })
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void onSyncComplete(boolean success) {
+        runOnUiThread(() -> {
+            if (success) {
+                Toast.makeText(this, "Sync completed successfully", Toast.LENGTH_SHORT).show();
+                // Refresh the list of places
+                List<Place> updatedPlaces = dbHelper.getAllPlaces();
+                adapter.submitList(updatedPlaces);
+                updateMap();
+            } else {
+                Toast.makeText(this, "Sync failed", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void savePlace() {
+        try {
+            // 1. Save JSON format for all places
+            List<Place> allPlaces = dbHelper.getAllPlaces();
+            Gson gson = new Gson();
+            String jsonPlaces = gson.toJson(allPlaces);
+
+            // Create file in the download directory
+            File directory = new File(Config.getDownloadDir(),"json");
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+            String fileName = "places_" + System.currentTimeMillis() + ".json";
+            File file = new File(directory, fileName);
+
+            // Write JSON to file
+            FileWriter writer = new FileWriter(file);
+            writer.write(jsonPlaces);
+            writer.close();
+
+            // 2. Upload file to server
+            Utility.uploadFile(this, file);
+
+            // 3. Show toast for save result
+            Toast.makeText(this, "Places saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Error saving places: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void searchPlace() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Search Places");
+
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_search_place, null);
+        builder.setView(dialogView);
+
+        final EditText nameInput = dialogView.findViewById(R.id.searchNameInput);
+        final EditText addressInput = dialogView.findViewById(R.id.searchAddressInput);
+        final Spinner typeSpinner = dialogView.findViewById(R.id.searchTypeSpinner);
+        final EditText memoInput = dialogView.findViewById(R.id.searchMemoInput);
+
+        // Set up the type spinner
+        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(this,
+                R.array.place_types, android.R.layout.simple_spinner_item);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(spinnerAdapter);
+        typeSpinner.setSelection(0); // Set default selection to first item (which could be "All" or "")
+
+        builder.setPositiveButton("Search", null);
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String name = nameInput.getText().toString().trim();
+            String address = addressInput.getText().toString().trim();
+            String type = typeSpinner.getSelectedItemPosition() == 0 ? "" : typeSpinner.getSelectedItem().toString();
+            String memo = memoInput.getText().toString().trim();
+
+            try {
+                // Perform the search
+                List<Place> searchResults = dbHelper.searchPlaces(name, address, type, memo);
+
+                // Update the RecyclerView with search results
+                adapter.submitList(searchResults);
+
+                // Update the map
+                updateMap();
+
+                dialog.dismiss();
+
+                // Show a toast with the number of results
+                Toast.makeText(PlacesActivity.this,
+                        searchResults.size() + " places found",
+                        Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(PlacesActivity.this,
+                        "Error updating places: " + e.getMessage(),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         updateMap();
     }
 
+
     private void updateMap() {
         if (mMap == null) return;
         mMap.clear();
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
-        for (Place place : places) {
+        List<Place> currentList = adapter.getCurrentList();
+        for (Place place : currentList) {
             LatLng latLng = new LatLng(place.getLat(), place.getLon());
             mMap.addMarker(new MarkerOptions().position(latLng).title(place.getName()));
             builder.include(latLng);
         }
-        if (!places.isEmpty()) {
+        if (!currentList.isEmpty()) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 100));
         }
     }
 
-    private void onPlaceClick(Place place) {
-        showUpdateDialog(place);
-    }
 
     private void addNewPlace() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -98,10 +233,10 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final EditText countryInput = dialogView.findViewById(R.id.countryInput);
 
         // Set up the spinner with place types
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(this,
                 R.array.place_types, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        typeSpinner.setAdapter(adapter);
+        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(spinnerAdapter);
 
         // Get the last known location from DatabaseHelper
         LatLng lastLocation = dbHelper.getLastKnownLocation();
@@ -132,7 +267,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Set the click listener for the positive button
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String name = nameInput.getText().toString().trim();
             String address = addressInput.getText().toString().trim();
@@ -163,12 +297,9 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 long id = dbHelper.addPlace(newPlace);
                 newPlace.setId(id);
 
-                // Update the places list
-                places.clear();
-                places.addAll(dbHelper.getAllPlaces());
-
-                // Notify the adapter of the data change
-                adapter.notifyDataSetChanged();
+                // Update the adapter with the new list
+                List<Place> updatedPlaces = dbHelper.getAllPlaces();
+                this.adapter.submitList(updatedPlaces);  // Use 'this.adapter' to refer to the class member
 
                 updateMap();
                 dialog.dismiss();
@@ -180,8 +311,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             }
         });
     }
-
-
 
     private void showUpdateDialog(Place place) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -309,21 +438,36 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             }
         });
 
-        // Set the click listener for the negative button
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
             new AlertDialog.Builder(PlacesActivity.this)
                     .setTitle("Delete Place")
                     .setMessage("Are you sure you want to delete this place?")
                     .setPositiveButton("Yes", (dialogInterface, i) -> {
                         dbHelper.deletePlace(place.getId());
-                        places.remove(place);
-                        adapter.notifyDataSetChanged();
+                        List<Place> currentList = new ArrayList<>(adapter.getCurrentList());
+                        currentList.remove(place);
+                        adapter.submitList(currentList);
                         updateMap();
                         dialog.dismiss();
                     })
                     .setNegativeButton("No", null)
                     .show();
         });
+    }
+
+    private void deletePlace(Place place) {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Place")
+                .setMessage("Are you sure you want to delete this place?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    dbHelper.deletePlace(place.getId());
+                    List<Place> currentList = new ArrayList<>(adapter.getCurrentList());
+                    currentList.remove(place);
+                    adapter.submitList(currentList);
+                    updateMap();
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void showUpdateDialog_orig(Place place) {
@@ -474,17 +618,4 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     }
 
 
-    private void deletePlace(Place place) {
-        new AlertDialog.Builder(this)
-                .setTitle("Delete Place")
-                .setMessage("Are you sure you want to delete this place?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    dbHelper.deletePlace(place.getId());
-                    places.remove(place);
-                    adapter.notifyDataSetChanged();
-                    updateMap();
-                })
-                .setNegativeButton("No", null)
-                .show();
-    }
 }

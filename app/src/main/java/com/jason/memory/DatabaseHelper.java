@@ -31,7 +31,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -51,6 +51,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_DISTANCE = "distance";
     private static final String COLUMN_ELAPSED_TIME = "elapsed_time";
     private static final String COLUMN_ADDRESS = "address"; // New column for address
+
+    // Add these constants
+    private static final String TABLE_PLACES = "places";
+    private static final String COLUMN_COUNTRY = "country";
+    private static final String COLUMN_TYPE = "type";
+    private static final String COLUMN_NAME = "name";
+    private static final String COLUMN_FIRST_VISITED = "first_visited";
+    private static final String COLUMN_NUMBER_OF_VISITS = "number_of_visits";
+    private static final String COLUMN_LAST_VISITED = "last_visited";
+    private static final String COLUMN_LAT = "lat";
+    private static final String COLUMN_LON = "lon";
+    private static final String COLUMN_MEMO = "memo";
+
+
     private Context context;
     private static final String TAG = "DatabaseHelper";
 
@@ -111,6 +125,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.execSQL(CREATE_ACTIVITIES_TABLE);
         }
         cursor.close();
+
+
+
+        String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
+                + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_MEMORY_TITLE + " TEXT,"
+                + COLUMN_MEMORY_DATE + " TEXT,"
+                + COLUMN_MEMORY_TEXT + " TEXT"
+                + ")";
+        db.execSQL(CREATE_MEMORIES_TABLE);
+
+
     }
 
 
@@ -127,6 +153,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         // Create tables again
         onCreate(db);
+
+        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_MEMORIES});
+        if (cursor.getCount() == 0) {
+            String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
+                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_MEMORY_TITLE + " TEXT,"
+                    + COLUMN_MEMORY_DATE + " TEXT,"
+                    + COLUMN_MEMORY_TEXT + " TEXT"
+                    + ")";
+            db.execSQL(CREATE_MEMORIES_TABLE);
+        }
+        cursor.close();
+
     }
 
     public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
@@ -636,5 +675,180 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         cursor.close();
         return places;
     }
+
+    public List<Place> searchPlaces(String name, String address, String type, String memo) {
+        List<Place> searchResults = new ArrayList<>();
+        String query = "SELECT * FROM places WHERE " +
+                "name LIKE ? AND " +
+                "address LIKE ? AND " +
+                "type LIKE ? AND " +
+                "memo LIKE ?";
+
+        String[] selectionArgs = new String[]{
+                "%" + name + "%",
+                "%" + address + "%",
+                "%" + type + "%",
+                "%" + memo + "%"
+        };
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = null;
+
+        try {
+            cursor = db.rawQuery(query, selectionArgs);
+            Log.d("DatabaseHelper", "Search query: " + query);
+            Log.d("DatabaseHelper", "Search parameters: name=" + name + ", address=" + address + ", type=" + type + ", memo=" + memo);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    Place place = new Place(
+                            cursor.getLong(cursor.getColumnIndex("id")),
+                            cursor.getString(cursor.getColumnIndex("country")),
+                            cursor.getString(cursor.getColumnIndex("type")),
+                            cursor.getString(cursor.getColumnIndex("name")),
+                            cursor.getString(cursor.getColumnIndex("address")),
+                            cursor.getLong(cursor.getColumnIndex("first_visited")),
+                            cursor.getInt(cursor.getColumnIndex("number_of_visits")),
+                            cursor.getLong(cursor.getColumnIndex("last_visited")),
+                            cursor.getDouble(cursor.getColumnIndex("lat")),
+                            cursor.getDouble(cursor.getColumnIndex("lon")),
+                            cursor.getDouble(cursor.getColumnIndex("alt")),
+                            cursor.getString(cursor.getColumnIndex("memo"))
+                    );
+                    searchResults.add(place);
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error in searchPlaces: " + e.getMessage());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        Log.d("DatabaseHelper", "Search results count: " + searchResults.size());
+        return searchResults;
+    }
+
+    public Place getPlaceByName(String name) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = null;
+        Place place = null;
+
+        try {
+            cursor = db.query(TABLE_PLACES, null, COLUMN_NAME + "=?", new String[]{name}, null, null, null);
+
+            if (cursor != null && cursor.moveToFirst()) {
+                place = new Place(
+                        getColumnLongValue(cursor, COLUMN_ID),
+                        getColumnStringValue(cursor, COLUMN_COUNTRY),
+                        getColumnStringValue(cursor, COLUMN_TYPE),
+                        getColumnStringValue(cursor, COLUMN_NAME),
+                        getColumnStringValue(cursor, COLUMN_ADDRESS),
+                        getColumnLongValue(cursor, COLUMN_FIRST_VISITED),
+                        getColumnIntValue(cursor, COLUMN_NUMBER_OF_VISITS),
+                        getColumnLongValue(cursor, COLUMN_LAST_VISITED),
+                        getColumnDoubleValue(cursor, COLUMN_LAT),
+                        getColumnDoubleValue(cursor, COLUMN_LON),
+                        getColumnDoubleValue(cursor, COLUMN_ALTITUDE),
+                        getColumnStringValue(cursor, COLUMN_MEMO)
+                );
+            }
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error in getPlaceByName: " + e.getMessage());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+        }
+
+        return place;
+    }
+
+    // Helper methods to safely get values from cursor
+    private long getColumnLongValue(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return (columnIndex != -1) ? cursor.getLong(columnIndex) : 0;
+    }
+
+    private int getColumnIntValue(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return (columnIndex != -1) ? cursor.getInt(columnIndex) : 0;
+    }
+
+    private double getColumnDoubleValue(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return (columnIndex != -1) ? cursor.getDouble(columnIndex) : 0.0;
+    }
+
+    private String getColumnStringValue(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return (columnIndex != -1) ? cursor.getString(columnIndex) : "";
+    }
+
+
+    private static final String TABLE_MEMORIES = "memories";
+    private static final String COLUMN_MEMORY_ID = "id";
+    private static final String COLUMN_MEMORY_TITLE = "title";
+    private static final String COLUMN_MEMORY_DATE = "date";
+    private static final String COLUMN_MEMORY_TEXT = "memory_text";
+
+    public long addMemory(MemoryItem memory) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
+        values.put(COLUMN_MEMORY_DATE, memory.getDate());
+        values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
+        return db.insert(TABLE_MEMORIES, null, values);
+    }
+
+    public int updateMemory(MemoryItem memory) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
+        values.put(COLUMN_MEMORY_DATE, memory.getDate());
+        values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
+        return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+                new String[]{String.valueOf(memory.getId())});
+    }
+
+    public List<MemoryItem> getAllMemories() {
+        List<MemoryItem> memories = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_MEMORIES + " ORDER BY " + COLUMN_MEMORY_DATE + " DESC";
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+        if (cursor.moveToFirst()) {
+            do {
+                MemoryItem memory = new MemoryItem(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
+                );
+                memories.add(memory);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return memories;
+    }
+
+    public MemoryItem getMemory(long id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_ID + "=?",
+                new String[]{String.valueOf(id)}, null, null, null);
+
+        MemoryItem memory = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            memory = new MemoryItem(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
+            );
+            cursor.close();
+        }
+        return memory;
+    }
+
 
 }

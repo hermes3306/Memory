@@ -12,12 +12,18 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.List;
 
 public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryViewHolder> {
-
     private List<MemoryItem> memoryItems;
+    private OnMemoryClickListener listener;
     private Context context;
 
-    public MemoryAdapter(List<MemoryItem> memoryItems, Context context) {
+    public interface OnMemoryClickListener {
+        void onMemoryClick(long memoryId);
+        void onMemoryLongClick(String content);
+    }
+
+    public MemoryAdapter(List<MemoryItem> memoryItems, OnMemoryClickListener listener, Context context) {
         this.memoryItems = memoryItems;
+        this.listener = listener;
         this.context = context;
     }
 
@@ -31,12 +37,15 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
     @Override
     public void onBindViewHolder(@NonNull MemoryViewHolder holder, int position) {
         MemoryItem item = memoryItems.get(position);
-        holder.titleEditText.setText(item.getTitle());
-        holder.dateValueTextView.setText(item.getDate());
-        holder.memoryEditText.setText(item.getMemoryText());
+        holder.titleTextView.setText(item.getTitle());
+        holder.dateTextView.setText(item.getDate());
+        holder.memoryTextView.setText(item.getMemoryText());
 
-        // TODO: Implement picture loading into the RecyclerView
-        // TODO: Implement audio recording and playback functionality
+        holder.itemView.setOnClickListener(v -> listener.onMemoryClick(item.getId()));
+        holder.itemView.setOnLongClickListener(v -> {
+            listener.onMemoryLongClick(item.getMemoryText());
+            return true;
+        });
     }
 
     @Override
@@ -45,25 +54,15 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
     }
 
     static class MemoryViewHolder extends RecyclerView.ViewHolder {
-        EditText titleEditText;
-        TextView dateValueTextView;
-        EditText memoryEditText;
-        RecyclerView picturesRecyclerView;
-        Button addPictureButton;
-        Button recordAudioButton;
-        Button playAudioButton;
+        TextView titleTextView;
+        TextView dateTextView;
+        TextView memoryTextView;
 
         MemoryViewHolder(View itemView) {
             super(itemView);
-            titleEditText = itemView.findViewById(R.id.titleEditText);
-            dateValueTextView = itemView.findViewById(R.id.dateValueTextView);
-            memoryEditText = itemView.findViewById(R.id.memoryEditText);
-            picturesRecyclerView = itemView.findViewById(R.id.picturesRecyclerView);
-            addPictureButton = itemView.findViewById(R.id.addPictureButton);
-            recordAudioButton = itemView.findViewById(R.id.recordAudioButton);
-            playAudioButton = itemView.findViewById(R.id.playAudioButton);
-
-            // TODO: Implement click listeners for buttons
+            titleTextView = itemView.findViewById(R.id.titleTextView);
+            dateTextView = itemView.findViewById(R.id.dateTextView);
+            memoryTextView = itemView.findViewById(R.id.memoryTextView);
         }
     }
 }

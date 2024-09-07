@@ -153,8 +153,6 @@ public class StravaUploader {
         Log.d(TAG, "--m-- Handling auth result. Result code: " + resultCode);
 
 
-
-
         if (resultCode == Activity.RESULT_OK) {
             String authCode = data.getStringExtra("AUTH_CODE");
             if (authCode != null) {

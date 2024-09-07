@@ -89,14 +89,16 @@
                     android:id="@+id/tvTime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="17sp"
+                    android:textSize="30sp"
+                    android:textColor="@color/DimGray"
                     android:textStyle="bold"/>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="TIME"
-                    android:textSize="12sp"/>
+                    android:textColor="@color/Gray"
+                    android:textSize="20dp"/>
             </LinearLayout>
 
         </LinearLayout>

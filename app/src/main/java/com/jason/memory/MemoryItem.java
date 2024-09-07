@@ -4,19 +4,29 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MemoryItem {
+    private long id;
     private String title;
     private String date;
     private String memoryText;
-    private List<String> pictureUrls;
-    private String audioUrl;
 
-    public MemoryItem(String title, String date, String memoryText) {
+    public MemoryItem(long id, String title, String date, String memoryText) {
+        this.id = id;
         this.title = title;
         this.date = date;
         this.memoryText = memoryText;
-        this.pictureUrls = new ArrayList<>();
     }
 
+    public MemoryItem(String title, String date, String memoryText) {
+        this(-1, title, date, memoryText);
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
+    }
     // Getters and setters
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -27,9 +37,4 @@ public class MemoryItem {
     public String getMemoryText() { return memoryText; }
     public void setMemoryText(String memoryText) { this.memoryText = memoryText; }
 
-    public List<String> getPictureUrls() { return pictureUrls; }
-    public void addPictureUrl(String url) { this.pictureUrls.add(url); }
-
-    public String getAudioUrl() { return audioUrl; }
-    public void setAudioUrl(String audioUrl) { this.audioUrl = audioUrl; }
 }

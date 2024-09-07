@@ -113,15 +113,15 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Run1"
+            android:text="Run"
             android:layout_marginEnd="4dp"/>
 
         <Button
-            android:id="@+id/btnStartMyActivity2"
+            android:id="@+id/btnTBD"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Run2"
+            android:text="-"
             android:layout_marginStart="4dp"/>
     </LinearLayout>
 

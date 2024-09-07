@@ -650,4 +650,18 @@ public class SettingActivity extends AppCompatActivity {
         unregisterReceiver(downloadReceiver);
         Log.d(TAG, "--m-- SettingActivity onDestroy, BroadcastReceiver unregistered");
     }
+
+    @Override
+    public void onBackPressed() {
+        Intent resultIntent = new Intent();
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
+    @Override
+    public void finish() {
+        Intent resultIntent = new Intent();
+        setResult(RESULT_OK, resultIntent);
+        super.finish();
+    }
 }

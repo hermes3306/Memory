@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -15,6 +16,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.Fragment;
+
 import android.content.pm.PackageManager;
 import android.Manifest;
 
@@ -38,9 +41,12 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 
 public class MyActivity extends AppCompatActivity implements OnMapReadyCallback {
     private GoogleMap mMap;
+
     private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
     private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
 
@@ -52,10 +58,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private boolean hideButtonClicked = false;
 
     private TextView tvTime, tvPace, tvCalories, tvDistance;
-    private Button btnMap;
     private TextView tvDateStr;
-
-
 
     private StravaUploader stravaUploader;
 
@@ -67,21 +70,31 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private TextView tvSetting;
     private CheckBox checkBoxServer;
     private CheckBox checkBoxStrava;
-    private ExecutorService executorService;
 
-    private static final int SETTINGS_REQUEST_CODE = 1001;
+    private ExecutorService executorService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        updateLayoutBasedOnRunType();
+
+        // Get the current run type from SharedPreferences
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        String currentRunType = prefs.getString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
+
+        // Set the layout based on the run type
+        if (currentRunType.equals(Config.RUN_TYPE_MEMORY)) {
+            setContentView(R.layout.activity_my);
+        } else {
+            setContentView(R.layout.activity_my2);
+        }
 
         executorService = Executors.newSingleThreadExecutor();
+
         dbHelper = new DatabaseHelper(this);
-        stravaUploader = new StravaUploader(this);
 
         initializeViews();
-        setClickListeners();
+
+        stravaUploader = new StravaUploader(this);
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -103,51 +116,31 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         applyKeepScreenOnSetting();
     }
 
-    private void updateLayoutBasedOnRunType() {
-        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
-        String currentRunType = prefs.getString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
-
-        if (currentRunType.equals(Config.RUN_TYPE_MEMORY)) {
-            setContentView(R.layout.activity_my);
-        } else {
-            setContentView(R.layout.activity_my2);
-        }
-    }
-
     private void initializeViews() {
         tvDateStr = findViewById(R.id.idnew_date_str);
         tvTime = findViewById(R.id.tvTime);
         tvPace = findViewById(R.id.tvPace);
         tvCalories = findViewById(R.id.tvCalories);
         tvDistance = findViewById(R.id.tvDistance);
-        btnMap = findViewById(R.id.btnMap);
         tvSetting = findViewById(R.id.tvSetting);
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
-    }
 
-    private void setClickListeners() {
         TextView btnHide = findViewById(R.id.tvHide);
         btnHide.setOnClickListener(v -> hideActivity());
+
         tvSetting.setOnClickListener(v -> openSettingActivity());
     }
 
+    private static final int SETTINGS_REQUEST_CODE = 1001;
+
     private void openSettingActivity() {
-        Intent settingIntent = new Intent(MyActivity.this, SettingActivity.class);
+        Intent settingIntent = new Intent(this, SettingActivity.class);
+        settingIntent.putExtra("ACTIVITY_ID", activityId);
+        settingIntent.putExtra("START_TIMESTAMP", startTimestamp);
         startActivityForResult(settingIntent, SETTINGS_REQUEST_CODE);
+        Log.d("MyActivity", "--m-- Starting SettingActivity for result");
     }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == SETTINGS_REQUEST_CODE) {
-            recreate();
-        }
-        if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
-            stravaUploader.handleAuthResult(resultCode, data);
-        }
-    }
-
 
     private void applyKeepScreenOnSetting() {
         SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
@@ -159,11 +152,131 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         }
     }
 
+
     @Override
     protected void onResume() {
         super.onResume();
         applyKeepScreenOnSetting();
+        Log.d("MyActivity", "--m-- onResume called");
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        boolean settingsChanged = prefs.getBoolean("SETTINGS_CHANGED", false);
+        if (settingsChanged) {
+            Log.d("MyActivity", "--m-- Settings changed, updating layout and resuming");
+            updateLayoutBasedOnRunType();
+            resumeActivityAfterSettings();
+            prefs.edit().putBoolean("SETTINGS_CHANGED", false).apply();
+        }
     }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        Log.d("MyActivity", "--m-- onActivityResult called with requestCode: " + requestCode + ", resultCode: " + resultCode);
+
+        if (requestCode == SETTINGS_REQUEST_CODE) {
+            Log.d("MyActivity", "--m-- Returned from SettingActivity");
+            if (resultCode == RESULT_OK) {
+                Log.d("MyActivity", "--m-- SettingActivity result OK, updating layout and resuming");
+                updateLayoutBasedOnRunType();
+                resumeActivityAfterSettings();
+            } else {
+                Log.d("MyActivity", "--m-- SettingActivity result not OK");
+            }
+        } else if (requestCode == StravaUploader.AUTH_REQUEST_CODE) {
+            Log.d("MyActivity", "--m-- Handling Strava auth result");
+            stravaUploader.handleAuthResult(resultCode, data);
+        } else {
+            Log.d("MyActivity", "--m-- Unhandled requestCode: " + requestCode);
+        }
+    }
+
+    private void updateLayoutBasedOnRunType() {
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        String currentRunType = prefs.getString(Config.PREF_RUN_TYPE, Config.RUN_TYPE_MEMORY);
+
+        // Remove existing fragments before changing the layout
+        removeExistingMapFragment();
+
+        // Set the layout based on the run type
+        if (currentRunType.equals(Config.RUN_TYPE_MEMORY)) {
+            setContentView(R.layout.activity_my);
+        } else {
+            setContentView(R.layout.activity_my2);
+        }
+
+        // Reinitialize views and other necessary components
+        initializeViews();
+        initializeMapFragment();
+    }
+
+    private void initializeMapFragment() {
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        if (mapFragment == null) {
+            mapFragment = SupportMapFragment.newInstance();
+            getSupportFragmentManager().beginTransaction()
+                    .add(R.id.map, mapFragment)
+                    .commitNow();
+        }
+        mapFragment.getMapAsync(this);
+    }
+
+    private void removeExistingMapFragment() {
+        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.map);
+        if (fragment != null) {
+            getSupportFragmentManager().beginTransaction()
+                    .remove(fragment)
+                    .commitNow();
+        }
+    }
+
+    private void resumeActivityAfterSettings() {
+        ActivityData activity = dbHelper.getActivity(activityId);
+        if (activity != null) {
+            startTimestamp = activity.getStartTimestamp();
+            mStartMarker = null;
+            mCurrentMarker = null;
+            mPathPolyline = null;
+            mLastBounds = null;
+            updateUI();
+            startUpdates();
+        } else {
+            Toast.makeText(this, "Error: Activity not found", Toast.LENGTH_SHORT).show();
+            finish();
+        }
+    }
+
+    private void resumeActivity() {
+        ActivityData activity = dbHelper.getActivity(activityId);
+        if (activity != null) {
+            startTimestamp = activity.getStartTimestamp();
+            updateUI();
+            startUpdates();
+        } else {
+            Toast.makeText(this, "Error: Activity(" + activityId + ") not found\n New Activity started!", Toast.LENGTH_SHORT).show();
+            startNewActivity();
+        }
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(800, TimeUnit.MILLISECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+        }
+        if (!hideButtonClicked) {
+            clearHideFlags();
+        }
+    }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -206,19 +319,6 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         }
     }
 
-    private void resumeActivity() {
-        ActivityData activity = dbHelper.getActivity(activityId);
-        if (activity != null) {
-            startTimestamp = activity.getStartTimestamp();
-            // Initialize other fields based on the resumed activity
-            updateUI();
-            startUpdates();
-        } else {
-            // Handle error: activity not found
-            Toast.makeText(this, "Error: Activity("+ activityId+") not found\n New Activity started!", Toast.LENGTH_SHORT).show();
-            startNewActivity();
-        }
-    }
 
     private void startNewActivity() {
         startTimestamp = System.currentTimeMillis();
@@ -282,50 +382,40 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
             newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
         }
 
-        // Update start marker if needed
-        if (mStartMarker == null) {
-            LatLng startPoint = newPoints.get(0);
-            mStartMarker = mMap.addMarker(new MarkerOptions()
-                    .position(startPoint)
-                    .title("Start")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-        }
+        mMap.clear(); // Clear all markers and polylines
 
-        // Update current marker
+        // Add start marker
+        LatLng startPoint = newPoints.get(0);
+        mStartMarker = mMap.addMarker(new MarkerOptions()
+                .position(startPoint)
+                .title("Start")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+
+        // Add current marker
         LatLng currentPoint = newPoints.get(newPoints.size() - 1);
-        if (mCurrentMarker == null) {
-            mCurrentMarker = mMap.addMarker(new MarkerOptions()
-                    .position(currentPoint)
-                    .title("Current")
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-        } else {
-            mCurrentMarker.setPosition(currentPoint);
-        }
+        mCurrentMarker = mMap.addMarker(new MarkerOptions()
+                .position(currentPoint)
+                .title("Current")
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-        // Update polyline
-        if (mPathPolyline == null) {
-            mPathPolyline = mMap.addPolyline(new PolylineOptions()
-                    .addAll(newPoints)
-                    .color(0xFFFF0000)
-                    .width(3));
-        } else {
-            mPathPolyline.setPoints(newPoints);
-        }
+        // Add polyline
+        mPathPolyline = mMap.addPolyline(new PolylineOptions()
+                .addAll(newPoints)
+                .color(0xFFFF0000)
+                .width(5));
 
-        // Update camera only if new points are outside the current bounds
+        // Update camera to show all points
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
         for (LatLng point : newPoints) {
             boundsBuilder.include(point);
         }
-        LatLngBounds newBounds = boundsBuilder.build();
-
-        if (mLastBounds == null || !mLastBounds.contains(newBounds.northeast) || !mLastBounds.contains(newBounds.southwest)) {
-            mLastBounds = newBounds;
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(mLastBounds, 100));
-        }
+        LatLngBounds bounds = boundsBuilder.build();
+        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
 
         mLastPoints = newPoints;
+        mLastBounds = bounds;
     }
+
 
     private void updateUI() {
         long currentTime = System.currentTimeMillis();
@@ -503,13 +593,4 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         editor.apply();
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        handler.removeCallbacksAndMessages(null);  // This removes all callbacks
-
-        if (!hideButtonClicked) {
-            clearHideFlags();
-        }
-    }
 }

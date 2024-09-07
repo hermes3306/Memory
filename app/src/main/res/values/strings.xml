@@ -12,10 +12,16 @@
     <!-- Other string resources -->
     <string-array name="place_types">
         <item>Restaurant</item>
-        <item>Park</item>
-        <item>Museum</item>
-        <item>Shop</item>
+        <item>Office</item>
+        <item>AirPort</item>
         <item>Hotel</item>
+        <item>Street</item>
+        <item>House</item>
+        <item>Department</item>
+        <item>Shop</item>
+        <item>Park</item>
+        <item>Street</item>
+        <item>Other Business</item>
         <item>Other</item>
     </string-array>
 

@@ -9,16 +9,23 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.gson.Gson;
+
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -26,7 +33,123 @@ import java.util.Locale;
 public class Utility {
     private static final String TAG = "Utility";
     private static final String UPLOAD_URL = Config.UPLOAD_URL;
+    private static final String BASE_URL = Config.BASE_URL;
+    private static final String UPLOAD_DIR = "upload/";
+    private static final String FILE_LIST_URL = BASE_URL + "listM.php?ext=csv";
+    private static final String FILE_JSON_LIST_URL = BASE_URL + "listM.php?ext=json";
 
+
+
+    public interface SyncCallback {
+        void onSyncComplete(boolean success);
+    }
+
+    public static void downloadAndMergeServerData(Context context, DatabaseHelper dbHelper, SyncCallback callback) {
+        new AsyncTask<Void, Void, Boolean>() {
+            @Override
+            protected Boolean doInBackground(Void... voids) {
+                try {
+                    // Fetch the list of files from the server
+                    List<String> fileList = fetchJSONFileList();
+                    if (fileList.isEmpty()) {
+                        return false;
+                    }
+
+                    // Download each file and merge its contents
+                    for (String fileName : fileList) {
+                        File downloadedFile = downloadFile(fileName);
+                        if (downloadedFile != null) {
+                            mergePlacesFromFile(context, dbHelper, downloadedFile);
+                            downloadedFile.delete(); // Clean up the temporary file
+                        }
+                    }
+                    return true;
+                } catch (Exception e) {
+                    Log.e(TAG, "Error during sync: " + e.getMessage(), e);
+                    return false;
+                }
+            }
+
+            @Override
+            protected void onPostExecute(Boolean success) {
+                callback.onSyncComplete(success);
+            }
+        }.execute();
+    }
+
+    private static List<String> fetchJSONFileList() throws IOException {
+        URL url = new URL(FILE_JSON_LIST_URL);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            List<String> fileList = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                fileList.add(line.trim());
+            }
+            return fileList;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private static File downloadFile(String fileName) throws IOException {
+        URL url = new URL(BASE_URL + UPLOAD_DIR + fileName);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        try {
+            File tempFile = File.createTempFile("download", ".json");
+            try (InputStream inputStream = connection.getInputStream();
+                 FileOutputStream outputStream = new FileOutputStream(tempFile)) {
+                byte[] buffer = new byte[1024];
+                int bytesRead;
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                }
+            }
+            return tempFile;
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(file)) {
+            Place[] places = gson.fromJson(reader, Place[].class);
+            for (Place place : places) {
+                if (place != null && place.getName() != null) {
+                    Place existingPlace = dbHelper.getPlaceByName(place.getName());
+                    if (existingPlace == null) {
+                        dbHelper.addPlace(place);
+                    } else {
+                        // Merge data (you might want to implement a more sophisticated merging logic)
+                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
+                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
+                        dbHelper.updatePlace(existingPlace);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e("Utility", "Error in mergePlacesFromFile: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    private static List<String> fetchFileList() throws IOException {
+        URL url = new URL(FILE_LIST_URL);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            List<String> fileList = new ArrayList<>();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                fileList.add(line.trim());
+            }
+            return fileList;
+        } finally {
+            connection.disconnect();
+        }
+    }
 
     public static void finalizeActivity(Context context, DatabaseHelper dbHelper, StravaUploader stravaUploader,
                                         long activityId, long startTimestamp, long endTimestamp,
