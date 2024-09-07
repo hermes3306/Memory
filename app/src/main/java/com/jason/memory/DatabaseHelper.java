@@ -569,10 +569,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return lastLocation;
     }
 
+
     public int updatePlace(Place place) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
-        // Add all place fields to values
+        values.put("country", place.getCountry());
+        values.put("type", place.getType());
+        values.put("name", place.getName());
+        values.put("address", place.getAddress());
+        values.put("number_of_visits", place.getNumberOfVisits());
+        values.put("last_visited", place.getLastVisited());
+        values.put("lat", place.getLat());
+        values.put("lon", place.getLon());
+        values.put("alt", place.getAlt());
+        values.put("memo", place.getMemo());
         return db.update("places", values, "id = ?", new String[]{String.valueOf(place.getId())});
     }
 

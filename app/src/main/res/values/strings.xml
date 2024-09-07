@@ -8,6 +8,17 @@
 
     <string name="title_activity_running_map">Running Map</string>
 
+
+    <!-- Other string resources -->
+    <string-array name="place_types">
+        <item>Restaurant</item>
+        <item>Park</item>
+        <item>Museum</item>
+        <item>Shop</item>
+        <item>Hotel</item>
+        <item>Other</item>
+    </string-array>
+
     <string name="lorem_ipsum">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
         volutpat, dolor id interdum ullamcorper, risus dolor egestas lectus, sit amet mattis purus

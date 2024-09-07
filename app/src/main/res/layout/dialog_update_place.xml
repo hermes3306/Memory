@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/nameInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Place Name"
+        android:inputType="text"
+        android:layout_marginBottom="8dp"/>
+
+    <Spinner
+        android:id="@+id/nameSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/addressInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Address"
+        android:inputType="textPostalAddress"
+        android:layout_marginBottom="8dp"/>
+
+    <Spinner
+        android:id="@+id/typeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/countryInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Country"
+        android:inputType="text"
+        android:layout_marginBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/visitsTextView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:layout_marginTop="8dp"
+        android:textStyle="italic"/>
+
+</LinearLayout>
