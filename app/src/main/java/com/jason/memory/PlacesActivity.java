@@ -47,8 +47,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private GoogleMap mMap;
     private ImageButton syncButton;
 
-
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -90,7 +88,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 .setTitle("Sync with Server")
                 .setMessage("Do you want to download and merge the latest data from the server?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    Utility.downloadAndMergeServerData(this, dbHelper, this::onSyncComplete);
+                    Utility.downloadJsonAndMergeServerData(this, "json", dbHelper, this::onSyncComplete);
                 })
                 .setNegativeButton("No", null)
                 .show();
