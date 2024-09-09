@@ -13,6 +13,11 @@
         android:inputType="text"
         android:layout_marginBottom="8dp"/>
 
+    <Spinner
+        android:id="@+id/localeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
     <EditText
         android:id="@+id/addressInput"
         android:layout_width="match_parent"

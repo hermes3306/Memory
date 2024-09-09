@@ -36,31 +36,26 @@ public class Utility {
     private static final String BASE_URL = Config.BASE_URL;
     private static final String UPLOAD_DIR = "upload/";
     private static final String FILE_LIST_URL = BASE_URL + "listM.php?ext=csv";
-    private static final String FILE_JSON_LIST_URL = BASE_URL + "listM.php?ext=json";
-
-
+    private static final String FILE_JSON_LIST_URL = BASE_URL + "listM.php?ext=";
 
     public interface SyncCallback {
         void onSyncComplete(boolean success);
     }
 
-    public static void downloadAndMergeServerData(Context context, DatabaseHelper dbHelper, SyncCallback callback) {
+    public static void downloadJsonAndMergeServerData(Context context, String ext, DatabaseHelper dbHelper, SyncCallback callback) {
         new AsyncTask<Void, Void, Boolean>() {
             @Override
             protected Boolean doInBackground(Void... voids) {
                 try {
-                    // Fetch the list of files from the server
-                    List<String> fileList = fetchJSONFileList();
+                    List<String> fileList = fetchJSONFileList(ext);
                     if (fileList.isEmpty()) {
                         return false;
                     }
 
-                    // Download each file and merge its contents
                     for (String fileName : fileList) {
                         File downloadedFile = downloadFile(fileName);
                         if (downloadedFile != null) {
-                            mergePlacesFromFile(context, dbHelper, downloadedFile);
-                            downloadedFile.delete(); // Clean up the temporary file
+                            mergeMemoryItemsFromFile(context, dbHelper, downloadedFile);
                         }
                     }
                     return true;
@@ -77,8 +72,30 @@ public class Utility {
         }.execute();
     }
 
-    private static List<String> fetchJSONFileList() throws IOException {
-        URL url = new URL(FILE_JSON_LIST_URL);
+    private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(file)) {
+            MemoryItem[] memoryItems = gson.fromJson(reader, MemoryItem[].class);
+            for (MemoryItem memoryItem : memoryItems) {
+                if (memoryItem != null && memoryItem.getMemoryText() != null) {
+                    MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
+                    if (existingMemoryItem == null) {
+                        dbHelper.addMemoryItem(memoryItem);
+                    } else {
+                        // Merge data (you might want to implement a more sophisticated merging logic)
+                        existingMemoryItem.setDate(memoryItem.getDate());
+                        dbHelper.updateMemoryItem(existingMemoryItem);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e("Utility", "Error in mergeMemoryItemsFromFile: " + e.getMessage());
+            throw e;
+        }
+    }
+
+    private static List<String> fetchJSONFileList(String ext) throws IOException {
+        URL url = new URL(FILE_JSON_LIST_URL + ext);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));

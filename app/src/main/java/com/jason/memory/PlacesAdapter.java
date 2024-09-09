@@ -1,5 +1,8 @@
 package com.jason.memory;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,6 +18,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.MapsInitializer;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.GroundOverlayOptions;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
 
@@ -113,28 +117,27 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
                         LatLng placeLocation = new LatLng(place.getLat(), place.getLon());
                         LatLng currentLocation = dbHelper.getLastKnownLocation();
 
-                        // Move camera to show both locations
-                        LatLngBounds.Builder builder = new LatLngBounds.Builder();
-                        builder.include(placeLocation);
-                        builder.include(currentLocation);
-                        LatLngBounds bounds = builder.build();
-                        googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 50));
+                        // Clear any existing markers
+                        googleMap.clear();
 
-                        // Add marker for the place
-                        googleMap.addMarker(new MarkerOptions().position(placeLocation).title(place.getName()));
+                        // Add marker for the place (most recently updated place)
+                        googleMap.addMarker(new MarkerOptions()
+                                .position(placeLocation)
+                                .title(place.getName())
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
 
-                        // Add marker for current location with green color
+                        // Add marker for current location
                         googleMap.addMarker(new MarkerOptions()
                                 .position(currentLocation)
                                 .title("Current Location")
-                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)));
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
 
                         // Draw line between current location and place
                         PolylineOptions lineOptions = new PolylineOptions()
                                 .add(currentLocation, placeLocation)
                                 .width(3)
                                 .color(Color.BLUE);
-                        Polyline polyline = googleMap.addPolyline(lineOptions);
+                        googleMap.addPolyline(lineOptions);
 
                         // Calculate distance
                         float[] results = new float[1];
@@ -143,17 +146,60 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
                         float distanceInMeters = results[0];
                         double distanceInKm = distanceInMeters / 1000.0;
 
-                        // Add marker with distance information
+                        // Add distance information as a marker
                         LatLng midPoint = new LatLng(
                                 (currentLocation.latitude + placeLocation.latitude) / 2,
                                 (currentLocation.longitude + placeLocation.longitude) / 2
                         );
+
+                        // Create a custom view for the distance information
+                        TextView distanceView = new TextView(mapView.getContext());
+                        distanceView.setText(String.format("%.2f km", distanceInKm));
+                        distanceView.setTextColor(Color.BLACK);
+                        distanceView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+                        distanceView.setBackgroundColor(Color.CYAN);
+                        distanceView.setPadding(8, 4, 8, 4);
+
+                        // Convert the view to a bitmap
+                        distanceView.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+                        Bitmap distanceBitmap = Bitmap.createBitmap(distanceView.getMeasuredWidth(), distanceView.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+                        Canvas canvas = new Canvas(distanceBitmap);
+                        distanceView.layout(0, 0, distanceView.getMeasuredWidth(), distanceView.getMeasuredHeight());
+                        distanceView.draw(canvas);
+
+                        // Add the distance bitmap as a marker
                         googleMap.addMarker(new MarkerOptions()
                                 .position(midPoint)
-                                .title(String.format("%.2f km", distanceInKm))
-                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+                                .icon(BitmapDescriptorFactory.fromBitmap(distanceBitmap))
+                                .anchor(0.5f, 0.5f));
 
-                        googleMap.getUiSettings().setAllGesturesEnabled(false);
+                        // Calculate bounds with extra padding
+                        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+                        builder.include(placeLocation);
+                        builder.include(currentLocation);
+                        LatLngBounds bounds = builder.build();
+
+                        // Move camera to show both locations with extra padding
+                        int padding = 200; // Adjust this value to increase or decrease the padding
+                        googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, padding));
+
+                        // Enable zoom controls
+                        googleMap.getUiSettings().setZoomControlsEnabled(true);
+
+                        // Enable and force show compass
+                        googleMap.getUiSettings().setCompassEnabled(true);
+                        googleMap.setOnCameraMoveStartedListener(reason -> {
+                            if (reason == GoogleMap.OnCameraMoveStartedListener.REASON_GESTURE) {
+                                googleMap.getUiSettings().setCompassEnabled(false);
+                                googleMap.getUiSettings().setCompassEnabled(true);
+                            }
+                        });
+
+                        // Enable gestures for zooming and panning
+                        googleMap.getUiSettings().setAllGesturesEnabled(true);
+
+                        // Set the map type to NORMAL
+                        googleMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
                     }
                 });
             }

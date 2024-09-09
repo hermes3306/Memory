@@ -38,6 +38,15 @@ import android.location.Geocoder;
 import java.util.List;
 import java.util.Locale;
 import java.io.IOException;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.CameraUpdate;
+import android.view.ViewGroup;
 
 public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallback {
     private RecyclerView recyclerView;
@@ -47,7 +56,20 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private GoogleMap mMap;
     private ImageButton syncButton;
 
+    private static final int DEFAULT_ZOOM = 12;
+    private static final int MIN_ZOOM = 3;
+    private static final int MAX_ZOOM = 21;
+    private int currentZoom = DEFAULT_ZOOM;
+    private boolean isMapSizeReduced = false;
 
+    private List<Locale> getSupportedLocales() {
+        List<Locale> locales = new ArrayList<>();
+        locales.add(Locale.ENGLISH);
+        locales.add(Locale.KOREAN);
+        locales.add(Locale.CHINESE);
+        locales.add(Locale.JAPANESE);
+        return locales;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +101,20 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         ImageButton saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> savePlace());
 
+
+        // Initialize the map
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        if (mapFragment != null) {
+            mapFragment.getMapAsync(this);
+        }
+
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+        updateMap(); // Call this to set up initial map state
     }
 
     private void onPlaceClick(Place place) {
@@ -90,7 +126,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 .setTitle("Sync with Server")
                 .setMessage("Do you want to download and merge the latest data from the server?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    Utility.downloadAndMergeServerData(this, dbHelper, this::onSyncComplete);
+                    Utility.downloadJsonAndMergeServerData(this, "json", dbHelper, this::onSyncComplete);
                 })
                 .setNegativeButton("No", null)
                 .show();
@@ -196,11 +232,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             }
         });
     }
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        updateMap();
-    }
 
 
     private void updateMap() {
@@ -214,10 +245,59 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             builder.include(latLng);
         }
         if (!currentList.isEmpty()) {
-            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 100));
+            LatLngBounds bounds = builder.build();
+            int padding = 100;
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+            mMap.animateCamera(cu);
+
+            // Adjust zoom level based on the number of places
+            int placesCount = currentList.size();
+            if (placesCount > 100) {
+                currentZoom = 10;
+            } else if (placesCount > 50) {
+                currentZoom = 11;
+            } else if (placesCount > 20) {
+                currentZoom = 12;
+            } else if (placesCount > 10) {
+                currentZoom = 13;
+            } else {
+                currentZoom = 14;
+            }
+
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(currentZoom));
         }
     }
 
+    private void zoomIn() {
+        if (mMap != null && currentZoom < MAX_ZOOM) {
+            currentZoom++;
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(currentZoom));
+        }
+    }
+
+    private void zoomOut() {
+        if (mMap != null && currentZoom > MIN_ZOOM) {
+            currentZoom--;
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(currentZoom));
+        }
+    }
+
+    private void toggleMapSize() {
+        View mapFragment = findViewById(R.id.map);
+        ViewGroup.LayoutParams params = mapFragment.getLayoutParams();
+
+        if (isMapSizeReduced) {
+            // Restore original size
+            params.height = ViewGroup.LayoutParams.MATCH_PARENT;
+            isMapSizeReduced = false;
+        } else {
+            // Reduce size
+            params.height = mapFragment.getHeight() / 2;
+            isMapSizeReduced = true;
+        }
+
+        mapFragment.setLayoutParams(params);
+    }
 
     private void addNewPlace() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -231,36 +311,44 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final EditText addressInput = dialogView.findViewById(R.id.addressInput);
         final Spinner typeSpinner = dialogView.findViewById(R.id.typeSpinner);
         final EditText countryInput = dialogView.findViewById(R.id.countryInput);
+        final Spinner localeSpinner = dialogView.findViewById(R.id.localeSpinner);
 
         // Set up the spinner with place types
-        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(this,
+        ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
                 R.array.place_types, android.R.layout.simple_spinner_item);
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        typeSpinner.setAdapter(spinnerAdapter);
+        typeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(typeAdapter);
+
+        // Set up the locale spinner
+        List<Locale> supportedLocales = getSupportedLocales();
+        ArrayAdapter<String> localeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        for (Locale locale : supportedLocales) {
+            localeAdapter.add(locale.getDisplayLanguage());
+        }
+        localeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        localeSpinner.setAdapter(localeAdapter);
 
         // Get the last known location from DatabaseHelper
         LatLng lastLocation = dbHelper.getLastKnownLocation();
 
         // Get address information using Geocoder
         if (lastLocation != null) {
-            Geocoder geocoder = new Geocoder(this, Locale.getDefault());
-            try {
-                List<Address> addresses = geocoder.getFromLocation(lastLocation.latitude, lastLocation.longitude, 1);
-                if (!addresses.isEmpty()) {
-                    Address address = addresses.get(0);
-                    String shortName = address.getFeatureName() != null ? address.getFeatureName() : address.getSubThoroughfare();
-                    String fullAddress = address.getAddressLine(0);
-                    String country = address.getCountryName();
-
-                    nameInput.setText(shortName);
-                    addressInput.setText(fullAddress);
-                    countryInput.setText(country);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                Toast.makeText(this, "Unable to get address information", Toast.LENGTH_SHORT).show();
-            }
+            updateAddressInfo(lastLocation, nameInput, addressInput, countryInput, localeSpinner);
         }
+
+        // Set up listener for localeSpinner
+        localeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (lastLocation != null) {
+                    Locale selectedLocale = supportedLocales.get(position);
+                    updateAddressInfo(lastLocation, nameInput, addressInput, countryInput, selectedLocale);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
 
         builder.setPositiveButton("Save", null);
 
@@ -312,6 +400,34 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         });
     }
 
+    private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
+                                   EditText countryInput, Spinner localeSpinner) {
+        Locale locale = getSupportedLocales().get(localeSpinner.getSelectedItemPosition());
+        updateAddressInfo(location, nameInput, addressInput, countryInput, locale);
+    }
+
+    private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
+                                   EditText countryInput, Locale locale) {
+        Geocoder geocoder = new Geocoder(this, locale);
+        try {
+            List<Address> addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1);
+            if (!addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                String shortName = address.getFeatureName() != null ? address.getFeatureName() : address.getSubThoroughfare();
+                String fullAddress = address.getAddressLine(0);
+                String country = address.getCountryName();
+
+                nameInput.setText(shortName);
+                addressInput.setText(fullAddress);
+                countryInput.setText(country);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Unable to get address information", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
     private void showUpdateDialog(Place place) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Update Place");
@@ -320,64 +436,27 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         View dialogView = inflater.inflate(R.layout.dialog_update_place, null);
         builder.setView(dialogView);
 
-        final Spinner nameSpinner = dialogView.findViewById(R.id.nameSpinner);
         final EditText nameInput = dialogView.findViewById(R.id.nameInput);
         final EditText addressInput = dialogView.findViewById(R.id.addressInput);
         final Spinner typeSpinner = dialogView.findViewById(R.id.typeSpinner);
         final EditText countryInput = dialogView.findViewById(R.id.countryInput);
         final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
+        final Spinner localeSpinner = dialogView.findViewById(R.id.localeSpinner);
 
-        addressInput.setText(place.getAddress());
-        countryInput.setText(place.getCountry());
-        visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
-
-        // Get more detailed address information
-        List<String> nameOptions = getAddressOptions(place.getLat(), place.getLon());
-        nameOptions.add("Custom"); // Add a "Custom" option at the end
-        ArrayAdapter<String> nameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, nameOptions);
-        nameAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        nameSpinner.setAdapter(nameAdapter);
-
-        // Set the current name in the spinner or input field
-        int namePosition = nameOptions.indexOf(place.getName());
-        if (namePosition != -1) {
-            nameSpinner.setSelection(namePosition);
-        } else {
-            nameSpinner.setSelection(nameOptions.size() - 1); // Select "Custom"
-            nameInput.setText(place.getName());
+        // Set up the locale spinner
+        List<Locale> supportedLocales = getSupportedLocales();
+        ArrayAdapter<String> localeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        for (Locale locale : supportedLocales) {
+            localeAdapter.add(locale.getDisplayLanguage());
         }
+        localeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        localeSpinner.setAdapter(localeAdapter);
 
-        // Set up listener for nameSpinner
-        nameSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position == nameOptions.size() - 1) { // "Custom" selected
-                    nameInput.setVisibility(View.VISIBLE);
-                } else {
-                    nameInput.setVisibility(View.GONE);
-                    nameInput.setText(""); // Clear the custom input
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
-        });
-
-        // Check if visiteDateTextView exists in the layout
-        final TextView visiteDateTextView = dialogView.findViewById(R.id.vistedDateView);
-
+        // Set initial values
         nameInput.setText(place.getName());
         addressInput.setText(place.getAddress());
         countryInput.setText(place.getCountry());
         visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
-
-        // Format and set the last visited date if the TextView exists
-        if (visiteDateTextView != null) {
-            String formattedDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                    .format(new Date(place.getLastVisited()));
-            visiteDateTextView.setText(formattedDate);
-        }
 
         // Set up the type spinner
         ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
@@ -391,6 +470,18 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             typeSpinner.setSelection(typePosition);
         }
 
+        // Set up listener for localeSpinner
+        localeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                Locale selectedLocale = supportedLocales.get(position);
+                updateAddressInfo(new LatLng(place.getLat(), place.getLon()), nameInput, addressInput, countryInput, selectedLocale);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
         builder.setPositiveButton("Update", null);
         builder.setNegativeButton("Delete", null);
         builder.setNeutralButton("Cancel", (dialog, which) -> dialog.dismiss());
@@ -398,14 +489,8 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final AlertDialog dialog = builder.create();
         dialog.show();
 
-
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String newName;
-            if (nameSpinner.getSelectedItemPosition() == nameOptions.size() - 1) {
-                newName = nameInput.getText().toString().trim();
-            } else {
-                newName = nameSpinner.getSelectedItem().toString();
-            }
+            String newName = nameInput.getText().toString().trim();
             String newAddress = addressInput.getText().toString().trim();
             String newType = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
             String newCountry = countryInput.getText().toString().trim();
@@ -447,119 +532,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                         List<Place> currentList = new ArrayList<>(adapter.getCurrentList());
                         currentList.remove(place);
                         adapter.submitList(currentList);
-                        updateMap();
-                        dialog.dismiss();
-                    })
-                    .setNegativeButton("No", null)
-                    .show();
-        });
-    }
-
-    private void deletePlace(Place place) {
-        new AlertDialog.Builder(this)
-                .setTitle("Delete Place")
-                .setMessage("Are you sure you want to delete this place?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    dbHelper.deletePlace(place.getId());
-                    List<Place> currentList = new ArrayList<>(adapter.getCurrentList());
-                    currentList.remove(place);
-                    adapter.submitList(currentList);
-                    updateMap();
-                })
-                .setNegativeButton("No", null)
-                .show();
-    }
-
-    private void showUpdateDialog_orig(Place place) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Update Place");
-
-        LayoutInflater inflater = getLayoutInflater();
-        View dialogView = inflater.inflate(R.layout.dialog_update_place, null);
-        builder.setView(dialogView);
-
-        final Spinner nameSpinner = dialogView.findViewById(R.id.nameSpinner);
-        final EditText addressInput = dialogView.findViewById(R.id.addressInput);
-        final Spinner typeSpinner = dialogView.findViewById(R.id.typeSpinner);
-        final EditText countryInput = dialogView.findViewById(R.id.countryInput);
-        final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
-
-        addressInput.setText(place.getAddress());
-        countryInput.setText(place.getCountry());
-        visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
-
-        // Get more detailed address information
-        List<String> nameOptions = getAddressOptions(place.getLat(), place.getLon());
-        ArrayAdapter<String> nameAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, nameOptions);
-        nameAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        nameSpinner.setAdapter(nameAdapter);
-
-        // Set the current name in the spinner
-        int namePosition = nameOptions.indexOf(place.getName());
-        if (namePosition != -1) {
-            nameSpinner.setSelection(namePosition);
-        }
-
-        // Set up the type spinner
-        ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
-                R.array.place_types, android.R.layout.simple_spinner_item);
-        typeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        typeSpinner.setAdapter(typeAdapter);
-
-        // Set the current type in the spinner
-        int typePosition = typeAdapter.getPosition(place.getType());
-        if (typePosition != -1) {
-            typeSpinner.setSelection(typePosition);
-        }
-
-        builder.setPositiveButton("Update", null);
-        builder.setNegativeButton("Delete", null);
-        builder.setNeutralButton("Cancel", (dialog, which) -> dialog.dismiss());
-
-        final AlertDialog dialog = builder.create();
-        dialog.show();
-
-        // Set the click listener for the positive button
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String newName = nameSpinner.getSelectedItem() != null ? nameSpinner.getSelectedItem().toString() : "";
-            String newAddress = addressInput.getText().toString().trim();
-            String newType = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
-            String newCountry = countryInput.getText().toString().trim();
-
-            if (newName.isEmpty() || newAddress.isEmpty() || newType.isEmpty() || newCountry.isEmpty()) {
-                Toast.makeText(PlacesActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            place.setName(newName);
-            place.setAddress(newAddress);
-            place.setType(newType);
-            place.setCountry(newCountry);
-            place.setNumberOfVisits(place.getNumberOfVisits() + 1);
-            place.setLastVisited(System.currentTimeMillis());
-
-            // Get the last known location from DatabaseHelper
-            LatLng lastLocation = dbHelper.getLastKnownLocation();
-            if (lastLocation != null) {
-                place.setLat(lastLocation.latitude);
-                place.setLon(lastLocation.longitude);
-            }
-
-            dbHelper.updatePlace(place);
-            adapter.notifyDataSetChanged();
-            updateMap();
-            dialog.dismiss();
-        });
-
-        // Set the click listener for the negative button
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
-            new AlertDialog.Builder(PlacesActivity.this)
-                    .setTitle("Delete Place")
-                    .setMessage("Are you sure you want to delete this place?")
-                    .setPositiveButton("Yes", (dialogInterface, i) -> {
-                        dbHelper.deletePlace(place.getId());
-                        places.remove(place);
-                        adapter.notifyDataSetChanged();
                         updateMap();
                         dialog.dismiss();
                     })

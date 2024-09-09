@@ -146,11 +146,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // Drop older tables if existed
         // db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
         // db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
-        if (oldVersion < 5) {
-            // Add the new address column to the existing table
-            db.execSQL("ALTER TABLE " + TABLE_ACTIVITIES + " ADD COLUMN " + COLUMN_ADDRESS + " TEXT");
-        }
-
         // Create tables again
         onCreate(db);
 
@@ -165,6 +160,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.execSQL(CREATE_MEMORIES_TABLE);
         }
         cursor.close();
+
 
     }
 
@@ -850,5 +846,48 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return memory;
     }
 
+    public MemoryItem getMemoryItemByText(String memoryText) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_TEXT + "=?",
+                new String[]{memoryText}, null, null, null);
+
+        MemoryItem memory = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            memory = new MemoryItem(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
+            );
+            cursor.close();
+        }
+        return memory;
+    }
+
+    public long addMemoryItem(MemoryItem memoryItem) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
+        values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
+        values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        return db.insert(TABLE_MEMORIES, null, values);
+    }
+
+    public int updateMemoryItem(MemoryItem memoryItem) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
+        values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
+        values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+                new String[]{String.valueOf(memoryItem.getId())});
+    }
+
+
+
+    public int deleteMemory(long id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        return db.delete(TABLE_MEMORIES, COLUMN_MEMORY_ID + " = ?", new String[]{String.valueOf(id)});
+    }
 
 }
