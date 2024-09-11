@@ -13,16 +13,19 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 
 public class AddEditMemoryActivity extends AppCompatActivity {
+    private static final String TAG = "AddEditMemoryActivity";
     private EditText titleEditText;
     private TextView dateTextView;
     private EditText memoryEditText;
     private DatabaseHelper dbHelper;
     private long editMemoryId = -1;
     private Button deleteButton;
+    private Button addPlaceInfoButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,6 +38,8 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         dateTextView = findViewById(R.id.dateTextView);
         memoryEditText = findViewById(R.id.memoryEditText);
         deleteButton = findViewById(R.id.deleteButton);
+        addPlaceInfoButton = findViewById(R.id.addPlaceInfoButton);
+        addPlaceInfoButton.setOnClickListener(v -> showPlaceInfoDialog());
 
         // Set the current date
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -62,6 +67,56 @@ public class AddEditMemoryActivity extends AppCompatActivity {
 
         // Set up delete button
         deleteButton.setOnClickListener(v -> deleteMemory());
+    }
+
+    private void showPlaceInfoDialog() {
+        List<Place> places = dbHelper.getAllPlaces();
+
+        String[] placeNames = new String[places.size()];
+        for (int i = 0; i < places.size(); i++) {
+            placeNames[i] = places.get(i).getName();
+        }
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select a place")
+                .setItems(placeNames, (dialog, which) -> {
+                    Place selectedPlace = places.get(which);
+                    updateMemoryWithPlaceInfo(selectedPlace);
+                });
+        builder.create().show();
+    }
+
+    private void updateMemoryWithPlaceInfo(Place place) {
+        String currentText = memoryEditText.getText().toString();
+        String url = String.format(Locale.US, "https://www.google.com/maps?q=%f,%f",
+                place.getLat(), place.getLon());
+        String placeInfo = String.format(Locale.getDefault(),
+                "\n\n-- The place ID(%d).\n" +
+                        "Name: %s\n" +
+                        "Address: %s\n" +
+                        "Visits: %d\n" +
+                        "Last visited: %s\n" +
+                        "Location: (%.6f, %.6f)\n" +
+                        "URL: %s\n",
+                place.getId(),
+                place.getName(),
+                place.getAddress(),
+                place.getNumberOfVisits(),
+                formatDate(place.getLastVisited()),
+                place.getLat(),
+                place.getLon(),
+                url);
+
+        String updatedText = currentText + placeInfo;
+        memoryEditText.setText(updatedText);
+
+        Log.d(TAG, "Place info added: " + placeInfo);
+        Toast.makeText(this, "Place info added", Toast.LENGTH_SHORT).show();
+    }
+
+    private String formatDate(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        return sdf.format(new Date(timestamp));
     }
 
 

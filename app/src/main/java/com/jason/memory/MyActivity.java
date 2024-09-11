@@ -5,12 +5,17 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,6 +47,16 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.google.maps.android.SphericalUtil;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import com.google.maps.android.SphericalUtil;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 
 
 public class MyActivity extends AppCompatActivity implements OnMapReadyCallback {
@@ -72,6 +87,9 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private CheckBox checkBoxStrava;
 
     private ExecutorService executorService;
+
+    LinearLayout statKM;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,11 +143,47 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         tvSetting = findViewById(R.id.tvSetting);
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
+        statKM = findViewById(R.id.statKM);
 
         TextView btnHide = findViewById(R.id.tvHide);
         btnHide.setOnClickListener(v -> hideActivity());
-
         tvSetting.setOnClickListener(v -> openSettingActivity());
+        statKM.setOnClickListener(v -> showPlacesDialog());
+    }
+
+    private Marker mGoalMarker;
+
+    private void setGoalMarker(Place place) {
+        if (mMap != null) {
+            LatLng goalPosition = new LatLng(place.getLat(), place.getLon());
+            if (mGoalMarker != null) {
+                mGoalMarker.remove();
+            }
+            mGoalMarker = mMap.addMarker(new MarkerOptions()
+                    .position(goalPosition)
+                    .title("Goal: " + place.getName())
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)));
+
+            updateMap();
+        }
+    }
+
+    private void showPlacesDialog() {
+        List<Place> allPlaces = dbHelper.getAllPlaces();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Choose a Goal");
+
+        String[] placeNames = new String[allPlaces.size()];
+        for (int i = 0; i < allPlaces.size(); i++) {
+            placeNames[i] = allPlaces.get(i).getName();
+        }
+
+        builder.setItems(placeNames, (dialog, which) -> {
+            Place selectedPlace = allPlaces.get(which);
+            setGoalMarker(selectedPlace);
+        });
+
+        builder.show();
     }
 
     private static final int SETTINGS_REQUEST_CODE = 1001;
@@ -370,6 +424,27 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         handler.postDelayed(mapUpdateRunnable, MAP_UPDATE_INTERVAL);
     }
 
+    private Bitmap createDistanceMarker(String distance) {
+        Paint paint = new Paint();
+        paint.setTextSize(50);
+        paint.setColor(Color.BLACK);
+        paint.setTextAlign(Paint.Align.CENTER);
+
+        int width = (int) (paint.measureText(distance) + 20);
+        int height = 70;
+
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+
+        paint.setColor(Color.CYAN);
+        canvas.drawRect(0, 0, width, height, paint);
+
+        paint.setColor(Color.BLACK);
+        canvas.drawText(distance, width / 2, height - 20, paint);
+
+        return bitmap;
+    }
+
     private void updateMap() {
         if (mMap == null) return;
 
@@ -404,10 +479,37 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
                 .color(0xFFFF0000)
                 .width(5));
 
+        // Add goal marker and line if exists
+        if (mGoalMarker != null) {
+            mGoalMarker = mMap.addMarker(new MarkerOptions()
+                    .position(mGoalMarker.getPosition())
+                    .title(mGoalMarker.getTitle())
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN)));
+
+            // Draw line to goal
+            PolylineOptions goalLineOptions = new PolylineOptions()
+                    .add(currentPoint, mGoalMarker.getPosition())
+                    .color(Color.CYAN)
+                    .width(5);
+            Polyline goalLine = mMap.addPolyline(goalLineOptions);
+
+            // Add distance text
+            double distance = SphericalUtil.computeDistanceBetween(currentPoint, mGoalMarker.getPosition()) / 1000; // in km
+            LatLng midPoint = SphericalUtil.interpolate(currentPoint, mGoalMarker.getPosition(), 0.5);
+            MarkerOptions distanceMarkerOptions = new MarkerOptions()
+                    .position(midPoint)
+                    .icon(BitmapDescriptorFactory.fromBitmap(createDistanceMarker(String.format("%.2f km", distance))))
+                    .anchor(0.5f, 0.5f);
+            mMap.addMarker(distanceMarkerOptions);
+        }
+
         // Update camera to show all points
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
         for (LatLng point : newPoints) {
             boundsBuilder.include(point);
+        }
+        if (mGoalMarker != null) {
+            boundsBuilder.include(mGoalMarker.getPosition());
         }
         LatLngBounds bounds = boundsBuilder.build();
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));

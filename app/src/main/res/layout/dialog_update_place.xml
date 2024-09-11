@@ -45,18 +45,27 @@
         android:inputType="textPostalAddress"
         android:layout_marginBottom="8dp"/>
 
-    <Spinner
-        android:id="@+id/typeSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"/>
-
     <EditText
         android:id="@+id/countryInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Country"
         android:inputType="text"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/memoInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Memo"
+        android:inputType="textMultiLine"
+        android:lines="3"
+        android:layout_marginBottom="8dp"/>
+
+    <Spinner
+        android:id="@+id/typeSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"/>
 
     <TextView

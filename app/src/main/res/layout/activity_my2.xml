@@ -65,8 +65,7 @@
             android:id="@+id/map"
             android:name="com.google.android.gms.maps.SupportMapFragment"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="300dp"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp" />
 
@@ -105,7 +104,7 @@
 
 
         <LinearLayout
-            android:id="@+id/start_dash_ll_03"
+            android:id="@+id/statKM"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">

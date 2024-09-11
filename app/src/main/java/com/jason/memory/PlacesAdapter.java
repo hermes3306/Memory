@@ -72,11 +72,13 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
         holder.bind(place, listener);
     }
 
+
     public class PlaceViewHolder extends RecyclerView.ViewHolder {
         TextView tvName;
         TextView tvDate;
         TextView tvAddress;
         TextView tvVisits;
+        TextView tvMemo;  // Add this line
         MapView mapView;
 
         public PlaceViewHolder(View itemView) {
@@ -85,6 +87,7 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
             tvDate = itemView.findViewById(R.id.tvDate);
             tvAddress = itemView.findViewById(R.id.tvAddress);
             tvVisits = itemView.findViewById(R.id.tvVisits);
+            tvMemo = itemView.findViewById(R.id.tvMemo);  // Add this line
             mapView = itemView.findViewById(R.id.mapView);
 
             if (mapView != null) {
@@ -102,6 +105,7 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
             }
             if (tvAddress != null) tvAddress.setText(place.getAddress());
             if (tvVisits != null) tvVisits.setText("Visits: " + place.getNumberOfVisits());
+            if (tvMemo != null) tvMemo.setText(place.getMemo());  // Add this line
 
             itemView.setOnClickListener(v -> {
                 if (listener != null) {

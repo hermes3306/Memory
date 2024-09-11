@@ -2,6 +2,7 @@ package com.jason.memory;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -11,7 +12,9 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -31,6 +34,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import android.location.Address;
@@ -47,6 +51,10 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.CameraUpdate;
 import android.view.ViewGroup;
+import android.graphics.Typeface;
+import android.text.SpannableString;
+import android.text.style.StyleSpan;
+import android.graphics.Typeface;
 
 public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallback {
     private RecyclerView recyclerView;
@@ -55,6 +63,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private DatabaseHelper dbHelper;
     private GoogleMap mMap;
     private ImageButton syncButton;
+    private List<Locale> supportedLocales;
 
     private static final int DEFAULT_ZOOM = 12;
     private static final int MIN_ZOOM = 3;
@@ -84,6 +93,10 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
 
         adapter = new PlacesAdapter(this::onPlaceClick, dbHelper);
         recyclerView.setAdapter(adapter);
+
+        // Initialize supported locales
+        supportedLocales = Arrays.asList(Locale.ENGLISH, Locale.KOREAN, Locale.CHINESE, Locale.JAPANESE);
+
 
         // Initialize the places list
         places = dbHelper.getAllPlaces();
@@ -184,17 +197,33 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_search_place, null);
         builder.setView(dialogView);
 
+        final Switch searchTypeSwitch = dialogView.findViewById(R.id.searchTypeSwitch);
+        final LinearLayout contentSearchLayout = dialogView.findViewById(R.id.contentSearchLayout);
+        final LinearLayout distanceSearchLayout = dialogView.findViewById(R.id.distanceSearchLayout);
+
         final EditText nameInput = dialogView.findViewById(R.id.searchNameInput);
         final EditText addressInput = dialogView.findViewById(R.id.searchAddressInput);
+        final Spinner distanceSpinner = dialogView.findViewById(R.id.searchDistanceSpinner);
         final Spinner typeSpinner = dialogView.findViewById(R.id.searchTypeSpinner);
         final EditText memoInput = dialogView.findViewById(R.id.searchMemoInput);
 
+        // Set up the distance spinner
+        ArrayAdapter<CharSequence> distanceAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"1km", "2km", "5km", "10km", "20km", "+20km"});
+        distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        distanceSpinner.setAdapter(distanceAdapter);
+
         // Set up the type spinner
-        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(this,
+        ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
                 R.array.place_types, android.R.layout.simple_spinner_item);
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        typeSpinner.setAdapter(spinnerAdapter);
-        typeSpinner.setSelection(0); // Set default selection to first item (which could be "All" or "")
+        typeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(typeAdapter);
+
+        searchTypeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            contentSearchLayout.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+            distanceSearchLayout.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
 
         builder.setPositiveButton("Search", null);
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
@@ -203,14 +232,26 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         dialog.show();
 
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String name = nameInput.getText().toString().trim();
-            String address = addressInput.getText().toString().trim();
-            String type = typeSpinner.getSelectedItemPosition() == 0 ? "" : typeSpinner.getSelectedItem().toString();
-            String memo = memoInput.getText().toString().trim();
+            boolean isDistanceSearch = searchTypeSwitch.isChecked();
 
             try {
-                // Perform the search
-                List<Place> searchResults = dbHelper.searchPlaces(name, address, type, memo);
+                List<Place> searchResults;
+                if (isDistanceSearch) {
+                    String distanceStr = distanceSpinner.getSelectedItem().toString();
+                    int distance = distanceStr.equals("+20km") ? Integer.MAX_VALUE :
+                            Integer.parseInt(distanceStr.replace("km", ""));
+
+                    LocationData locationData = dbHelper.getLatestLocation();
+                    LatLng currentLocation = new LatLng(locationData.getLatitude(), locationData.getLongitude());
+                    searchResults = dbHelper.searchPlacesByDistance(currentLocation, distance);
+                } else {
+                    String name = nameInput.getText().toString().trim();
+                    String address = addressInput.getText().toString().trim();
+                    String type = typeSpinner.getSelectedItem().toString();
+                    String memo = memoInput.getText().toString().trim();
+
+                    searchResults = dbHelper.searchPlaces(name, address, type, memo);
+                }
 
                 // Update the RecyclerView with search results
                 adapter.submitList(searchResults);
@@ -227,7 +268,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(PlacesActivity.this,
-                        "Error updating places: " + e.getMessage(),
+                        "Error searching places: " + e.getMessage(),
                         Toast.LENGTH_LONG).show();
             }
         });
@@ -320,10 +361,10 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         typeSpinner.setAdapter(typeAdapter);
 
         // Set up the locale spinner
-        List<Locale> supportedLocales = getSupportedLocales();
         ArrayAdapter<String> localeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
+        localeAdapter.add("-");
         for (Locale locale : supportedLocales) {
-            localeAdapter.add(locale.getDisplayLanguage());
+            localeAdapter.add(locale.getDisplayLanguage(Locale.ENGLISH));
         }
         localeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         localeSpinner.setAdapter(localeAdapter);
@@ -340,8 +381,8 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         localeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (lastLocation != null) {
-                    Locale selectedLocale = supportedLocales.get(position);
+                if (position > 0 && lastLocation != null) {
+                    Locale selectedLocale = supportedLocales.get(position - 1);
                     updateAddressInfo(lastLocation, nameInput, addressInput, countryInput, selectedLocale);
                 }
             }
@@ -401,12 +442,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     }
 
     private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
-                                   EditText countryInput, Spinner localeSpinner) {
-        Locale locale = getSupportedLocales().get(localeSpinner.getSelectedItemPosition());
-        updateAddressInfo(location, nameInput, addressInput, countryInput, locale);
-    }
-
-    private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
                                    EditText countryInput, Locale locale) {
         Geocoder geocoder = new Geocoder(this, locale);
         try {
@@ -417,7 +452,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 String fullAddress = address.getAddressLine(0);
                 String country = address.getCountryName();
 
-                nameInput.setText(shortName);
+                if (nameInput != null) nameInput.setText(shortName);
                 addressInput.setText(fullAddress);
                 countryInput.setText(country);
             }
@@ -425,6 +460,13 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             e.printStackTrace();
             Toast.makeText(this, "Unable to get address information", Toast.LENGTH_SHORT).show();
         }
+    }
+
+
+    private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
+                                   EditText countryInput, Spinner localeSpinner) {
+        Locale locale = getSupportedLocales().get(localeSpinner.getSelectedItemPosition());
+        updateAddressInfo(location, nameInput, addressInput, countryInput, locale);
     }
 
 
@@ -442,21 +484,21 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final EditText countryInput = dialogView.findViewById(R.id.countryInput);
         final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
         final Spinner localeSpinner = dialogView.findViewById(R.id.localeSpinner);
-
-        // Set up the locale spinner
-        List<Locale> supportedLocales = getSupportedLocales();
-        ArrayAdapter<String> localeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item);
-        for (Locale locale : supportedLocales) {
-            localeAdapter.add(locale.getDisplayLanguage());
-        }
-        localeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        localeSpinner.setAdapter(localeAdapter);
+        final TextView visitedDateView = dialogView.findViewById(R.id.vistedDateView);
+        final EditText memoInput = dialogView.findViewById(R.id.memoInput);  // Add this line
 
         // Set initial values
         nameInput.setText(place.getName());
         addressInput.setText(place.getAddress());
         countryInput.setText(place.getCountry());
         visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
+        memoInput.setText(place.getMemo());  // Add this line
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        String visitedDates = String.format("First: %s\nLast: %s",
+                sdf.format(new Date(place.getFirstVisited())),
+                sdf.format(new Date(place.getLastVisited())));
+        visitedDateView.setText(visitedDates);
 
         // Set up the type spinner
         ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
@@ -474,8 +516,10 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         localeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                Locale selectedLocale = supportedLocales.get(position);
-                updateAddressInfo(new LatLng(place.getLat(), place.getLon()), nameInput, addressInput, countryInput, selectedLocale);
+                if (position > 0) {
+                    Locale selectedLocale = supportedLocales.get(position - 1);
+                    updateAddressInfo(new LatLng(place.getLat(), place.getLon()), addressInput, countryInput, selectedLocale);
+                }
             }
 
             @Override
@@ -484,7 +528,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
 
         builder.setPositiveButton("Update", null);
         builder.setNegativeButton("Delete", null);
-        builder.setNeutralButton("Cancel", (dialog, which) -> dialog.dismiss());
+        builder.setNeutralButton("Visit", null);
 
         final AlertDialog dialog = builder.create();
         dialog.show();
@@ -494,6 +538,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             String newAddress = addressInput.getText().toString().trim();
             String newType = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
             String newCountry = countryInput.getText().toString().trim();
+            String newMemo = memoInput.getText().toString().trim();  // Add this line
 
             if (newName.isEmpty() || newAddress.isEmpty() || newType.isEmpty() || newCountry.isEmpty()) {
                 Toast.makeText(PlacesActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
@@ -504,15 +549,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             place.setAddress(newAddress);
             place.setType(newType);
             place.setCountry(newCountry);
-            place.setNumberOfVisits(place.getNumberOfVisits() + 1);
-            place.setLastVisited(System.currentTimeMillis());
-
-            // Get the last known location from DatabaseHelper
-            LatLng lastLocation = dbHelper.getLastKnownLocation();
-            if (lastLocation != null) {
-                place.setLat(lastLocation.latitude);
-                place.setLon(lastLocation.longitude);
-            }
+            place.setMemo(newMemo);  // Add this line
 
             if (dbHelper.updatePlace(place) > 0) {
                 adapter.notifyDataSetChanged();
@@ -522,6 +559,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 Toast.makeText(PlacesActivity.this, "Failed to update place", Toast.LENGTH_SHORT).show();
             }
         });
+
 
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> {
             new AlertDialog.Builder(PlacesActivity.this)
@@ -538,6 +576,39 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                     .setNegativeButton("No", null)
                     .show();
         });
+
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+            place.setNumberOfVisits(place.getNumberOfVisits() + 1);
+            place.setLastVisited(System.currentTimeMillis());
+            if (dbHelper.updatePlace(place) > 0) {
+                visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
+                String updatedDates = String.format("First: %s\nLast: %s",
+                        sdf.format(new Date(place.getFirstVisited())),
+                        sdf.format(new Date(place.getLastVisited())));
+                visitedDateView.setText(updatedDates);
+                Toast.makeText(PlacesActivity.this, "Visit recorded", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(PlacesActivity.this, "Failed to record visit", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void updateAddressInfo(LatLng location, EditText addressInput, EditText countryInput, Locale locale) {
+        Geocoder geocoder = new Geocoder(this, locale);
+        try {
+            List<Address> addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1);
+            if (!addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                String fullAddress = address.getAddressLine(0);
+                String country = address.getCountryName();
+
+                addressInput.setText(fullAddress);
+                countryInput.setText(country);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Unable to get address information", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private List<String> getAddressOptions(double latitude, double longitude) {
