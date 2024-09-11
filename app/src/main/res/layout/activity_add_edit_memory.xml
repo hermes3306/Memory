@@ -49,7 +49,16 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/dateTextView" />
 
-        <!-- Add this button just before the saveButton -->
+        <Button
+            android:id="@+id/addPlaceInfoButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Add a place info"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/memoryEditText" />
+
         <Button
             android:id="@+id/deleteButton"
             android:layout_width="0dp"
@@ -59,9 +68,8 @@
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/memoryEditText" />
+            app:layout_constraintTop_toBottomOf="@id/addPlaceInfoButton" />
 
-        <!-- Update the saveButton's constraints -->
         <Button
             android:id="@+id/saveButton"
             android:layout_width="0dp"

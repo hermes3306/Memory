@@ -49,6 +49,7 @@ public class Place {
     public double getLon() { return lon; }
     public double getAlt() { return alt; }
     public String getMemo() { return memo; }
+    public String getMapUrl() {return null;}
 
     // Setters
     public void setId(long id) { this.id = id; }
