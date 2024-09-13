@@ -2,6 +2,7 @@ package com.jason.memory;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -11,7 +12,9 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -194,17 +197,33 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_search_place, null);
         builder.setView(dialogView);
 
+        final Switch searchTypeSwitch = dialogView.findViewById(R.id.searchTypeSwitch);
+        final LinearLayout contentSearchLayout = dialogView.findViewById(R.id.contentSearchLayout);
+        final LinearLayout distanceSearchLayout = dialogView.findViewById(R.id.distanceSearchLayout);
+
         final EditText nameInput = dialogView.findViewById(R.id.searchNameInput);
         final EditText addressInput = dialogView.findViewById(R.id.searchAddressInput);
+        final Spinner distanceSpinner = dialogView.findViewById(R.id.searchDistanceSpinner);
         final Spinner typeSpinner = dialogView.findViewById(R.id.searchTypeSpinner);
         final EditText memoInput = dialogView.findViewById(R.id.searchMemoInput);
 
+        // Set up the distance spinner
+        ArrayAdapter<CharSequence> distanceAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item,
+                new String[]{"1km", "2km", "5km", "10km", "20km", "+20km"});
+        distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        distanceSpinner.setAdapter(distanceAdapter);
+
         // Set up the type spinner
-        ArrayAdapter<CharSequence> spinnerAdapter = ArrayAdapter.createFromResource(this,
+        ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
                 R.array.place_types, android.R.layout.simple_spinner_item);
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        typeSpinner.setAdapter(spinnerAdapter);
-        typeSpinner.setSelection(0); // Set default selection to first item (which could be "All" or "")
+        typeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        typeSpinner.setAdapter(typeAdapter);
+
+        searchTypeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            contentSearchLayout.setVisibility(isChecked ? View.GONE : View.VISIBLE);
+            distanceSearchLayout.setVisibility(isChecked ? View.VISIBLE : View.GONE);
+        });
 
         builder.setPositiveButton("Search", null);
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
@@ -213,14 +232,26 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         dialog.show();
 
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String name = nameInput.getText().toString().trim();
-            String address = addressInput.getText().toString().trim();
-            String type = typeSpinner.getSelectedItemPosition() == 0 ? "" : typeSpinner.getSelectedItem().toString();
-            String memo = memoInput.getText().toString().trim();
+            boolean isDistanceSearch = searchTypeSwitch.isChecked();
 
             try {
-                // Perform the search
-                List<Place> searchResults = dbHelper.searchPlaces(name, address, type, memo);
+                List<Place> searchResults;
+                if (isDistanceSearch) {
+                    String distanceStr = distanceSpinner.getSelectedItem().toString();
+                    int distance = distanceStr.equals("+20km") ? Integer.MAX_VALUE :
+                            Integer.parseInt(distanceStr.replace("km", ""));
+
+                    LocationData locationData = dbHelper.getLatestLocation();
+                    LatLng currentLocation = new LatLng(locationData.getLatitude(), locationData.getLongitude());
+                    searchResults = dbHelper.searchPlacesByDistance(currentLocation, distance);
+                } else {
+                    String name = nameInput.getText().toString().trim();
+                    String address = addressInput.getText().toString().trim();
+                    String type = typeSpinner.getSelectedItem().toString();
+                    String memo = memoInput.getText().toString().trim();
+
+                    searchResults = dbHelper.searchPlaces(name, address, type, memo);
+                }
 
                 // Update the RecyclerView with search results
                 adapter.submitList(searchResults);
@@ -237,7 +268,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(PlacesActivity.this,
-                        "Error updating places: " + e.getMessage(),
+                        "Error searching places: " + e.getMessage(),
                         Toast.LENGTH_LONG).show();
             }
         });

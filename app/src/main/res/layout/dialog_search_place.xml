@@ -5,27 +5,55 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/searchNameInput"
+    <Switch
+        android:id="@+id/searchTypeSwitch"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Name" />
+        android:text="Distance Search" />
 
-    <EditText
-        android:id="@+id/searchAddressInput"
+    <LinearLayout
+        android:id="@+id/contentSearchLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Address" />
+        android:orientation="vertical">
 
-    <Spinner
-        android:id="@+id/searchTypeSpinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        <EditText
+            android:id="@+id/searchNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Name" />
 
-    <EditText
-        android:id="@+id/searchMemoInput"
+        <EditText
+            android:id="@+id/searchAddressInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Address" />
+
+        <EditText
+            android:id="@+id/searchMemoInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Memo" />
+
+        <Spinner
+            android:id="@+id/searchTypeSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/distanceSearchLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Memo" />
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <Spinner
+            android:id="@+id/searchDistanceSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
 
 </LinearLayout>

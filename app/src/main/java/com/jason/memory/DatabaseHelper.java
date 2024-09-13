@@ -91,6 +91,65 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.delete(TABLE_LOCATIONS, null, null);
     }
 
+    public List<Place> searchPlacesByDistance(LatLng currentLocation, int distanceKm) {
+        List<Place> result = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String query = "SELECT * FROM places";
+        Cursor cursor = db.rawQuery(query, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                Place place = createPlaceFromCursor(cursor);
+                double distance = calculateDistance(currentLocation.latitude, currentLocation.longitude,
+                        place.getLat(), place.getLon());
+                if (distance <= distanceKm) {
+                    result.add(place);
+                }
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return result;
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        double earthRadius = 6371; // in kilometers
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return earthRadius * c;
+    }
+
+
+    private Place createPlaceFromCursor(Cursor cursor) {
+        try {
+            return new Place(
+                    cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                    cursor.getString(cursor.getColumnIndexOrThrow("country")),
+                    cursor.getString(cursor.getColumnIndexOrThrow("type")),
+                    cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                    cursor.getString(cursor.getColumnIndexOrThrow("address")),
+                    cursor.getLong(cursor.getColumnIndexOrThrow("first_visited")),
+                    cursor.getInt(cursor.getColumnIndexOrThrow("number_of_visits")),
+                    cursor.getLong(cursor.getColumnIndexOrThrow("last_visited")),
+                    cursor.getDouble(cursor.getColumnIndexOrThrow("lat")),
+                    cursor.getDouble(cursor.getColumnIndexOrThrow("lon")),
+                    cursor.getDouble(cursor.getColumnIndexOrThrow("alt")),
+                    cursor.getString(cursor.getColumnIndexOrThrow("memo"))
+            );
+        } catch (IllegalArgumentException e) {
+            Log.e("DatabaseHelper", "Column not found in cursor", e);
+            return null;
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error creating Place from cursor", e);
+            return null;
+        }
+    }
+
     @Override
     public void onCreate(SQLiteDatabase db) {
         // Check if locations table exists

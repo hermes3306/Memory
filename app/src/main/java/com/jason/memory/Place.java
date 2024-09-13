@@ -13,6 +13,7 @@ public class Place {
     private double lon;
     private double alt;
     private String memo;
+    private String url;
 
     // Constructor
     public Place(long id, String country, String type, String name, String address,
@@ -30,6 +31,24 @@ public class Place {
         this.lon = lon;
         this.alt = alt;
         this.memo = memo;
+    }
+
+    public Place(long id, String country, String type, String name, String address,
+                 long firstVisited, int numberOfVisits, long lastVisited,
+                 double lat, double lon, double alt, String memo, String url) {
+        this.id = id;
+        this.country = country;
+        this.type = type;
+        this.name = name;
+        this.address = address;
+        this.firstVisited = firstVisited;
+        this.numberOfVisits = numberOfVisits;
+        this.lastVisited = lastVisited;
+        this.lat = lat;
+        this.lon = lon;
+        this.alt = alt;
+        this.memo = memo;
+        this.url = url;
     }
 
     // Default constructor

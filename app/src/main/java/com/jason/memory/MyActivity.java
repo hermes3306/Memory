@@ -592,5 +592,4 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         editor.remove(Config.PREF_ACTIVITY_ID);
         editor.apply();
     }
-
 }
