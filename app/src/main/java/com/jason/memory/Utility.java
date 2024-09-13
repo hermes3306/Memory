@@ -271,7 +271,7 @@ public class Utility {
             LocationData end = locations.get(i + 1);
             double segmentDistance = calculateDistanceBetweenPoints(start, end);
             totalDistance += segmentDistance;
-            Log.v(TAG, "--m-- Segment distance: " + segmentDistance + ", Total so far: " + totalDistance);
+            //Log.v(TAG, "--m-- Segment distance: " + segmentDistance + ", Total so far: " + totalDistance);
         }
         Log.d(TAG, "--m-- Total calculated distance: " + totalDistance);
         return totalDistance;
@@ -287,6 +287,165 @@ public class Utility {
                         Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return earthRadius * c; // Distance in kilometers
+    }
+
+    public static boolean SaveActivitiesToDB(Context context, List<File> files, DatabaseHelper dbHelper) {
+        List<ActivityData> activities = new ArrayList<>();
+        List<LocationData> allLocations = new ArrayList<>();
+
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+
+        dbHelper.beginTransaction();
+        try {
+            for (File file : files) {
+                List<LocationData> locations = new ArrayList<>();
+                try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                    String line;
+                    reader.readLine(); // Skip header
+
+                    while ((line = reader.readLine()) != null) {
+                        String[] parts = line.split(",");
+                        if (parts.length == 4) {
+                            double latitude = Double.parseDouble(parts[0]);
+                            double longitude = Double.parseDouble(parts[1]);
+                            Date date = dateFormat.parse(parts[2] + "," + parts[3]);
+                            long timestamp = date.getTime();
+
+                            LocationData location = new LocationData(0, latitude, longitude, 0.0, timestamp);
+                            locations.add(location);
+                            Log.d(TAG, "Created location: " + location);
+                        }
+                    }
+
+                    if (locations.size() < 2) {
+                        boolean deleted = file.delete();
+                        Log.e(TAG, "--m-- File " + (deleted ? "deleted" : "not deleted") + " due to insufficient data: " + file.getName());
+                        continue;
+                    }
+
+                    long startTimestamp = locations.get(0).getTimestamp();
+                    long endTimestamp = locations.get(locations.size() - 1).getTimestamp();
+                    double distance = calculateDistance(locations);
+                    long elapsedTime = endTimestamp - startTimestamp;
+
+                    String activityName = file.getName().replace(".csv", "");
+                    ActivityData activity = new ActivityData(
+                            0, file.getName(), "Unknown", activityName,
+                            startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "");
+
+                    activities.add(activity);
+                    allLocations.addAll(locations);
+                    Log.d(TAG, "Processed file: " + file.getName() + ", locations: " + locations.size());
+                } catch (Exception e) {
+                    Log.e(TAG, "--m-- Error processing file: " + file.getName(), e);
+                }
+            }
+
+            Log.d(TAG, "Total activities to insert: " + activities.size());
+            Log.d(TAG, "Total locations to insert: " + allLocations.size());
+
+            if (!activities.isEmpty()) {
+                dbHelper.insertActivitiesBatch(activities);
+            }
+            if (!allLocations.isEmpty()) {
+                dbHelper.insertLocationsBatch(allLocations);
+            }
+
+            dbHelper.setTransactionSuccessful();
+            Log.d(TAG, "--m-- Batch insert completed successfully");
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error during batch insert: " + e.getMessage(), e);
+            return false;
+        } finally {
+            dbHelper.endTransaction();
+        }
+    }
+
+
+    private static double calculateDistance(List<LocationData> locations) {
+        double totalDistance = 0;
+        for (int i = 0; i < locations.size() - 1; i++) {
+            LocationData start = locations.get(i);
+            LocationData end = locations.get(i + 1);
+            totalDistance += calculateDistanceBetweenPoints(start, end);
+        }
+        return totalDistance;
+    }
+
+    public static boolean SaveActivityToDB(Context context, File file, DatabaseHelper dbHelper) {
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            String line;
+            String[] header = reader.readLine().split(","); // Read and split the header
+
+            List<LocationData> locations = new ArrayList<>();
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
+
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length == 4) {
+                    double latitude = Double.parseDouble(parts[0]);
+                    double longitude = Double.parseDouble(parts[1]);
+                    Date date = dateFormat.parse(parts[2] + "," + parts[3]);
+                    long timestamp = date.getTime();
+
+                    LocationData location = new LocationData(0, latitude, longitude, 0.0, timestamp);
+                    locations.add(location);
+                }
+            }
+
+            if (locations.size() < 2) {
+                boolean deleted = file.delete();
+                if (deleted) {
+                    Log.e(TAG, "--m-- File deleted due to insufficient data: " + file.getName());
+                } else {
+                    Log.e(TAG, "--m-- Failed to delete file with insufficient data: " + file.getName());
+                }
+                return false;
+            }
+
+            long startTimestamp = locations.get(0).getTimestamp();
+            long endTimestamp = locations.get(locations.size() - 1).getTimestamp();
+            double distance = calculateDistance(dbHelper, startTimestamp, endTimestamp);
+            long elapsedTime = endTimestamp - startTimestamp;
+
+            String activityName = file.getName().replace(".csv", "");
+            ActivityData activity = new ActivityData(
+                    0, // id will be set by the database
+                    file.getName(), // filename
+                    "Unknown", // type (you might want to determine this based on the data)
+                    activityName,
+                    startTimestamp,
+                    endTimestamp,
+                    0, // start location id (you might want to set this if needed)
+                    0, // end location id (you might want to set this if needed)
+                    distance,
+                    elapsedTime,
+                    "" // address (you might want to determine this based on the end location)
+            );
+
+            long activityId = dbHelper.insertActivity(activity);
+            if (activityId != -1) {
+                for (LocationData location : locations) {
+                    // Use the individual parameters instead of the LocationData object
+                    dbHelper.addLocation(
+                            location.getLatitude(),
+                            location.getLongitude(),
+                            location.getAltitude(), // Assuming this is the third double parameter
+                            location.getTimestamp()
+                    );
+                }
+                Log.d(TAG, "--m-- Activity saved to database: " + file.getName());
+                return true;
+            } else {
+                Log.e(TAG, "--m-- Failed to save activity to database: " + file.getName());
+                return false;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error saving activity to database: " + e.getMessage(), e);
+            return false;
+        }
     }
 
     @Nullable

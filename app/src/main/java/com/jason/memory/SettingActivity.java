@@ -37,6 +37,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -240,33 +241,76 @@ public class SettingActivity extends AppCompatActivity {
         progressBar.setMax(files.length);
         progressBar.setProgress(0);
         progressBar.setVisibility(View.VISIBLE);
+        statusTextView.setText("Preparing to migrate " + files.length + " files");
+
+        new Thread(() -> {
+            long startTime = System.currentTimeMillis();
+            boolean success = Utility.SaveActivitiesToDB(this, Arrays.asList(files), dbHelper);
+            long endTime = System.currentTimeMillis();
+            long timeElapsed = endTime - startTime;
+
+            runOnUiThread(() -> {
+                progressBar.setVisibility(View.GONE);
+                if (success) {
+                    statusTextView.setText("Migration completed successfully. Time elapsed: " +
+                            (timeElapsed / 1000) + " seconds");
+                } else {
+                    statusTextView.setText("Migration failed. Time elapsed: " +
+                            (timeElapsed / 1000) + " seconds");
+                }
+                Toast.makeText(this, "Migration " + (success ? "completed" : "failed"), Toast.LENGTH_SHORT).show();
+            });
+        }).start();
+    }
+
+
+    private void migrateFiles_old() {
+        if (!isInitialized) {
+            Toast.makeText(this, "Please initialize activities first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        File appDir = Config.getDownloadDir();
+        File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
+
+        if (files == null || files.length == 0) {
+            Toast.makeText(this, "No files to migrate", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        progressBar.setMax(files.length);
+        progressBar.setProgress(0);
+        progressBar.setVisibility(View.VISIBLE);
         statusTextView.setText("Migrating 0/" + files.length + " files");
 
         new Thread(() -> {
             int processedFiles = 0;
+            int successfulMigrations = 0;
             for (File file : files) {
-                ActivityData activity = parseActivityFromFile(file);
-                if (activity != null) {
-                    long id = dbHelper.insertActivity(activity);
-                    if (id != -1) {
-                        processedFiles++;
-                        int finalProcessedFiles = processedFiles;
-                        runOnUiThread(() -> {
-                            progressBar.setProgress(finalProcessedFiles);
-                            statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length + " files: " + file.getName());
-                        });
-                    } else {
-                        Log.e("SettingActivity", "Failed to insert activity from file: " + file.getName());
-                    }
+                boolean success = Utility.SaveActivityToDB(this, file, dbHelper);
+                if (success) {
+                    successfulMigrations++;
                 }
+                processedFiles++;
+                int finalProcessedFiles = processedFiles;
+                int finalSuccessfulMigrations = successfulMigrations;
+                runOnUiThread(() -> {
+                    progressBar.setProgress(finalProcessedFiles);
+                    statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length +
+                            " files: " + file.getName() +
+                            " (Success: " + finalSuccessfulMigrations + ")");
+                });
             }
+            int finalSuccessfulMigrations = successfulMigrations;
             runOnUiThread(() -> {
                 progressBar.setVisibility(View.GONE);
-                statusTextView.setText("Migration completed");
+                statusTextView.setText("Migration completed. " + finalSuccessfulMigrations +
+                        " out of " + files.length + " files migrated successfully.");
                 Toast.makeText(this, "Migration completed", Toast.LENGTH_SHORT).show();
             });
         }).start();
     }
+
 
     private ActivityData parseActivityFromFile(File file) {
         try {

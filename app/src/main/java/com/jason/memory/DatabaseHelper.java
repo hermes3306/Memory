@@ -3,6 +3,7 @@ package com.jason.memory;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
+import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.location.Location;
@@ -72,18 +73,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public DatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
         this.context = context;
-    }
-
-    public void beginTransaction() {
-        getWritableDatabase().beginTransaction();
-    }
-
-    public void setTransactionSuccessful() {
-        getWritableDatabase().setTransactionSuccessful();
-    }
-
-    public void endTransaction() {
-        getWritableDatabase().endTransaction();
     }
 
     public void clearAllData() {
@@ -947,6 +936,57 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public int deleteMemory(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         return db.delete(TABLE_MEMORIES, COLUMN_MEMORY_ID + " = ?", new String[]{String.valueOf(id)});
+    }
+
+    public void beginTransaction() {
+        getWritableDatabase().beginTransaction();
+    }
+
+    public void setTransactionSuccessful() {
+        getWritableDatabase().setTransactionSuccessful();
+    }
+
+    public void endTransaction() {
+        getWritableDatabase().endTransaction();
+    }
+
+    public void insertActivitiesBatch(List<ActivityData> activities) {
+        SQLiteDatabase db = getWritableDatabase();
+        for (ActivityData activity : activities) {
+            ContentValues values = new ContentValues();
+            // Set values for each column
+            db.insert("activities", null, values);
+        }
+    }
+
+
+    public void insertLocationsBatch(List<LocationData> locations) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            for (LocationData location : locations) {
+                ContentValues values = new ContentValues();
+                values.put("latitude", location.getLatitude());
+                values.put("longitude", location.getLongitude());
+                values.put("altitude", location.getAltitude());
+                values.put("timestamp", location.getTimestamp());
+
+                // Do not include the id column in the insert statement
+                // as it's likely an auto-incrementing primary key
+
+                long newRowId = db.insert("locations", null, values);
+                if (newRowId == -1) {
+                    Log.e("DatabaseHelper", "Failed to insert location: " + location.getTimestamp());
+                } else {
+                    Log.d("DatabaseHelper", "Inserted location with ID: " + newRowId);
+                }
+            }
+            db.setTransactionSuccessful();
+        } catch (SQLException e) {
+            Log.e("DatabaseHelper", "Error inserting locations batch", e);
+        } finally {
+            db.endTransaction();
+        }
     }
 
 }
