@@ -47,52 +47,101 @@ public class Utility {
             @Override
             protected Boolean doInBackground(Void... voids) {
                 try {
+                    Log.d(TAG, "--m-- Starting JSON download and merge process for extension: " + ext);
                     List<String> fileList = fetchJSONFileList(ext);
                     if (fileList.isEmpty()) {
+                        Log.d(TAG, "--m-- No files found to download");
                         return false;
                     }
 
+                    Log.d(TAG, "--m-- Found " + fileList.size() + " files to process");
                     for (String fileName : fileList) {
+                        Log.d(TAG, "--m-- Processing file: " + fileName);
                         File downloadedFile = downloadFile(fileName);
                         if (downloadedFile != null) {
-                            mergeMemoryItemsFromFile(context, dbHelper, downloadedFile);
+                            Log.d(TAG, "--m-- File downloaded successfully: " + fileName);
+                            if (ext.equalsIgnoreCase("jsn")) {
+                                mergeMemoryItemsFromFile(context, dbHelper, downloadedFile);
+                            } else if (ext.equalsIgnoreCase("json")) {
+                                mergePlacesFromFile(context, dbHelper, downloadedFile);
+                            } else {
+                                Log.e(TAG, "--m-- Unsupported file extension: " + ext);
+                            }
+                        } else {
+                            Log.e(TAG, "--m-- Failed to download file: " + fileName);
                         }
                     }
+                    Log.d(TAG, "--m-- JSON download and merge process completed successfully");
                     return true;
                 } catch (Exception e) {
-                    Log.e(TAG, "Error during sync: " + e.getMessage(), e);
+                    Log.e(TAG, "--m-- Error during sync: " + e.getMessage(), e);
                     return false;
                 }
             }
 
             @Override
             protected void onPostExecute(Boolean success) {
+                Log.d(TAG, "--m-- Sync process finished. Success: " + success);
                 callback.onSyncComplete(success);
             }
         }.execute();
     }
 
     private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
         Gson gson = new Gson();
         try (FileReader reader = new FileReader(file)) {
             MemoryItem[] memoryItems = gson.fromJson(reader, MemoryItem[].class);
+            Log.d(TAG, "--m-- Found " + memoryItems.length + " memory items in file");
             for (MemoryItem memoryItem : memoryItems) {
                 if (memoryItem != null && memoryItem.getMemoryText() != null) {
                     MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
                     if (existingMemoryItem == null) {
-                        dbHelper.addMemoryItem(memoryItem);
+                        long newId = dbHelper.addMemoryItem(memoryItem);
+                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId);
                     } else {
-                        // Merge data (you might want to implement a more sophisticated merging logic)
+                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle());
                         existingMemoryItem.setDate(memoryItem.getDate());
-                        dbHelper.updateMemoryItem(existingMemoryItem);
+                        int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
+                        Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
                     }
                 }
             }
         } catch (Exception e) {
-            Log.e("Utility", "Error in mergeMemoryItemsFromFile: " + e.getMessage());
+            Log.e(TAG, "--m-- Error in mergeMemoryItemsFromFile: " + e.getMessage(), e);
             throw e;
         }
+        Log.d(TAG, "--m-- Finished merging memory items from file: " + file.getName());
     }
+
+    private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Log.d(TAG, "--m-- Starting to merge places from file: " + file.getName());
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(file)) {
+            Place[] places = gson.fromJson(reader, Place[].class);
+            Log.d(TAG, "--m-- Found " + places.length + " places in file");
+            for (Place place : places) {
+                if (place != null && place.getName() != null) {
+                    Place existingPlace = dbHelper.getPlaceByName(place.getName());
+                    if (existingPlace == null) {
+                        long newId = dbHelper.addPlace(place);
+                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId);
+                    } else {
+                        Log.d(TAG, "--m-- Updating existing place: " + place.getName());
+                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
+                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
+                        int updatedRows = dbHelper.updatePlace(existingPlace);
+                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error in mergePlacesFromFile: " + e.getMessage(), e);
+            throw e;
+        }
+        Log.d(TAG, "--m-- Finished merging places from file: " + file.getName());
+    }
+
 
     private static List<String> fetchJSONFileList(String ext) throws IOException {
         URL url = new URL(FILE_JSON_LIST_URL + ext);
@@ -129,28 +178,6 @@ public class Utility {
         }
     }
 
-    private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
-        Gson gson = new Gson();
-        try (FileReader reader = new FileReader(file)) {
-            Place[] places = gson.fromJson(reader, Place[].class);
-            for (Place place : places) {
-                if (place != null && place.getName() != null) {
-                    Place existingPlace = dbHelper.getPlaceByName(place.getName());
-                    if (existingPlace == null) {
-                        dbHelper.addPlace(place);
-                    } else {
-                        // Merge data (you might want to implement a more sophisticated merging logic)
-                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
-                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
-                        dbHelper.updatePlace(existingPlace);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.e("Utility", "Error in mergePlacesFromFile: " + e.getMessage());
-            throw e;
-        }
-    }
 
     private static List<String> fetchFileList() throws IOException {
         URL url = new URL(FILE_LIST_URL);
