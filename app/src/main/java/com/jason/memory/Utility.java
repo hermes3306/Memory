@@ -60,9 +60,9 @@ public class Utility {
                         File downloadedFile = downloadFile(fileName);
                         if (downloadedFile != null) {
                             Log.d(TAG, "--m-- File downloaded successfully: " + fileName);
-                            if (ext.equalsIgnoreCase("jsn")) {
+                            if (ext.equalsIgnoreCase(Config.MEMORY_EXT)) {
                                 mergeMemoryItemsFromFile(context, dbHelper, downloadedFile);
-                            } else if (ext.equalsIgnoreCase("json")) {
+                            } else if (ext.equalsIgnoreCase(Config.PLACE_EXT)) {
                                 mergePlacesFromFile(context, dbHelper, downloadedFile);
                             } else {
                                 Log.e(TAG, "--m-- Unsupported file extension: " + ext);

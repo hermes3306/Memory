@@ -1,12 +1,11 @@
 package com.jason.daily;
 
 import android.os.Environment;
-
 import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "0.31";
+    private static String version = "0.311";
     private static String tmp_dir  = "temp";
 
     public static final String APPNAME = appname + version;
@@ -32,6 +31,8 @@ public class Config {
     public static final String PLACE_EXT = ".place";
     public static final String MEMORY_EXT = ".memory";
     public static final String ACTIVITY_EXT = ".csv";
+    public static final String DAILY_EXT = ".daily";
+
 
 
     public static File getDownloadDir() {

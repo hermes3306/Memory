@@ -334,29 +334,55 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 " ORDER BY " + COLUMN_START_TIMESTAMP + " DESC";
 
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, null);
+        Cursor cursor = null;
 
-        if (cursor.moveToFirst()) {
-            do {
-                ActivityData activity = new ActivityData(
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_ACTIVITY_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_TYPE)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_ACTIVITY_NAME)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_START_TIMESTAMP)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_END_TIMESTAMP)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_START_LOCATION)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_END_LOCATION)),
-                        cursor.getDouble(cursor.getColumnIndex(COLUMN_DISTANCE)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_ELAPSED_TIME)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_ADDRESS))
-                );
+        try {
+            cursor = db.rawQuery(selectQuery, null);
 
-                activities.add(activity);
-            } while (cursor.moveToNext());
+            if (cursor != null && cursor.moveToFirst()) {
+                do {
+                    ActivityData activity = new ActivityData(
+                            getColumnLong(cursor, COLUMN_ACTIVITY_ID),
+                            getColumnString(cursor, COLUMN_ACTIVITY_TYPE),
+                            getColumnString(cursor, COLUMN_ACTIVITY_NAME),
+                            getColumnLong(cursor, COLUMN_START_TIMESTAMP),
+                            getColumnLong(cursor, COLUMN_END_TIMESTAMP),
+                            getColumnLong(cursor, COLUMN_START_LOCATION),
+                            getColumnLong(cursor, COLUMN_END_LOCATION),
+                            getColumnDouble(cursor, COLUMN_DISTANCE),
+                            getColumnLong(cursor, COLUMN_ELAPSED_TIME),
+                            getColumnString(cursor, COLUMN_ADDRESS)
+                    );
+
+                    activities.add(activity);
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error getting activities: " + e.getMessage());
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            db.close();
         }
 
-        cursor.close();
         return activities;
+    }
+
+    // Helper methods to safely get column values
+    private String getColumnString(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return columnIndex != -1 ? cursor.getString(columnIndex) : "";
+    }
+
+    private long getColumnLong(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return columnIndex != -1 ? cursor.getLong(columnIndex) : 0;
+    }
+
+    private double getColumnDouble(Cursor cursor, String columnName) {
+        int columnIndex = cursor.getColumnIndex(columnName);
+        return columnIndex != -1 ? cursor.getDouble(columnIndex) : 0.0;
     }
 
 

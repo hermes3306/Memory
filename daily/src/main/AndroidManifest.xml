@@ -1,11 +1,14 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.jason.daily">
 
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -13,12 +16,21 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/memories48"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Memory">
+        android:theme="@style/Theme.Memory"
+        android:networkSecurityConfig="@xml/network_security_config">
 
         <service
             android:name=".LocationService"
-            android:enabled="true"
-            android:exported="false" />
+            android:foregroundServiceType="location"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.jason.daily.START_SERVICE" />
+                <action android:name="com.jason.daily.STOP_SERVICE" />
+                <action android:name="com.jason.daily.CHECK_STATUS" />
+                <action android:name="com.jason.daily.SEND_ALARM" />
+            </intent-filter>
+        </service>
+
 
         <receiver
             android:name=".BootCompletedReceiver"
@@ -26,10 +38,26 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
 
+
+
+        <activity
+            android:name=".MainActivity"
+            android:theme="@style/TransparentTheme"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+
     </application>
 
 </manifest>
+
+

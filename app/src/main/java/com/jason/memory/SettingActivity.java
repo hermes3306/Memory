@@ -331,6 +331,11 @@ public class SettingActivity extends AppCompatActivity {
 
     private void listActivities() {
         List<ActivityData> activities = dbHelper.getAllActivities();
+        if (activities.isEmpty()) {
+            Toast.makeText(this, "No activities found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         StringBuilder activityList = new StringBuilder();
         SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd_HHmmss", Locale.getDefault());
 
