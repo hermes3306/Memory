@@ -139,7 +139,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                 .setTitle("Sync with Server")
                 .setMessage("Do you want to download and merge the latest data from the server?")
                 .setPositiveButton("Yes", (dialog, which) -> {
-                    Utility.downloadJsonAndMergeServerData(this, "json", dbHelper, this::onSyncComplete);
+                    Utility.downloadJsonAndMergeServerData(this, Config.PLACE_EXT, dbHelper, this::onSyncComplete);
                 })
                 .setNegativeButton("No", null)
                 .show();
@@ -167,11 +167,11 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             String jsonPlaces = gson.toJson(allPlaces);
 
             // Create file in the download directory
-            File directory = new File(Config.getDownloadDir(),"json");
+            File directory = Config.getDownloadDir4Places();
             if (!directory.exists()) {
                 directory.mkdirs();
             }
-            String fileName = "places_" + System.currentTimeMillis() + ".json";
+            String fileName = System.currentTimeMillis() + Config.PLACE_EXT;
             File file = new File(directory, fileName);
 
             // Write JSON to file

@@ -36,6 +36,7 @@
         <activity
             android:name=".StravaAuthActivity"
             android:exported="false" />
+        <activity android:name=".FileViewActivity" />
         <activity
             android:name=".MapActivity"
             android:exported="false" />
@@ -65,7 +66,7 @@
         <activity android:name=".ListActivityActivity" />
         <activity android:name=".ActivityDetailActivity" />
         <activity android:name=".ActivityCloudDetailActivity" />
-        <activity android:name=".FileListActivity" />
+        <activity android:name=".FileActivity" />
         <activity
             android:name=".BehaviorAnalysisActivity"
             android:exported="false" />
@@ -77,6 +78,15 @@
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location" />
+
+        <receiver android:name=".BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

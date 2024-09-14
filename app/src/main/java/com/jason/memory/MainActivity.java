@@ -33,6 +33,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        if (getIntent().getBooleanExtra("START_FROM_BOOT", false)) {
+            // The app was started from boot, you might want to start your service here
+            startServiceIfPermissionsGranted();
+        }
+
+
         startServiceButton = findViewById(R.id.startServiceButton);
         stopServiceButton = findViewById(R.id.stopServiceButton);
         statusTextView = findViewById(R.id.statusTextView);
@@ -133,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         btnFileList.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, FileListActivity.class);
+                Intent intent = new Intent(MainActivity.this, FileActivity.class);
                 startActivity(intent);
             }
         });
