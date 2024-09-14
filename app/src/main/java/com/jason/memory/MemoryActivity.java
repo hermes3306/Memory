@@ -119,11 +119,11 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
             Gson gson = new Gson();
             String jsonMemories = gson.toJson(allMemories);
 
-            File directory = new File(Config.getDownloadDir(), "json");
+            File directory = Config.getDownloadDir4Memories();
             if (!directory.exists()) {
                 directory.mkdirs();
             }
-            String fileName = "memories_" + System.currentTimeMillis() + ".jsn";
+            String fileName =System.currentTimeMillis() + Config.MEMORY_EXT;
             File file = new File(directory, fileName);
             FileWriter writer = new FileWriter(file);
             writer.write(jsonMemories);
@@ -146,7 +146,7 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
                 .setMessage("Do you want to download and merge the latest data from the server?")
                 .setPositiveButton("Yes", (dialog, which) -> {
                     Log.d(TAG, "--m-- syncMemories: Starting sync process");
-                    Utility.downloadJsonAndMergeServerData(this, "jsn", dbHelper, this::onSyncComplete);
+                    Utility.downloadJsonAndMergeServerData(this, Config.MEMORY_EXT, dbHelper, this::onSyncComplete);
                 })
                 .setNegativeButton("No", null)
                 .show();

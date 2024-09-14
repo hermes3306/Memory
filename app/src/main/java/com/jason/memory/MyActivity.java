@@ -494,7 +494,36 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         builder.show();
     }
 
+
     private void finalizeActivity() {
+        handler.removeCallbacks(updateRunnable);
+        long endTimestamp = System.currentTimeMillis();
+
+        Utility.finalizeActivity(this, dbHelper, stravaUploader, activityId, startTimestamp, endTimestamp,
+                () -> {
+                    // This is called when the activity is finalized in the database
+                    clearHideFlags();
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, "Activity saved successfully", Toast.LENGTH_SHORT).show();
+                    });
+                    // We'll finish the activity here, after saving to the database
+                    runOnUiThread(this::finish);
+                },
+                success -> {
+                    // This is called when the Strava upload is complete
+                    runOnUiThread(() -> {
+                        if (success) {
+                            Toast.makeText(this, "Activity uploaded to Strava successfully", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(this, "Failed to upload activity to Strava", Toast.LENGTH_SHORT).show();
+                        }
+                        // We don't need to call finish() here anymore
+                    });
+                }
+        );
+    }
+
+    private void finalizeActivity_old_not_call_finish() {
         handler.removeCallbacks(updateRunnable);
         long endTimestamp = System.currentTimeMillis();
 

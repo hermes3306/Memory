@@ -265,7 +265,24 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.insert(TABLE_ACTIVITIES, null, values);
     }
 
-    public void updateActivity(long activityId, long endTimestamp, long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
+    public int updateActivity(long activityId, long endTimestamp, long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_END_TIMESTAMP, endTimestamp);
+        values.put(COLUMN_START_LOCATION, startLocationId);
+        values.put(COLUMN_END_LOCATION, endLocationId);
+        values.put(COLUMN_DISTANCE, distance);
+        values.put(COLUMN_ELAPSED_TIME, elapsedTime);
+        values.put(COLUMN_DESC, "Activity completed");
+        values.put(COLUMN_ADDRESS, address);
+
+        int updatedRows = db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?", new String[]{String.valueOf(activityId)});
+        Log.d(TAG, "--m-- Updated activity in database. Rows affected: " + updatedRows);
+        return updatedRows;
+    }
+
+
+    public void updateActivity_old(long activityId, long endTimestamp, long startLocationId, long endLocationId, double distance, long elapsedTime, String address) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_END_TIMESTAMP, endTimestamp);
@@ -366,6 +383,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         cursor.close();
         return activity;
+    }
+
+    public boolean isActivityExist(String activityName) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT * FROM " + TABLE_ACTIVITIES + " WHERE " + COLUMN_NAME + " = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{activityName});
+        boolean exists = cursor.getCount() > 0;
+        cursor.close();
+        return exists;
     }
 
     public void deleteActivity(long activityId) {

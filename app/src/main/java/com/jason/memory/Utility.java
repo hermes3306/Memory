@@ -144,6 +144,9 @@ public class Utility {
 
 
     private static List<String> fetchJSONFileList(String ext) throws IOException {
+        if (ext.startsWith(".")) {
+            ext = ext.substring(1);
+        }
         URL url = new URL(FILE_JSON_LIST_URL + ext);
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         try {
@@ -219,6 +222,73 @@ public class Utility {
                 Log.d(TAG, "--m-- Using end location address: " + address);
             }
 
+            // Update the activity in the database
+            int updatedRows = dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
+            Log.d(TAG, "--m-- Activity updated in database. Rows affected: " + updatedRows);
+
+            // Verify the update by fetching the activity again
+            currentActivity = dbHelper.getActivity(activityId);
+            if (currentActivity != null) {
+                Log.d(TAG, "--m-- Activity after update: " + currentActivity.toString());
+            } else {
+                Log.e(TAG, "--m-- Failed to retrieve updated activity");
+            }
+
+            SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
+            boolean uploadToServer = prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false);
+            boolean uploadToStrava = prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false);
+
+            Log.d(TAG, "--m-- Upload preferences: Server=" + uploadToServer + ", Strava=" + uploadToStrava);
+
+            if (uploadToServer) {
+                File savedFile = saveActivityToFile(context, currentActivity, dbHelper);
+                if (savedFile != null) {
+                    Log.d(TAG, "--m-- Activity saved to file, uploading to server");
+                    uploadFile(context, savedFile);
+                } else {
+                    Log.e(TAG, "--m-- Failed to save activity to file");
+                }
+            }
+
+            if (uploadToStrava) {
+                Log.d(TAG, "--m-- Uploading to Strava");
+                uploadToStrava(context, dbHelper, stravaUploader, currentActivity, stravaCallback);
+            } else {
+                stravaCallback.onStravaUploadComplete(false);
+            }
+
+            callback.onFinalize();
+        } else {
+            Log.e(TAG, "--m-- Unable to save activity(" + activityId + "): location data missing");
+            Toast.makeText(context, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
+            callback.onFinalize();
+        }
+    }
+
+    public static void finalizeActivity_old(Context context, DatabaseHelper dbHelper, StravaUploader stravaUploader,
+                                        long activityId, long startTimestamp, long endTimestamp,
+                                        FinalizeCallback callback, StravaUploadCallback stravaCallback) {
+
+        Log.d(TAG, "--m-- Finalizing activity: " + activityId);
+
+        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
+        LocationData endLocation = dbHelper.getLatestLocation();
+
+        if (startLocation != null && endLocation != null) {
+            Log.d(TAG, "--m-- Start and end locations found");
+            double distance = calculateDistance(dbHelper, startTimestamp, endTimestamp);
+            long elapsedTime = endTimestamp - startTimestamp;
+
+            Log.d(TAG, "--m-- Calculated distance: " + distance + ", elapsed time: " + elapsedTime);
+
+            ActivityData currentActivity = dbHelper.getActivity(activityId);
+            String address = (currentActivity != null) ? currentActivity.getAddress() : "";
+
+            if (address.isEmpty()) {
+                address = endLocation.getSimpleAddress(context);
+                Log.d(TAG, "--m-- Using end location address: " + address);
+            }
+
             dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
             Log.d(TAG, "--m-- Activity updated in database");
             currentActivity = dbHelper.getActivity(activityId);
@@ -263,7 +333,7 @@ public class Utility {
         List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
         double totalDistance = 0;
         if(locations == null || locations.size() < 2) {
-            Log.e(TAG, "--m-- Not enough locations to calculate distance");
+            Log.e(TAG, "--m-- Not enough locations(<2) to calculate distance");
             return 0;
         }
         for (int i = 0; i < locations.size() - 1; i++) {
