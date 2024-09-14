@@ -8,10 +8,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.database.Cursor;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.Environment;
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
@@ -49,7 +46,7 @@ public class SettingActivity extends AppCompatActivity {
     private Switch switchKeepScreenOn;
 
     private static final String TAG = "SettingActivity";
-    private static final String BASE_URL = "http://58.233.69.198:8080/moment/";
+    private static final String BASE_URL = Config.BASE_URL;
     private static final String UPLOAD_DIR = "upload/";
     private static final String FILE_LIST_URL = BASE_URL + "listM.php?ext=csv";
 
@@ -71,6 +68,7 @@ public class SettingActivity extends AppCompatActivity {
     private Button initActivityButton;
     private Button migrateButton;
     private boolean isInitialized = false;
+    private Button fileViewButton;
 
     private RadioGroup runTypeRadioGroup;
     private RadioButton memoryRadioButton;
@@ -120,6 +118,9 @@ public class SettingActivity extends AppCompatActivity {
 
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
+        fileViewButton = findViewById(R.id.fileViewButton);
+
+
     }
 
     private void setClickListeners() {
@@ -166,6 +167,11 @@ public class SettingActivity extends AppCompatActivity {
 
             String selectedType = (checkedId == R.id.idnew_memoryRadioButton) ? "Memory" : "Moment";
             Toast.makeText(this, "Run type set to: " + selectedType, Toast.LENGTH_SHORT).show();
+        });
+
+        fileViewButton.setOnClickListener(v -> {
+            Intent intent = new Intent(SettingActivity.this, FileViewActivity.class);
+            startActivity(intent);
         });
 
         checkBoxServer.setChecked(prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false));
@@ -224,57 +230,26 @@ public class SettingActivity extends AppCompatActivity {
                 .show();
     }
 
+
     private void migrateFiles() {
-        if (!isInitialized) {
-            Toast.makeText(this, "Please initialize activities first", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // Disable buttons
+        initActivityButton.setEnabled(false);
+        listActivitiesButton.setEnabled(false);
+
+        // Stop location service
+        Intent stopServiceIntent = new Intent(this, LocationService.class);
+        stopServiceIntent.setAction(LocationService.ACTION_STOP_SERVICE);
+        startService(stopServiceIntent);
 
         File appDir = Config.getDownloadDir();
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files == null || files.length == 0) {
             Toast.makeText(this, "No files to migrate", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        progressBar.setMax(files.length);
-        progressBar.setProgress(0);
-        progressBar.setVisibility(View.VISIBLE);
-        statusTextView.setText("Preparing to migrate " + files.length + " files");
-
-        new Thread(() -> {
-            long startTime = System.currentTimeMillis();
-            boolean success = Utility.SaveActivitiesToDB(this, Arrays.asList(files), dbHelper);
-            long endTime = System.currentTimeMillis();
-            long timeElapsed = endTime - startTime;
-
-            runOnUiThread(() -> {
-                progressBar.setVisibility(View.GONE);
-                if (success) {
-                    statusTextView.setText("Migration completed successfully. Time elapsed: " +
-                            (timeElapsed / 1000) + " seconds");
-                } else {
-                    statusTextView.setText("Migration failed. Time elapsed: " +
-                            (timeElapsed / 1000) + " seconds");
-                }
-                Toast.makeText(this, "Migration " + (success ? "completed" : "failed"), Toast.LENGTH_SHORT).show();
-            });
-        }).start();
-    }
-
-
-    private void migrateFiles_old() {
-        if (!isInitialized) {
-            Toast.makeText(this, "Please initialize activities first", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        File appDir = Config.getDownloadDir();
-        File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
-
-        if (files == null || files.length == 0) {
-            Toast.makeText(this, "No files to migrate", Toast.LENGTH_SHORT).show();
+            startLocationService();
+            // Re-enable buttons
+            initActivityButton.setEnabled(true);
+            listActivitiesButton.setEnabled(true);
             return;
         }
 
@@ -286,7 +261,23 @@ public class SettingActivity extends AppCompatActivity {
         new Thread(() -> {
             int processedFiles = 0;
             int successfulMigrations = 0;
+            int skippedFiles = 0;
+
             for (File file : files) {
+                String activityName = file.getName().replace(".csv", "");
+                if (dbHelper.isActivityExist(activityName)) {
+                    skippedFiles++;
+                    processedFiles++;
+                    int finalProcessedFiles = processedFiles;
+                    int finalSkippedFiles = skippedFiles;
+                    runOnUiThread(() -> {
+                        progressBar.setProgress(finalProcessedFiles);
+                        statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length +
+                                " files: " + file.getName() + " (Skipped: already exists)");
+                    });
+                    continue;
+                }
+
                 boolean success = Utility.SaveActivityToDB(this, file, dbHelper);
                 if (success) {
                     successfulMigrations++;
@@ -294,51 +285,36 @@ public class SettingActivity extends AppCompatActivity {
                 processedFiles++;
                 int finalProcessedFiles = processedFiles;
                 int finalSuccessfulMigrations = successfulMigrations;
+                int finalSkippedFiles = skippedFiles;
                 runOnUiThread(() -> {
                     progressBar.setProgress(finalProcessedFiles);
                     statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length +
                             " files: " + file.getName() +
-                            " (Success: " + finalSuccessfulMigrations + ")");
+                            " (OK: " + finalSuccessfulMigrations + ", Skipped: " + finalSkippedFiles + ")");
                 });
             }
             int finalSuccessfulMigrations = successfulMigrations;
+            int finalSkippedFiles = skippedFiles;
             runOnUiThread(() -> {
                 progressBar.setVisibility(View.GONE);
                 statusTextView.setText("Migration completed. " + finalSuccessfulMigrations +
-                        " out of " + files.length + " files migrated successfully.");
+                        " out of " + files.length + " files migrated successfully. " +
+                        finalSkippedFiles + " files skipped.");
                 Toast.makeText(this, "Migration completed", Toast.LENGTH_SHORT).show();
+                startLocationService();
+
+                // Re-enable buttons
+                initActivityButton.setEnabled(true);
+                listActivitiesButton.setEnabled(true);
             });
         }).start();
     }
 
-
-    private ActivityData parseActivityFromFile(File file) {
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(file));
-            String line = reader.readLine(); // Assuming the first line contains the data
-            String[] parts = line.split(",");
-            if (parts.length >= 7) {
-                return new ActivityData(
-                        0, // id will be set by the database
-                        file.getName(), // filename
-                        parts[0], // activity type
-                        parts[1], // activity name
-                        Long.parseLong(parts[2]), // start timestamp
-                        Long.parseLong(parts[3]), // end timestamp
-                        Long.parseLong(parts[4]), // start location id
-                        Long.parseLong(parts[5]), // end location id
-                        Double.parseDouble(parts[6]), // distance
-                        Long.parseLong(parts[7]), // elapsed time
-                        file.getName() // using filename as address for this example
-                );
-            }
-        } catch (IOException | NumberFormatException e) {
-            e.printStackTrace();
-        }
-        return null;
+    private void startLocationService() {
+        Intent startServiceIntent = new Intent(this, LocationService.class);
+        startServiceIntent.setAction(LocationService.ACTION_START_SERVICE);
+        startService(startServiceIntent);
     }
-
-
 
     private void showFileListDialog(String[] files) {
         StringBuilder fileList = new StringBuilder();
@@ -359,12 +335,8 @@ public class SettingActivity extends AppCompatActivity {
         SimpleDateFormat sdf = new SimpleDateFormat("yyMMdd_HHmmss", Locale.getDefault());
 
         for (ActivityData activity : activities) {
-            String startTime = sdf.format(new Date(activity.getStartTimestamp()));
-            String activityString = String.format("%s - %s (%.2f km, %d min)",
-                    startTime,
-                    activity.getName(),
-                    activity.getDistance() / 1000, // Convert meters to kilometers
-                    activity.getElapsedTime() / 60000); // Convert milliseconds to minutes
+            String activityString = String.format("%s",
+                    activity.getName());
             activityList.append(activityString).append("\n");
         }
 

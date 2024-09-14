@@ -50,7 +50,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
     private Button btnBack;
     private DatabaseHelper dbHelper;
 
-    private static final String BASE_URL = "http://58.233.69.198/moment/";
+    private static final String BASE_URL = Config.BASE_URL;
     private static final String UPLOAD_DIR = "upload/";
 
     private String activityFilename;
@@ -379,7 +379,7 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
         protected String doInBackground(String... filenames) {
             Log.d(TAG, "--m-- FetchActivityDataTask: Fetching data for file: " + filenames[0]);
             try {
-                URL url = new URL(BASE_URL + UPLOAD_DIR + filenames[0]);
+                URL url = new URL(Config.DOWNLOAD_DIR + filenames[0]);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                 StringBuilder content = new StringBuilder();

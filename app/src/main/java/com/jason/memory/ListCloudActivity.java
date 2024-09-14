@@ -52,7 +52,7 @@ public class ListCloudActivity extends AppCompatActivity {
     private ActivityAdapter adapter;
     private List<ActivityData> activityList;
     private CloudHelper cloudHelper;
-    private static final String BASE_URL = "http://58.233.69.198/moment/";
+    private static final String BASE_URL = Config.BASE_URL;
     private static final String UPLOAD_DIR = "upload/";
     private int currentPage = 1;
     private boolean isLoading = false;
@@ -534,7 +534,7 @@ public class ListCloudActivity extends AppCompatActivity {
 
 
     private static class CloudHelper {
-        private static final String BASE_URL = "http://58.233.69.198/moment/";
+        private static final String BASE_URL = Config.BASE_URL;
         private Map<String, String> contentCache = new HashMap<>();
         private Map<String, List<LocationData>> locationCache = new HashMap<>();
         private static final int PAGE_SIZE = 20;

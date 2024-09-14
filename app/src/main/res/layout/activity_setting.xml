@@ -7,8 +7,6 @@
     android:layout_height="match_parent"
     tools:context=".SettingActivity">
 
-
-
     <TextView
         android:id="@+id/settingsTitle"
         android:layout_width="wrap_content"
@@ -31,6 +29,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Keep Screen On switch -->
         <Switch
             android:id="@+id/switchKeepScreenOn"
             android:layout_width="match_parent"
@@ -38,6 +37,7 @@
             android:text="Keep Screen On"
             android:layout_marginTop="16dp"/>
 
+        <!-- Run Type Layout -->
         <LinearLayout
             android:id="@+id/idnew_runTypeLayout"
             android:layout_width="match_parent"
@@ -75,6 +75,7 @@
             </RadioGroup>
         </LinearLayout>
 
+        <!-- Save Type Layout -->
         <LinearLayout
             android:id="@+id/idnew_saveTypeLayout"
             android:layout_width="match_parent"
@@ -111,20 +112,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <Button
-            android:id="@+id/fileDownloadButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Download files"
-            android:layout_marginBottom="8dp"/>
-
-        <Button
-            android:id="@+id/fileUploadButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Upload files"
-            android:layout_marginBottom="8dp"/>
-
+        <!-- Download and Upload Files Layout -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -132,57 +120,93 @@
             android:layout_marginBottom="8dp">
 
             <Button
-                android:id="@+id/listFilesButton"
+                android:id="@+id/fileDownloadButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="List"
+                android:text="Dn"
                 android:layout_marginEnd="4dp"/>
 
             <Button
-                android:id="@+id/deleteFilesButton"
+                android:id="@+id/fileUploadButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Delete"
+                android:text="Up"
                 android:layout_marginStart="4dp"/>
-        </LinearLayout>
-
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
 
             <Button
                 android:id="@+id/listServerFilesButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Server" />
+                android:text="Serv"
+                android:layout_marginEnd="4dp"/>
+        </LinearLayout>
+
+        <!-- Initialize and Migrate Layout -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/initActivityButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Init"
+                android:layout_marginEnd="4dp"/>
+
+            <Button
+                android:id="@+id/migrateButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Mig"
+                android:layout_marginStart="4dp"/>
 
             <Button
                 android:id="@+id/listActivitiesButton"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Activities" />
+                android:text="Act"
+                android:layout_marginStart="4dp"/>
         </LinearLayout>
 
-        <Button
-            android:id="@+id/initActivityButton"
+        <!-- List, Delete, and File Layout -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Initialize activities"
-            android:layout_marginBottom="8dp"/>
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
 
-        <Button
-            android:id="@+id/migrateButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Migrate files"
-            android:layout_marginBottom="8dp"/>
+            <Button
+                android:id="@+id/fileViewButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="View"
+                android:layout_marginStart="4dp"/>
+            <Button
+                android:id="@+id/deleteFilesButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Del"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"/>
+            <Button
+                android:id="@+id/listFilesButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="File"
+                android:layout_marginEnd="4dp"/>
+
+        </LinearLayout>
 
         <ProgressBar
             android:id="@+id/progressBar"
@@ -198,7 +222,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text=""
-            android:maxLines="3"
+            android:maxLines="4"
             android:ellipsize="end"/>
 
     </LinearLayout>

@@ -3,7 +3,6 @@ package com.jason.memory;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
-import android.os.Environment;
 import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -24,7 +23,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.io.IOException;
 
-public class FileListActivity extends AppCompatActivity {
+public class FileActivity extends AppCompatActivity {
     private static final String TAG = "FileListActivity";
     private RecyclerView recyclerView;
     private FileAdapter adapter;
@@ -44,7 +43,7 @@ public class FileListActivity extends AppCompatActivity {
         activityList = new ArrayList<>();
         adapter = new FileAdapter(activityList, activity -> {
             Log.d(TAG, "--m-- onItemClick: Starting ActivityDetailActivity for " + activity.getFilename());
-            Intent intent = new Intent(FileListActivity.this, ActivityDetailActivity.class);
+            Intent intent = new Intent(FileActivity.this, ActivityDetailActivity.class);
             intent.putExtra("ACTIVITY_FILENAME", activity.getFilename());
             startActivity(intent);
         });
