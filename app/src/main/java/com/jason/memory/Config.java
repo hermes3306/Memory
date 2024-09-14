@@ -32,6 +32,8 @@ public class Config {
     public static final String PLACE_EXT = ".place";
     public static final String MEMORY_EXT = ".memory";
     public static final String ACTIVITY_EXT = ".csv";
+    public static final String DAILY_EXT = ".daily";
+
 
 
     public static File getDownloadDir() {

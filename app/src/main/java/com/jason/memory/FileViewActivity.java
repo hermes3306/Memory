@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class FileViewActivity extends AppCompatActivity implements FileViewListAdapter.OnFileClickListener {
-    private static final String[] FILE_TYPES = {"Activity", "Memory", "Place"};
+    private static final String[] FILE_TYPES = {"Activity", "Memory", "Place", "Daily"};
     private Spinner fileTypeSpinner;
     private TextView fileCountTextView;
     private RecyclerView fileListRecyclerView;
@@ -71,6 +71,10 @@ public class FileViewActivity extends AppCompatActivity implements FileViewListA
             case "Place":
                 files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.PLACE_EXT));
                 break;
+            case "Daily":
+                files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.DAILY_EXT));
+                break;
+
             default:
                 files = new File[0];
         }

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your app's base theme here if needed -->
+    </style>
+
+    <!-- Splash Screen theme -->
+    <style name="SplashTheme" parent="AppTheme">
+<!--        <item name="android:windowBackground">@drawable/splash_background</item>-->
+        <item name="android:windowBackground">@drawable/memories48</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
