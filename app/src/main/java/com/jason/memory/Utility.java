@@ -438,80 +438,6 @@ public class Utility {
         return earthRadius * c; // Distance in kilometers
     }
 
-    public static boolean SaveActivitiesToDB(Context context, List<File> files, DatabaseHelper dbHelper) {
-        List<ActivityData> activities = new ArrayList<>();
-        List<LocationData> allLocations = new ArrayList<>();
-
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
-
-        dbHelper.beginTransaction();
-        try {
-            for (File file : files) {
-                List<LocationData> locations = new ArrayList<>();
-                try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-                    String line;
-                    reader.readLine(); // Skip header
-
-                    while ((line = reader.readLine()) != null) {
-                        String[] parts = line.split(",");
-                        if (parts.length == 4) {
-                            double latitude = Double.parseDouble(parts[0]);
-                            double longitude = Double.parseDouble(parts[1]);
-                            Date date = dateFormat.parse(parts[2] + "," + parts[3]);
-                            long timestamp = date.getTime();
-
-                            LocationData location = new LocationData(0, latitude, longitude, 0.0, timestamp);
-                            locations.add(location);
-                            Log.d(TAG, "Created location: " + location);
-                        }
-                    }
-
-                    if (locations.size() < 2) {
-                        boolean deleted = file.delete();
-                        Log.e(TAG, "--m-- File " + (deleted ? "deleted" : "not deleted") + " due to insufficient data: " + file.getName());
-                        continue;
-                    }
-
-                    long startTimestamp = locations.get(0).getTimestamp();
-                    long endTimestamp = locations.get(locations.size() - 1).getTimestamp();
-                    double distance = calculateDistance(locations);
-                    long elapsedTime = endTimestamp - startTimestamp;
-
-                    String activityName = file.getName().replace(".csv", "");
-                    ActivityData activity = new ActivityData(
-                            0, file.getName(), "Unknown", activityName,
-                            startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "");
-
-                    activities.add(activity);
-                    allLocations.addAll(locations);
-                    Log.d(TAG, "Processed file: " + file.getName() + ", locations: " + locations.size());
-                } catch (Exception e) {
-                    Log.e(TAG, "--m-- Error processing file: " + file.getName(), e);
-                }
-            }
-
-            Log.d(TAG, "Total activities to insert: " + activities.size());
-            Log.d(TAG, "Total locations to insert: " + allLocations.size());
-
-            if (!activities.isEmpty()) {
-                dbHelper.insertActivitiesBatch(activities);
-            }
-            if (!allLocations.isEmpty()) {
-                dbHelper.insertLocationsBatch(allLocations);
-            }
-
-            dbHelper.setTransactionSuccessful();
-            Log.d(TAG, "--m-- Batch insert completed successfully");
-            return true;
-        } catch (Exception e) {
-            Log.e(TAG, "--m-- Error during batch insert: " + e.getMessage(), e);
-            return false;
-        } finally {
-            dbHelper.endTransaction();
-        }
-    }
-
-
     private static double calculateDistance(List<LocationData> locations) {
         double totalDistance = 0;
         for (int i = 0; i < locations.size() - 1; i++) {
@@ -561,17 +487,17 @@ public class Utility {
 
             String activityName = file.getName().replace(".csv", "");
             ActivityData activity = new ActivityData(
-                    0, // id will be set by the database
+                    0, // id
                     file.getName(), // filename
-                    "Unknown", // type (you might want to determine this based on the data)
-                    activityName,
+                    "Unknown", // type
+                    activityName, // name
                     startTimestamp,
                     endTimestamp,
-                    0, // start location id (you might want to set this if needed)
-                    0, // end location id (you might want to set this if needed)
+                    0, // start location id
+                    0, // end location id
                     distance,
                     elapsedTime,
-                    "" // address (you might want to determine this based on the end location)
+                    "" // address
             );
 
             long activityId = dbHelper.insertActivity(activity);

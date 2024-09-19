@@ -129,8 +129,6 @@ public class ActivityCloudDetailActivity extends AppCompatActivity implements On
     }
 
 
-
-
     private void initializeViews() {
         tvName = findViewById(R.id.tvName);
         tvStartTime = findViewById(R.id.tvStartTime);

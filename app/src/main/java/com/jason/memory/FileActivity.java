@@ -42,9 +42,9 @@ public class FileActivity extends AppCompatActivity {
 
         activityList = new ArrayList<>();
         adapter = new FileAdapter(activityList, activity -> {
-            Log.d(TAG, "--m-- onItemClick: Starting ActivityDetailActivity for " + activity.getFilename());
+            Log.d(TAG, "--m-- onItemClick: Starting ActivityDetailActivity for " + activity.getName());
             Intent intent = new Intent(FileActivity.this, ActivityDetailActivity.class);
-            intent.putExtra("ACTIVITY_FILENAME", activity.getFilename());
+            intent.putExtra("ACTIVITY_FILENAME", activity.getName() + ".csv");
             startActivity(intent);
         });
         recyclerView.setAdapter(adapter);
@@ -160,14 +160,14 @@ public class FileActivity extends AppCompatActivity {
             double distance = calculateDistance(firstParts, lastParts);
             long elapsedTime = endTimestamp - startTimestamp;
             String address = "";
-            try{
+            try {
                 address = getAddress(Double.parseDouble(firstParts[0]), Double.parseDouble(firstParts[1]));
-            }catch(Exception e) {
+            } catch(Exception e) {
                 Log.e(TAG, "--m-- " + e.getMessage());
             }
 
             Log.d(TAG, "--m-- parseActivityDataFromFile: Successfully parsed activity: " + name);
-            return new ActivityData(0, file.getName(), "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, address);
+            return new ActivityData(0, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, address);
         } catch (IOException | ParseException e) {
             Log.e(TAG, "--m-- parseActivityDataFromFile: Error parsing file: " + file.getName(), e);
         } catch (ArrayIndexOutOfBoundsException e) {

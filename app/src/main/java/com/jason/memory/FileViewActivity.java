@@ -72,7 +72,7 @@ public class FileViewActivity extends AppCompatActivity implements FileViewListA
                 files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.PLACE_EXT));
                 break;
             case "Daily":
-                files = Config.getDownloadDir().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.DAILY_EXT));
+                files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.DAILY_EXT));
                 break;
 
             default:

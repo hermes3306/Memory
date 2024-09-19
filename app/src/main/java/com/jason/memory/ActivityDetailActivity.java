@@ -118,13 +118,23 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
             double distance = calculateDistance(locations);
 
             String name = filename.substring(0, filename.lastIndexOf('.'));
-            return new ActivityData(0, filename, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "Address not available");
+            return new ActivityData(
+                    0,  // id
+                    "run",  // type
+                    name,  // name
+                    startTimestamp,
+                    endTimestamp,
+                    0,  // startLocation
+                    0,  // endLocation
+                    distance,
+                    elapsedTime,
+                    "Address not available"
+            );
         } catch (IOException | ParseException e) {
             e.printStackTrace();
             return null;
         }
     }
-
     private List<LocationData> loadLocationsFromFile(File file) {
         List<LocationData> locations = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
@@ -415,8 +425,11 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         if (activity.getId() > 0) {
             locations = dbHelper.getLocationsBetweenTimestamps(activity.getStartTimestamp(), activity.getEndTimestamp());
         } else {
+            // If the activity is not from the database, we need to load locations from the file
+            // We'll use the activity name as the filename
+            String filename = activity.getName() + ".csv"; // Assuming the file extension is .csv
             File directory = Config.getDownloadDir();
-            locations = loadLocationsFromFile(new File(directory, activity.getFilename()));
+            locations = loadLocationsFromFile(new File(directory, filename));
         }
 
         if (locations == null || locations.size() < 2) {
@@ -424,9 +437,10 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
             return;
         }
 
+        // Rest of the method remains the same
         PolylineOptions polylineOptions = new PolylineOptions()
-                .color(Color.RED)  // Set the line color to red
-                .width(3);  // Set the line width to 3
+                .color(Color.RED)
+                .width(3);
         LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
 
         for (LocationData location : locations) {
@@ -453,7 +467,6 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
                 .title("End")
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
     }
-
     private String calculateAveragePace(long elapsedTime, double distance) {
         if (distance < 0.01) {
             return "--:--";

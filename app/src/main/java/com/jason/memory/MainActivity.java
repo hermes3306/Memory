@@ -25,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_LOCATION = 100;
     private Button startServiceButton;
     private Button stopServiceButton;
+    private Button chatButton;
     private TextView statusTextView;
     private BroadcastReceiver serviceStatusReceiver;
 
@@ -42,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
         startServiceButton = findViewById(R.id.startServiceButton);
         stopServiceButton = findViewById(R.id.stopServiceButton);
         statusTextView = findViewById(R.id.statusTextView);
+        chatButton = findViewById(R.id.btnChat);
+
         Button monitorButton = findViewById(R.id.monitorButton);
 
         startServiceButton.setOnClickListener(new View.OnClickListener() {
@@ -62,6 +65,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(MainActivity.this, MonitorActivity.class));
+            }
+        });
+
+        chatButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(MainActivity.this, ChatActivity.class));
             }
         });
 

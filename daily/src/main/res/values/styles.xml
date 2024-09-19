@@ -11,11 +11,4 @@
         <item name="android:windowBackground">@drawable/memories48</item>
         <item name="android:windowFullscreen">true</item>
     </style>
-
-    <style name="TransparentTheme" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowAnimationStyle">@null</item>
-    </style>
-
 </resources>

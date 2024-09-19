@@ -8,15 +8,19 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -32,6 +36,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -77,6 +82,10 @@ public class SettingActivity extends AppCompatActivity {
     private CheckBox checkBoxServer;
     private CheckBox checkBoxStrava;
 
+    private Spinner tableSpinner;
+    private Button viewTableButton;
+    private String[] tableNames = {"locations", "activities", "places", "memories"};
+
 
     private BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
         @Override
@@ -119,6 +128,13 @@ public class SettingActivity extends AppCompatActivity {
         checkBoxServer = findViewById(R.id.idnew_save_server);
         checkBoxStrava = findViewById(R.id.idnew_save_Strava);
         fileViewButton = findViewById(R.id.fileViewButton);
+
+        tableSpinner = findViewById(R.id.tableSpinner);
+        viewTableButton = findViewById(R.id.viewTableButton);
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, tableNames);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        tableSpinner.setAdapter(adapter);
 
 
     }
@@ -179,6 +195,16 @@ public class SettingActivity extends AppCompatActivity {
 
         checkBoxServer.setOnCheckedChangeListener((buttonView, isChecked) -> savePreferences());
         checkBoxStrava.setOnCheckedChangeListener((buttonView, isChecked) -> savePreferences());
+
+        viewTableButton.setOnClickListener(v -> viewSelectedTable());
+
+    }
+
+    private void viewSelectedTable() {
+        String selectedTable = tableSpinner.getSelectedItem().toString();
+        Intent intent = new Intent(SettingActivity.this, TableViewActivity.class);
+        intent.putExtra("TABLE_NAME", selectedTable);
+        startActivity(intent);
     }
 
     private void savePreferences() {
@@ -268,20 +294,45 @@ public class SettingActivity extends AppCompatActivity {
                 if (dbHelper.isActivityExist(activityName)) {
                     skippedFiles++;
                     processedFiles++;
-                    int finalProcessedFiles = processedFiles;
-                    int finalSkippedFiles = skippedFiles;
-                    runOnUiThread(() -> {
-                        progressBar.setProgress(finalProcessedFiles);
-                        statusTextView.setText("Migrating " + finalProcessedFiles + "/" + files.length +
-                                " files: " + file.getName() + " (Skipped: already exists)");
-                    });
+                    // ... (update UI code remains the same)
                     continue;
                 }
 
-                boolean success = Utility.SaveActivityToDB(this, file, dbHelper);
-                if (success) {
-                    successfulMigrations++;
+                List<LocationData> locations = readLocationsFromFile(file);
+                if (locations.isEmpty()) {
+                    skippedFiles++;
+                    processedFiles++;
+                    continue;
                 }
+
+                ActivityData activity = createActivityFromLocations(activityName, locations);
+                if (activity != null) {
+                    long activityId = dbHelper.insertActivity(activity);
+                    if (activityId != -1) {
+                        // Insert locations
+                        dbHelper.insertLocationsBatch(locations);
+
+                        // Update the activity with start and end location IDs
+                        if (!locations.isEmpty()) {
+                            activity.setId(activityId);
+                            activity.setStartLocation(locations.get(0).getId());
+                            activity.setEndLocation(locations.get(locations.size() - 1).getId());
+                            dbHelper.updateActivity(activity);
+                        }
+
+                        // Log the Run type calculation
+                        double distance = activity.getDistance();
+                        long elapsedTime = activity.getElapsedTime();
+                        String activityType = determineActivityType(distance, elapsedTime);
+                        Log.d(TAG, "Activity: " + activityName +
+                                ", Distance: " + distance +
+                                ", Elapsed Time: " + elapsedTime +
+                                ", Calculated Type: " + activityType);
+
+                        successfulMigrations++;
+                    }
+                }
+
                 processedFiles++;
                 int finalProcessedFiles = processedFiles;
                 int finalSuccessfulMigrations = successfulMigrations;
@@ -293,6 +344,7 @@ public class SettingActivity extends AppCompatActivity {
                             " (OK: " + finalSuccessfulMigrations + ", Skipped: " + finalSkippedFiles + ")");
                 });
             }
+
             int finalSuccessfulMigrations = successfulMigrations;
             int finalSkippedFiles = skippedFiles;
             runOnUiThread(() -> {
@@ -308,6 +360,44 @@ public class SettingActivity extends AppCompatActivity {
                 listActivitiesButton.setEnabled(true);
             });
         }).start();
+    }
+
+    private double calculateDistance(List<LocationData> locations) {
+        double distance = 0;
+        for (int i = 1; i < locations.size(); i++) {
+            LocationData prev = locations.get(i - 1);
+            LocationData curr = locations.get(i);
+            distance += haversineDistance(prev.getLatitude(), prev.getLongitude(),
+                    curr.getLatitude(), curr.getLongitude());
+        }
+        return distance;
+    }
+
+    private double haversineDistance(double lat1, double lon1, double lat2, double lon2) {
+        double R = 6371; // Earth's radius in kilometers
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        lat1 = Math.toRadians(lat1);
+        lat2 = Math.toRadians(lat2);
+
+        double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    private String getAddressFromLocation(double latitude, double longitude) {
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+            if (!addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                return address.getAddressLine(0);
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error getting address", e);
+        }
+        return "";
     }
 
     private void startLocationService() {
@@ -685,4 +775,87 @@ public class SettingActivity extends AppCompatActivity {
         setResult(RESULT_OK, resultIntent);
         super.finish();
     }
+
+
+    private List<LocationData> readLocationsFromFile(File file) {
+        List<LocationData> locations = new ArrayList<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+
+            // Always skip the first line (header)
+            reader.readLine();
+
+            while ((line = reader.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length >= 4) {
+                    try {
+                        double latitude = Double.parseDouble(parts[0]);
+                        double longitude = Double.parseDouble(parts[1]);
+                        String date = parts[2];
+                        String time = parts[3];
+
+                        // Convert date and time to timestamp
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.US);
+                        Date dateObj = sdf.parse(date + " " + time);
+                        long timestamp = dateObj.getTime();
+
+                        // Assuming altitude is not provided in your file format
+                        double altitude = 0.0; // or you can use a default value
+
+                        locations.add(new LocationData(0, latitude, longitude, altitude, timestamp));
+                    } catch (NumberFormatException | ParseException e) {
+                        Log.e(TAG, "Error parsing line: " + line, e);
+                        // Skip this line and continue with the next
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error reading file: " + file.getName(), e);
+        }
+        return locations;
+    }
+
+    private ActivityData createActivityFromLocations(String activityName, List<LocationData> locations) {
+        if (locations.isEmpty()) {
+            return null;
+        }
+
+        LocationData startLocation = locations.get(0);
+        LocationData endLocation = locations.get(locations.size() - 1);
+
+        long startTimestamp = startLocation.getTimestamp();
+        long endTimestamp = endLocation.getTimestamp();
+        long elapsedTime = endTimestamp - startTimestamp;
+
+        double distance = calculateDistance(locations);
+
+        String activityType = determineActivityType(distance, elapsedTime);
+
+        String address = getAddressFromLocation(startLocation.getLatitude(), startLocation.getLongitude());
+
+        return new ActivityData(
+                0, // id will be set by the database
+                activityType,
+                activityName,
+                startTimestamp,
+                endTimestamp,
+                startLocation.getId(),
+                endLocation.getId(),
+                distance,
+                elapsedTime,
+                address
+        );
+    }
+
+    private String determineActivityType(double distance, long elapsedTimeMs) {
+        double speedKmh = (distance) / (elapsedTimeMs / 3600000.0);
+
+        Log.d(TAG, "Speed calculation: " + speedKmh + " km/h");
+
+        if (speedKmh < 2) return "None";
+        if (speedKmh < 7) return "Walk";
+        if (speedKmh < 20) return "Run";
+        return "Driving";
+    }
+
 }

@@ -137,7 +137,8 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
         private void drawActivityTrack(ActivityData activity) {
             map.clear();
-            List<LocationData> locations = getLocationDataFromFile(activity.getFilename());
+            String filename = activity.getName() + ".csv"; // Assuming the filename is the activity name plus ".csv"
+            List<LocationData> locations = getLocationDataFromFile(filename);
             if (locations.size() < 2) return;
 
             PolylineOptions polylineOptions = new PolylineOptions()

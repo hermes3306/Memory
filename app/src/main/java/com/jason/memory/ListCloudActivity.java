@@ -83,7 +83,7 @@ public class ListCloudActivity extends AppCompatActivity {
 
         adapter = new ActivityAdapter(activityList, activity -> {
             Intent intent = new Intent(ListCloudActivity.this, ActivityCloudDetailActivity.class);
-            intent.putExtra("ACTIVITY_FILENAME", activity.getFilename());
+            intent.putExtra("ACTIVITY_FILENAME", activity.getName() + ".csv");
             startActivityForResult(intent, ACTIVITY_DETAIL_REQUEST);
         });
 
@@ -126,7 +126,7 @@ public class ListCloudActivity extends AppCompatActivity {
 
     private void updateActivityInList(ActivityData updatedActivity) {
         for (int i = 0; i < activityList.size(); i++) {
-            if (activityList.get(i).getFilename().equals(updatedActivity.getFilename())) {
+            if (activityList.get(i).getName().equals(updatedActivity.getName())) {
                 activityList.set(i, updatedActivity);
                 adapter.notifyItemChanged(i);
                 break;
@@ -335,7 +335,14 @@ public class ListCloudActivity extends AppCompatActivity {
                 new Thread(() -> {
                     ActivityData detailedActivity = cloudHelper.getActivityDataFromFile(activity.getFilename());
                     if (detailedActivity != null) {
-                        activity.updateFrom(detailedActivity);
+                        // Update the activity with the detailed information
+                        activity.setStartTimestamp(detailedActivity.getStartTimestamp());
+                        activity.setEndTimestamp(detailedActivity.getEndTimestamp());
+                        activity.setDistance(detailedActivity.getDistance());
+                        activity.setElapsedTime(detailedActivity.getElapsedTime());
+                        activity.setAddress(detailedActivity.getAddress());
+                        // Update any other fields that might be in your ActivityData class
+
                         itemView.post(() -> displayActivityDetails(activity));
                     }
                 }).start();
@@ -564,6 +571,7 @@ public class ListCloudActivity extends AppCompatActivity {
             return result;
         }
 
+
         public ActivityData getActivityDataFromFile(String fileName) {
             try {
                 Log.d(TAG, "--m-- getActivityDataFromFile: Fetching data for file: " + fileName);
@@ -604,7 +612,19 @@ public class ListCloudActivity extends AppCompatActivity {
                                 double distance = calculateDistance(locations);
 
                                 String name = fileName.substring(0, fileName.lastIndexOf('.'));
-                                ActivityData activityData = new ActivityData(0, fileName, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, "Address not available");
+                                ActivityData activityData = new ActivityData(
+                                        0L,  // id
+                                        "run",  // type
+                                        name,  // name
+                                        startTimestamp,
+                                        endTimestamp,
+                                        0L,  // startLocation
+                                        0L,  // endLocation
+                                        distance,
+                                        elapsedTime,
+                                        "Address not available"
+                                );
+                                activityData.setFilename(fileName);  // Set the filename
 
                                 Log.d(TAG, "--m-- getActivityDataFromFile: Parsed ActivityData: " + activityData.toString());
                                 return activityData;

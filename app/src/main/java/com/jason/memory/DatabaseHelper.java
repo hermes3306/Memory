@@ -32,7 +32,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 6;
+    private static final int DATABASE_VERSION = 7;
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -168,26 +168,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     + COLUMN_DESC + " TEXT,"
                     + COLUMN_DISTANCE + " REAL,"
                     + COLUMN_ELAPSED_TIME + " INTEGER,"
-                    + COLUMN_ADDRESS + " TEXT" // New column
+                    + COLUMN_ADDRESS + " TEXT" // Add this line
                     + ")";
             db.execSQL(CREATE_ACTIVITIES_TABLE);
         }
         cursor.close();
 
-
-
-        String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
-                + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + COLUMN_MEMORY_TITLE + " TEXT,"
-                + COLUMN_MEMORY_DATE + " TEXT,"
-                + COLUMN_MEMORY_TEXT + " TEXT"
-                + ")";
-        db.execSQL(CREATE_MEMORIES_TABLE);
-
-
+        // Check if memories table exists
+        cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_MEMORIES});
+        if (cursor.getCount() == 0) {
+            String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
+                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                    + COLUMN_MEMORY_TITLE + " TEXT,"
+                    + COLUMN_MEMORY_DATE + " TEXT,"
+                    + COLUMN_MEMORY_TEXT + " TEXT"
+                    + ")";
+            db.execSQL(CREATE_MEMORIES_TABLE);
+        }
+        cursor.close();
     }
-
-
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -195,6 +194,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
         // db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
         // Create tables again
+        if (oldVersion < 7) {
+            // Add the address column to the activities table
+            db.execSQL("ALTER TABLE " + TABLE_ACTIVITIES + " ADD COLUMN " + COLUMN_ADDRESS + " TEXT");
+        }
+
         onCreate(db);
 
         Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_MEMORIES});
@@ -209,7 +213,39 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         cursor.close();
 
+    }
 
+    public void insertLocationsBatch(List<LocationData> locations) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            for (LocationData location : locations) {
+                ContentValues values = new ContentValues();
+                values.put(COLUMN_LATITUDE, location.getLatitude());
+                values.put(COLUMN_LONGITUDE, location.getLongitude());
+                values.put(COLUMN_ALTITUDE, location.getAltitude());
+                values.put(COLUMN_TIMESTAMP, location.getTimestamp());
+
+                long id = db.insert(TABLE_LOCATIONS, null, values);
+                location.setId(id);  // Set the ID of the LocationData object
+            }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+
+
+    public void updateActivity(ActivityData activity) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_START_LOCATION, activity.getStartLocation());
+        values.put(COLUMN_END_LOCATION, activity.getEndLocation());
+        // Add other fields that might need updating
+
+        db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?",
+                new String[]{String.valueOf(activity.getId())});
     }
 
     public List<LocationData> getLocationDataForDateRange(long startTime, long endTime) {
@@ -1011,34 +1047,5 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-
-    public void insertLocationsBatch(List<LocationData> locations) {
-        SQLiteDatabase db = getWritableDatabase();
-        db.beginTransaction();
-        try {
-            for (LocationData location : locations) {
-                ContentValues values = new ContentValues();
-                values.put("latitude", location.getLatitude());
-                values.put("longitude", location.getLongitude());
-                values.put("altitude", location.getAltitude());
-                values.put("timestamp", location.getTimestamp());
-
-                // Do not include the id column in the insert statement
-                // as it's likely an auto-incrementing primary key
-
-                long newRowId = db.insert("locations", null, values);
-                if (newRowId == -1) {
-                    Log.e("DatabaseHelper", "Failed to insert location: " + location.getTimestamp());
-                } else {
-                    Log.d("DatabaseHelper", "Inserted location with ID: " + newRowId);
-                }
-            }
-            db.setTransactionSuccessful();
-        } catch (SQLException e) {
-            Log.e("DatabaseHelper", "Error inserting locations batch", e);
-        } finally {
-            db.endTransaction();
-        }
-    }
 
 }

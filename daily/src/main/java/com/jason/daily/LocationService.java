@@ -33,7 +33,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-
 public class LocationService extends Service {
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "LocationServiceChannel";
@@ -49,37 +48,42 @@ public class LocationService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private DatabaseHelper dbHelper;
 
-    private static final int LOCATIONS_PER_DAY = 24 * 60; // Every minute for 24 hours
+    private static final int LOCATIONS_PER_DAY = 24;
     private static List<LocationData> dailyLocations = new ArrayList<>();
-    private static final long LOCATION_INTERVAL = 60 * 1000; // 1 minute
-    private static final long HOURLY_UPLOAD_INTERVAL = 60 * 60 * 1000; // 1 hour
+    private static final long INTERVAL = 24 * 60 * 60 * 1000 / LOCATIONS_PER_DAY;
+    private static final long HOURLY_ALARM_INTERVAL = 60 * 60 * 1000; // 1 hour
 
-    private Handler locationHandler = new Handler();
-    private Handler hourlyUploadHandler = new Handler();
-
+    private Handler handler = new Handler();
     private Runnable locationRunnable = new Runnable() {
         @Override
         public void run() {
+            Log.d(TAG, "--m-- Capturing location");
             captureLocation();
-            locationHandler.postDelayed(this, LOCATION_INTERVAL);
+            handler.postDelayed(this, INTERVAL);
         }
     };
 
-    private Runnable hourlyUploadRunnable = new Runnable() {
+    private Handler hourlyAlarmHandler = new Handler();
+    private Runnable hourlyAlarmRunnable = new Runnable() {
         @Override
         public void run() {
-            uploadLocations(false);
-            hourlyUploadHandler.postDelayed(this, HOURLY_UPLOAD_INTERVAL);
+            Log.d(TAG, "--m-- Hourly alarm triggered");
+            sendLocationAlarm(null, "Hourly location update");
+            hourlyAlarmHandler.postDelayed(this, HOURLY_ALARM_INTERVAL);
         }
     };
+
+    private boolean isFirstLocation = true;
 
     private LocationCallback locationCallback = new LocationCallback() {
         @Override
         public void onLocationResult(LocationResult locationResult) {
             if (locationResult == null) {
+                Log.d(TAG, "--m-- Location result is null");
                 return;
             }
             for (Location location : locationResult.getLocations()) {
+                Log.d(TAG, "--m-- Processing location: " + location.getLatitude() + ", " + location.getLongitude());
                 processLocation(location);
             }
         }
@@ -90,44 +94,38 @@ public class LocationService extends Service {
         dbHelper.addLocation(location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getTime());
         dailyLocations.add(locationData);
 
+        if (isFirstLocation) {
+            Log.d(TAG, "--m-- First location received");
+            sendLocationAlarm(location, "First location received");
+            isFirstLocation = false;
+        }
+
         if (dailyLocations.size() >= LOCATIONS_PER_DAY) {
-            uploadLocations(true);
+            Log.d(TAG, "--m-- Uploading locations");
+            uploadLocations();
         }
 
         sendBroadcast(new Intent(ACTION_LOCATION_UPDATED));
     }
 
-    private void uploadLocations(boolean isDaily) {
-        SimpleDateFormat sdf = new SimpleDateFormat(isDaily ? "yyyyMMdd" : "yyyyMMdd_HHmmss", Locale.getDefault());
-        String fileName = sdf.format(new Date()) + Config.DAILY_EXT;
-        Utility.uploadLocationsToServer(this, dailyLocations, fileName);
-
-        if (isDaily) {
-            dailyLocations.clear();
-        } else {
-            // Keep only the last hour's worth of locations
-            int locationsToKeep = 60;
-            if (dailyLocations.size() > locationsToKeep) {
-                dailyLocations = dailyLocations.subList(dailyLocations.size() - locationsToKeep, dailyLocations.size());
-            }
-        }
-
-        sendLocationAlarm(null, isDaily ? "Daily location upload completed" : "Hourly location upload completed");
-    }
 
     private void sendLocationAlarm(Location location, String message) {
-        Log.d(TAG, "--m-- Sending location alarm: " + message);
+        Log.d(TAG, "--m-- Entering sendLocationAlarm method");
+        Log.d(TAG, "--m-- Alarm message: " + message);
 
         String contentText = message != null ? message : "Tap to view your current location";
         String mapUrl = "https://www.google.com/maps/search/?api=1&query=";
         if (location != null) {
             mapUrl += location.getLatitude() + "," + location.getLongitude();
+            Log.d(TAG, "--m-- Using provided location for alarm: " + location.getLatitude() + ", " + location.getLongitude());
         } else {
             LocationData lastLocation = dbHelper.getLastLocation();
             if (lastLocation != null) {
                 mapUrl += lastLocation.getLatitude() + "," + lastLocation.getLongitude();
+                Log.d(TAG, "--m-- Using last stored location for alarm: " + lastLocation.getLatitude() + ", " + lastLocation.getLongitude());
             } else {
                 mapUrl += "0,0"; // Default to 0,0 if no location is available
+                Log.d(TAG, "--m-- No location available for alarm, using default coordinates");
             }
         }
 
@@ -143,6 +141,12 @@ public class LocationService extends Service {
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true);
 
+        Log.d(TAG, "--m-- Attempting to show alarm notification");
+        showNotification(builder.build(), (int) System.currentTimeMillis());
+    }
+
+    private void showNotification(Notification notification, int notificationId) {
+        Log.d(TAG, "--m-- Entering showNotification method");
         NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
 
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -151,33 +155,46 @@ public class LocationService extends Service {
         }
 
         try {
-            notificationManager.notify((int) System.currentTimeMillis(), builder.build());
-            Log.d(TAG, "--m-- Location alarm notification sent successfully");
+            notificationManager.notify(notificationId, notification);
+            Log.d(TAG, "--m-- Notification shown successfully");
         } catch (Exception e) {
-            Log.e(TAG, "--m-- Error sending location alarm notification", e);
+            Log.e(TAG, "--m-- Error showing notification", e);
         }
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
+        Log.d(TAG, "--m-- LocationService onCreate");
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         dbHelper = new DatabaseHelper(this);
         createNotificationChannel();
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+        Log.d(TAG, "--m-- LocationService onDestroy");
+        fusedLocationClient.removeLocationUpdates(locationCallback);
+        handler.removeCallbacks(locationRunnable);
+        hourlyAlarmHandler.removeCallbacks(hourlyAlarmRunnable);
+        sendBroadcast(new Intent(ACTION_SERVICE_STATUS).putExtra("isRunning", false));
+    }
+
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null) {
             String action = intent.getAction();
+            Log.d(TAG, "--m-- onStartCommand received action: " + action);
             if (ACTION_START_SERVICE.equals(action)) {
                 startInForeground();
-                locationHandler.post(locationRunnable);
-                hourlyUploadHandler.post(hourlyUploadRunnable);
+                handler.post(locationRunnable);
+                hourlyAlarmHandler.postDelayed(hourlyAlarmRunnable, HOURLY_ALARM_INTERVAL);
             } else if (ACTION_STOP_SERVICE.equals(action)) {
+                Log.d(TAG, "--m-- Stopping service");
                 stopForeground(true);
-                locationHandler.removeCallbacks(locationRunnable);
-                hourlyUploadHandler.removeCallbacks(hourlyUploadRunnable);
+                handler.removeCallbacks(locationRunnable);
+                hourlyAlarmHandler.removeCallbacks(hourlyAlarmRunnable);
                 stopSelf();
                 sendBroadcast(new Intent(ACTION_SERVICE_STATUS).putExtra("isRunning", false));
                 return START_NOT_STICKY;
@@ -185,13 +202,19 @@ public class LocationService extends Service {
                 sendBroadcast(new Intent(ACTION_SERVICE_STATUS).putExtra("isRunning", true));
             } else if (ACTION_SEND_ALARM.equals(action)) {
                 String message = intent.getStringExtra("message");
+                Log.d(TAG, "--m-- Received ACTION_SEND_ALARM with message: " + message);
                 sendLocationAlarm(null, message);
+            } else {
+                Log.d(TAG, "--m-- Received unknown action: " + action);
             }
+        } else {
+            Log.d(TAG, "--m-- onStartCommand received null intent");
         }
         return START_STICKY;
     }
 
     private void startInForeground() {
+        Log.d(TAG, "--m-- Starting service in foreground");
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Location Service")
                 .setContentText("Running in background")
