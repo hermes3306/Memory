@@ -5,7 +5,7 @@ import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "0.311";
+    private static String version = "0.3014";
     private static String tmp_dir  = "temp";
 
     public static final String APPNAME = appname + version;

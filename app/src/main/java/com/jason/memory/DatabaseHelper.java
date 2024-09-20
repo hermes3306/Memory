@@ -32,7 +32,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 7;
+    private static final int DATABASE_VERSION = 9;
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -64,6 +64,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_LAT = "lat";
     private static final String COLUMN_LON = "lon";
     private static final String COLUMN_MEMO = "memo";
+
+    private static final String TABLE_MESSAGES = "messages";
+    private static final String COLUMN_MESSAGE_ID = "id";
+    private static final String COLUMN_MESSAGE_SENDER = "sender";
+    private static final String COLUMN_MESSAGE_CONTENT = "content";
+    private static final String COLUMN_MESSAGE_IS_IMAGE = "is_image";
+    private static final String COLUMN_MESSAGE_TIMESTAMP = "timestamp";
 
 
     private Context context;
@@ -139,80 +146,114 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Check if locations table exists
-        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_LOCATIONS});
-        if (cursor.getCount() == 0) {
-            String CREATE_TABLE = "CREATE TABLE " + TABLE_LOCATIONS + "("
-                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_LATITUDE + " REAL,"
-                    + COLUMN_LONGITUDE + " REAL,"
-                    + COLUMN_ALTITUDE + " REAL,"
-                    + COLUMN_TIMESTAMP + " INTEGER" + ")";
-            db.execSQL(CREATE_TABLE);
-        }
-        cursor.close();
+        // Create locations table
+        String CREATE_LOCATIONS_TABLE = "CREATE TABLE " + TABLE_LOCATIONS + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_LATITUDE + " REAL,"
+                + COLUMN_LONGITUDE + " REAL,"
+                + COLUMN_ALTITUDE + " REAL,"
+                + COLUMN_TIMESTAMP + " INTEGER" + ")";
+        db.execSQL(CREATE_LOCATIONS_TABLE);
 
-        // Check if activities table exists
-        cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_ACTIVITIES});
-        if (cursor.getCount() == 0) {
-            String CREATE_ACTIVITIES_TABLE = "CREATE TABLE " + TABLE_ACTIVITIES + "("
-                    + COLUMN_ACTIVITY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_ACTIVITY_TYPE + " TEXT,"
-                    + COLUMN_ACTIVITY_NAME + " TEXT,"
-                    + COLUMN_START_TIMESTAMP + " INTEGER,"
-                    + COLUMN_END_TIMESTAMP + " INTEGER,"
-                    + COLUMN_START_LOCATION + " INTEGER,"
-                    + COLUMN_END_LOCATION + " INTEGER,"
-                    + COLUMN_DESC + " TEXT,"
-                    + COLUMN_DISTANCE + " REAL,"
-                    + COLUMN_ELAPSED_TIME + " INTEGER,"
-                    + COLUMN_ADDRESS + " TEXT" // Add this line
-                    + ")";
-            db.execSQL(CREATE_ACTIVITIES_TABLE);
-        }
-        cursor.close();
+        // Create activities table
+        String CREATE_ACTIVITIES_TABLE = "CREATE TABLE " + TABLE_ACTIVITIES + "("
+                + COLUMN_ACTIVITY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_ACTIVITY_TYPE + " TEXT,"
+                + COLUMN_ACTIVITY_NAME + " TEXT,"
+                + COLUMN_START_TIMESTAMP + " INTEGER,"
+                + COLUMN_END_TIMESTAMP + " INTEGER,"
+                + COLUMN_START_LOCATION + " INTEGER,"
+                + COLUMN_END_LOCATION + " INTEGER,"
+                + COLUMN_DESC + " TEXT,"
+                + COLUMN_DISTANCE + " REAL,"
+                + COLUMN_ELAPSED_TIME + " INTEGER,"
+                + COLUMN_ADDRESS + " TEXT" + ")";
+        db.execSQL(CREATE_ACTIVITIES_TABLE);
 
-        // Check if memories table exists
-        cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_MEMORIES});
-        if (cursor.getCount() == 0) {
-            String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
-                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_MEMORY_TITLE + " TEXT,"
-                    + COLUMN_MEMORY_DATE + " TEXT,"
-                    + COLUMN_MEMORY_TEXT + " TEXT"
-                    + ")";
-            db.execSQL(CREATE_MEMORIES_TABLE);
+        // Create memories table
+        String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
+                + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_MEMORY_TITLE + " TEXT,"
+                + COLUMN_MEMORY_DATE + " TEXT,"
+                + COLUMN_MEMORY_TEXT + " TEXT" + ")";
+        db.execSQL(CREATE_MEMORIES_TABLE);
+
+        // Create messages table
+        String CREATE_MESSAGES_TABLE = "CREATE TABLE " + TABLE_MESSAGES + "("
+                + COLUMN_MESSAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_MESSAGE_SENDER + " TEXT,"
+                + COLUMN_MESSAGE_CONTENT + " TEXT,"
+                + COLUMN_MESSAGE_IS_IMAGE + " INTEGER,"
+                + COLUMN_MESSAGE_TIMESTAMP + " TEXT" + ")";
+        db.execSQL(CREATE_MESSAGES_TABLE);
+
+        // Create places table
+        String CREATE_PLACES_TABLE = "CREATE TABLE " + TABLE_PLACES + "("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "country TEXT DEFAULT 'Current Country',"
+                + "type TEXT DEFAULT 'place',"
+                + "name TEXT,"
+                + "address TEXT,"
+                + "first_visited INTEGER,"
+                + "number_of_visits INTEGER DEFAULT 0,"
+                + "last_visited INTEGER,"
+                + "lat REAL,"
+                + "lon REAL,"
+                + "alt REAL,"
+                + "memo TEXT" + ")";
+        db.execSQL(CREATE_PLACES_TABLE);
+    }
+
+    public long addMessage(Message message) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_MESSAGE_SENDER, message.getSender());
+        values.put(COLUMN_MESSAGE_CONTENT, message.getContent());
+        values.put(COLUMN_MESSAGE_IS_IMAGE, message.isImage() ? 1 : 0);
+        values.put(COLUMN_MESSAGE_TIMESTAMP, message.getTimestamp());
+        return db.insert(TABLE_MESSAGES, null, values);
+    }
+
+    public List<Message> getAllMessages() {
+        List<Message> messages = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_MESSAGES + " ORDER BY " + COLUMN_MESSAGE_TIMESTAMP + " ASC";
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+        if (cursor.moveToFirst()) {
+            do {
+                Message message = new Message(
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MESSAGE_SENDER)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MESSAGE_CONTENT)),
+                        cursor.getInt(cursor.getColumnIndex(COLUMN_MESSAGE_IS_IMAGE)) == 1
+                );
+                message.setTimestamp(cursor.getString(cursor.getColumnIndex(COLUMN_MESSAGE_TIMESTAMP)));
+                messages.add(message);
+            } while (cursor.moveToNext());
         }
         cursor.close();
+        return messages;
+    }
+
+
+    public void clearAllMessages() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_MESSAGES, null, null);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Drop older tables if existed
-        // db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
-        // db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
-        // Create tables again
-        if (oldVersion < 7) {
-            // Add the address column to the activities table
-            db.execSQL("ALTER TABLE " + TABLE_ACTIVITIES + " ADD COLUMN " + COLUMN_ADDRESS + " TEXT");
-        }
+        // Drop all existing tables
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEMORIES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_MESSAGES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PLACES);
 
+        // Recreate all tables
         onCreate(db);
-
-        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_MEMORIES});
-        if (cursor.getCount() == 0) {
-            String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
-                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_MEMORY_TITLE + " TEXT,"
-                    + COLUMN_MEMORY_DATE + " TEXT,"
-                    + COLUMN_MEMORY_TEXT + " TEXT"
-                    + ")";
-            db.execSQL(CREATE_MEMORIES_TABLE);
-        }
-        cursor.close();
-
     }
 
     public void insertLocationsBatch(List<LocationData> locations) {
@@ -235,15 +276,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-
-
     public void updateActivity(ActivityData activity) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_START_LOCATION, activity.getStartLocation());
         values.put(COLUMN_END_LOCATION, activity.getEndLocation());
-        // Add other fields that might need updating
-
         db.update(TABLE_ACTIVITIES, values, COLUMN_ACTIVITY_ID + " = ?",
                 new String[]{String.valueOf(activity.getId())});
     }
@@ -269,7 +306,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 locationList.add(location);
             } while (cursor.moveToNext());
         }
-
         cursor.close();
         return locationList;
     }
