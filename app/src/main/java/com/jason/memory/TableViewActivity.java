@@ -6,10 +6,12 @@ import android.os.Bundle;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -39,6 +41,9 @@ public class TableViewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_table_view);
 
+        Button deleteAllButton = findViewById(R.id.deleteAllButton);
+        deleteAllButton.setOnClickListener(v -> showDeleteConfirmation());
+
         tableName = getIntent().getStringExtra("TABLE_NAME");
         setTitle(tableName + " Table");
 
@@ -63,6 +68,24 @@ public class TableViewActivity extends AppCompatActivity {
             loadData();
         });
     }
+
+
+    private void showDeleteConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete All Data")
+                .setMessage("Are you sure you want to delete all data from this table? This action cannot be undone.")
+                .setPositiveButton("Yes", (dialog, which) -> deleteAllData())
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void deleteAllData() {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        db.delete(tableName, null, null);
+        Toast.makeText(this, "All data has been deleted from " + tableName, Toast.LENGTH_SHORT).show();
+        loadData(); // Reload the data to reflect the changes
+    }
+
 
     private void loadData() {
         data.clear();
