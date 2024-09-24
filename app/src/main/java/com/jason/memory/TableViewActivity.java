@@ -6,10 +6,13 @@ import android.os.Bundle;
 
 import com.google.android.material.snackbar.Snackbar;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
@@ -33,11 +36,16 @@ public class TableViewActivity extends AppCompatActivity {
     private String tableName;
     private int currentPage = 0;
     private static final int ITEMS_PER_PAGE = 20;
+    private int totalRecords = 0;
+    private TextView paginationInfoTextView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_table_view);
+
+        Button deleteAllButton = findViewById(R.id.deleteAllButton);
+        deleteAllButton.setOnClickListener(v -> showDeleteConfirmation());
 
         tableName = getIntent().getStringExtra("TABLE_NAME");
         setTitle(tableName + " Table");
@@ -45,6 +53,8 @@ public class TableViewActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        paginationInfoTextView = findViewById(R.id.paginationInfoTextView);
 
         loadData();
 
@@ -59,14 +69,25 @@ public class TableViewActivity extends AppCompatActivity {
         });
 
         nextButton.setOnClickListener(v -> {
-            currentPage++;
-            loadData();
+            if ((currentPage + 1) * ITEMS_PER_PAGE < totalRecords) {
+                currentPage++;
+                loadData();
+            } else {
+                Toast.makeText(this, "End of records", Toast.LENGTH_SHORT).show();
+            }
         });
     }
 
     private void loadData() {
         data.clear();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        // Get total record count
+        Cursor countCursor = db.rawQuery("SELECT COUNT(*) FROM " + tableName, null);
+        countCursor.moveToFirst();
+        totalRecords = countCursor.getInt(0);
+        countCursor.close();
+
         String query = "SELECT * FROM " + tableName + " LIMIT " + ITEMS_PER_PAGE + " OFFSET " + (currentPage * ITEMS_PER_PAGE);
         Cursor cursor = db.rawQuery(query, null);
 
@@ -87,5 +108,32 @@ public class TableViewActivity extends AppCompatActivity {
         } else {
             adapter.notifyDataSetChanged();
         }
+
+        updatePaginationInfo();
     }
+
+    private void updatePaginationInfo() {
+        int startRecord = currentPage * ITEMS_PER_PAGE + 1;
+        int endRecord = Math.min((currentPage + 1) * ITEMS_PER_PAGE, totalRecords);
+        String paginationInfo = startRecord + "-" + endRecord + " / Total " + totalRecords;
+        paginationInfoTextView.setText(paginationInfo);
+    }
+
+
+    private void showDeleteConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete All Data")
+                .setMessage("Are you sure you want to delete all data from this table? This action cannot be undone.")
+                .setPositiveButton("Yes", (dialog, which) -> deleteAllData())
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void deleteAllData() {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        db.delete(tableName, null, null);
+        Toast.makeText(this, "All data has been deleted from " + tableName, Toast.LENGTH_SHORT).show();
+        loadData(); // Reload the data to reflect the changes
+    }
+
 }

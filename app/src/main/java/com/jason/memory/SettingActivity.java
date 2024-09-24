@@ -84,7 +84,8 @@ public class SettingActivity extends AppCompatActivity {
 
     private Spinner tableSpinner;
     private Button viewTableButton;
-    private String[] tableNames = {"locations", "activities", "places", "memories"};
+    private String[] tableNames = {"locations", "activities", "places", "memories", "messages"};
+
 
 
     private BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
@@ -132,11 +133,28 @@ public class SettingActivity extends AppCompatActivity {
         tableSpinner = findViewById(R.id.tableSpinner);
         viewTableButton = findViewById(R.id.viewTableButton);
 
+        Button deleteAllDataButton = findViewById(R.id.deleteAllDataButton);
+        deleteAllDataButton.setOnClickListener(v -> showDeleteAllDataConfirmation());
+
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, tableNames);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         tableSpinner.setAdapter(adapter);
 
 
+    }
+
+    private void showDeleteAllDataConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Delete All Data")
+                .setMessage("Are you sure you want to delete all data? This action cannot be undone.")
+                .setPositiveButton("Yes", (dialog, which) -> deleteAllData())
+                .setNegativeButton("No", null)
+                .show();
+    }
+
+    private void deleteAllData() {
+        dbHelper.deleteAllData();
+        Toast.makeText(this, "All data has been deleted", Toast.LENGTH_SHORT).show();
     }
 
     private void setClickListeners() {
