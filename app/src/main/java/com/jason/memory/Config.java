@@ -37,6 +37,10 @@ public class Config {
     public static final String ACTIVITY_EXT = ".csv";
     public static final String DAILY_EXT = ".daily";
 
+    public static final double MIN_DISTANCE_THRESHOLD_KM = 0.005; // 5 meters in km
+    public static final double MAX_DISTANCE_THRESHOLD_KM = 1.0; // 1 km
+    public static final double MAX_SPEED_THRESHOLD_KMH = 120.0; // 120 km/h
+    public static final long MIN_TIME_THRESHOLD_SECONDS = 1; // 1 second
 
 
     public static File getDownloadDir() {
