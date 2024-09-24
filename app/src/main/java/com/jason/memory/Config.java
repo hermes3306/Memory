@@ -18,6 +18,10 @@ public class Config {
     public static final String UPLOAD_URL = BASE_URL + "upload.php";
     public static final String DOWNLOAD_DIR = BASE_URL + "upload/";
 
+    public static final double MIN_DISTANCE_THRESHOLD = 1.0; // in meters
+    public static final double MAX_DISTANCE_THRESHOLD = 20.0; // in meters
+
+
     public static final String PREFS_NAME = "MyActivityPrefs";
     public static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
     public  static final String PREF_RUN_TYPE = "runType";

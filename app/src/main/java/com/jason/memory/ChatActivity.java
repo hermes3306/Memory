@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -50,8 +51,8 @@ import com.jason.memory.FullScreenImageActivity;
 public class ChatActivity extends AppCompatActivity {
     private RecyclerView recyclerView;
     private EditText editTextMessage;
-    private Button buttonSend;
-    private Button buttonSendImage;
+    private ImageButton buttonSend;
+    private ImageButton buttonSendImage;
     private MessageAdapter adapter;
     private WebSocket webSocket;
     private Gson gson;
@@ -98,8 +99,6 @@ public class ChatActivity extends AppCompatActivity {
                 sendMessage(message);
                 editTextMessage.setText("");
             }
-
-
         });
 
         buttonSendImage.setOnClickListener(v -> {

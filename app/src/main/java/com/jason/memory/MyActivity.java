@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -72,6 +73,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private CheckBox checkBoxStrava;
 
     private ExecutorService executorService;
+    private LocationData previousValidLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,6 +118,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         applyKeepScreenOnSetting();
     }
 
+
     private void initializeViews() {
         tvDateStr = findViewById(R.id.idnew_date_str);
         tvTime = findViewById(R.id.tvTime);
@@ -130,6 +133,63 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         btnHide.setOnClickListener(v -> hideActivity());
 
         tvSetting.setOnClickListener(v -> openSettingActivity());
+        TextView tvRun = findViewById(R.id.tvRun);
+        tvRun.setOnClickListener(v -> showActivityInfo());
+
+    }
+
+    private void showActivityInfo() {
+        ActivityData activity = dbHelper.getActivity(activityId);
+        if (activity != null) {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("Activity Info");
+
+            // Create a ScrollView to make the content scrollable if it's too long
+            ScrollView scrollView = new ScrollView(this);
+            TextView textView = new TextView(this);
+            textView.setPadding(30, 30, 30, 30);
+
+            // Format the activity information
+            String info = String.format(Locale.getDefault(),
+                    "ID: %d\n" +
+                            "Type: %s\n" +
+                            "Name: %s\n" +
+                            "Start Time: %s\n" +
+                            "End Time: %s\n" +
+                            "Distance: %.2f km\n" +
+                            "Duration: %s\n" +
+                            "Address: %s",
+                    activity.getId(),
+                    activity.getType(),
+                    activity.getName(),
+                    formatTimestamp(activity.getStartTimestamp()),
+                    formatTimestamp(activity.getEndTimestamp()),
+                    activity.getDistance(),
+                    formatDuration(activity.getElapsedTime()),
+                    activity.getAddress()
+            );
+
+            textView.setText(info);
+            scrollView.addView(textView);
+            builder.setView(scrollView);
+
+            builder.setPositiveButton("OK", null);
+            builder.show();
+        } else {
+            Toast.makeText(this, "Activity not found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String formatTimestamp(long timestamp) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        return sdf.format(new Date(timestamp));
+    }
+
+    private String formatDuration(long milliseconds) {
+        long seconds = milliseconds / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes % 60, seconds % 60);
     }
 
     private static final int SETTINGS_REQUEST_CODE = 1001;
@@ -379,7 +439,15 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
 
         List<LatLng> newPoints = new ArrayList<>();
         for (LocationData location : allLocations) {
-            newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
+            if (dbHelper.isValidLocation(location, previousValidLocation)) {
+                newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
+                previousValidLocation = location;
+            }
+        }
+
+        if (newPoints.isEmpty()) {
+            // No valid points, so we can't update the map
+            return;
         }
 
         mMap.clear(); // Clear all markers and polylines
@@ -405,17 +473,21 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
                 .width(5));
 
         // Update camera to show all points
-        LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
-        for (LatLng point : newPoints) {
-            boundsBuilder.include(point);
+        if (newPoints.size() > 1) {
+            LatLngBounds.Builder boundsBuilder = new LatLngBounds.Builder();
+            for (LatLng point : newPoints) {
+                boundsBuilder.include(point);
+            }
+            LatLngBounds bounds = boundsBuilder.build();
+            mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
+        } else {
+            // If there's only one point, just center on it
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(newPoints.get(0), 15));
         }
-        LatLngBounds bounds = boundsBuilder.build();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 100));
 
         mLastPoints = newPoints;
-        mLastBounds = bounds;
+        mLastBounds = (newPoints.size() > 1) ? new LatLngBounds.Builder().include(newPoints.get(0)).include(newPoints.get(newPoints.size() - 1)).build() : null;
     }
-
 
     private void updateUI() {
         long currentTime = System.currentTimeMillis();
@@ -561,10 +633,15 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         double totalDistance = 0;
         if(locations == null) return 0;
         if (locations.size() < 2) return 0;
-        for (int i = 0; i < locations.size() - 1; i++) {
-            LocationData start = locations.get(i);
-            LocationData end = locations.get(i + 1);
-            totalDistance += calculateDistanceBetweenPoints(start, end);
+
+        previousValidLocation = null; // Reset for this calculation
+        for (LocationData location : locations) {
+            if (dbHelper.isValidLocation(location, previousValidLocation)) {
+                if (previousValidLocation != null) {
+                    totalDistance += calculateDistanceBetweenPoints(previousValidLocation, location);
+                }
+                previousValidLocation = location;
+            }
         }
         return totalDistance;
     }
