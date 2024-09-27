@@ -49,7 +49,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private GoogleMap mMap;
 
     private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
-    private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
+    private static final long MAP_UPDATE_INTERVAL = 3000; // 10 seconds
 
     private DatabaseHelper dbHelper;
     private long activityId;
@@ -430,6 +430,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         handler.postDelayed(mapUpdateRunnable, MAP_UPDATE_INTERVAL);
     }
 
+
     private void updateMap() {
         if (mMap == null) return;
 
@@ -438,6 +439,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         if (allLocations == null || allLocations.isEmpty()) return;
 
         List<LatLng> newPoints = new ArrayList<>();
+        LocationData previousValidLocation = null;
         for (LocationData location : allLocations) {
             if (dbHelper.isValidLocation(location, previousValidLocation)) {
                 newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
@@ -631,10 +633,9 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private double calculateDistance(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = dbHelper.getLocationsBetweenTimestamps(startTimestamp, endTimestamp);
         double totalDistance = 0;
-        if(locations == null) return 0;
-        if (locations.size() < 2) return 0;
+        if (locations == null || locations.isEmpty()) return 0;
 
-        previousValidLocation = null; // Reset for this calculation
+        LocationData previousValidLocation = null;
         for (LocationData location : locations) {
             if (dbHelper.isValidLocation(location, previousValidLocation)) {
                 if (previousValidLocation != null) {

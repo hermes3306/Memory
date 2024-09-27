@@ -14,6 +14,7 @@ public class Config {
     public static final String WEBSOCKET_URL ="ws://58.233.69.198:8765";
     public static final String BASE_URL = "http://58.233.69.198:8080/moment/";
     public static final String IMAGE_BASE_URL = BASE_URL + "images/";
+    public static final String PROFILE_BASE_URL = BASE_URL + "profiles/";
 
     public static final String UPLOAD_URL = BASE_URL + "upload.php";
     public static final String DOWNLOAD_DIR = BASE_URL + "upload/";

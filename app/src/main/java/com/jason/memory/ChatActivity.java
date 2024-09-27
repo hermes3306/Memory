@@ -47,11 +47,13 @@ import com.bumptech.glide.load.resource.bitmap.Rotate;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
+import com.google.android.material.imageview.ShapeableImageView;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.bumptech.glide.Glide;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -149,7 +151,7 @@ public class ChatActivity extends AppCompatActivity {
             userName = generateRandomName();
             prefs.edit().putString(PREF_USERNAME, userName).apply();
         }
-        Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
+        //Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
 
         recyclerView = findViewById(R.id.recyclerViewMessages);
         editTextMessage = findViewById(R.id.editTextMessage);
@@ -186,12 +188,17 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void showChangeUserDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("Change User")
-                .setMessage("Do you want to change your username?")
-                .setPositiveButton("Yes", (dialog, which) -> changeUserRandomly())
-                .setNegativeButton("No", null)
-                .show();
+        boolean dialogshow=false;
+        if(dialogshow) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Change User")
+                    .setMessage("Do you want to change your username?")
+                    .setPositiveButton("Yes", (dialog, which) -> changeUserRandomly())
+                    .setNegativeButton("No", null)
+                    .show();
+        }else{
+            changeUserRandomly();
+        }
     }
 
     private void changeUserRandomly() {
@@ -200,67 +207,17 @@ public class ChatActivity extends AppCompatActivity {
         prefs.edit().putString(PREF_USERNAME, newUserName).apply();
         userName = newUserName;
         adapter.setCurrentUserName(userName);
-        Toast.makeText(this, "Your new username: " + userName, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
     }
 
-//    private void loadPreviousMessages() {
-//        try {
-//            List<Message> previousMessages = dbHelper.getAllMessages();
-//            if (previousMessages.isEmpty()) {
-//                Toast.makeText(this, "No previous messages found", Toast.LENGTH_SHORT).show();
-//            } else {
-//                for (Message message : previousMessages) {
-//                    if (message.isImage()) {
-//                        // For images, we'll verify their existence when loading
-//                        verifyAndAddMessage(message);
-//                    } else {
-//                        adapter.addMessage(message);
-//                    }
-//                }
-//                recyclerView.scrollToPosition(adapter.getItemCount() - 1);
-//                Toast.makeText(this, "Loaded " + previousMessages.size() + " messages", Toast.LENGTH_SHORT).show();
-//            }
-//        } catch (Exception e) {
-//            Toast.makeText(this, "Error loading messages: " + e.getMessage(), Toast.LENGTH_LONG).show();
-//            e.printStackTrace();
-//        }
-//    }
-
-//    private void verifyAndAddMessage(Message message) {
-//        String imageUrl = message.getImageUrl();
-//        Glide.with(this)
-//                .load(imageUrl)
-//                .apply(new RequestOptions()
-//                        .diskCacheStrategy(DiskCacheStrategy.NONE)
-//                        .skipMemoryCache(true))
-//                .listener(new RequestListener<Drawable>() {
-//                    @Override
-//                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-//                        // Image doesn't exist on the server, remove it from the local database
-//                        dbHelper.deleteMessage(message);
-//                        return false;
-//                    }
-//
-//                    @Override
-//                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-//                        // Image exists, add it to the adapter
-//                        adapter.addMessage(message);
-//                        return false;
-//                    }
-//                })
-//                .preload();
-//    }
-
-
     private String generateRandomName() {
-        String[] names = {"Jason", "Nice", "Jay", "Ben", "Dan", "Dave", "John", "Rob", "Kate", "Luke", "Soye", "Said", "Sun"};
+        String[] names = {"Ali", "Amy", "Ben", "Cloe", "Jack", "Kate", "Soyer", "Tayler"};
         String newName;
         do {
             newName = names[new Random().nextInt(names.length)];
         } while (newName.equals(userName));
         return newName;
     }
-
 
     private void connectWebSocket() {
         if (webSocket != null) {
@@ -413,7 +370,7 @@ public class ChatActivity extends AppCompatActivity {
                     // Display the image immediately
                     Message newMessage = new Message(userName, imageName, true);
                     newMessage.setLocalImageUri(imageUri);
-                    //adapter.addMessage(newMessage);
+                    //adapter.(newMessage);
                     recyclerView.scrollToPosition(adapter.getItemCount() - 1);
 
                     progressDialog.dismiss();
@@ -468,8 +425,25 @@ class Message {
     private String timestamp;
     private long id;
     private Uri localImageUri;
+    private static String TAG = "Message";
 
+    public Date getFullDateTime() {
+        SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", Locale.US);
+        SimpleDateFormat customFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSSSS", Locale.US);
 
+        try {
+            // Try parsing as ISO 8601 format
+            return isoFormat.parse(this.timestamp);
+        } catch (ParseException e) {
+            try {
+                // If ISO 8601 fails, try parsing as custom format
+                return customFormat.parse(this.timestamp);
+            } catch (ParseException e2) {
+                Log.e(TAG, "--m-- error parsing timestamp: " + e2.getMessage());
+                return new Date(); // Return current date if parsing fails
+            }
+        }
+    }
 
     public Message(String sender, String content, boolean isImage) {
         this.sender = sender;
@@ -503,9 +477,9 @@ class Message {
     }
 
     public String getSenderProfileImageUrl() {
-        // Return the URL of the sender's profile image
-        // You might need to modify your Message class to store this information
-        return "https://example.com/profile_image.jpg";
+        // Replace this with actual logic to get the profile image URL
+        //return "https://picsum.photos/200";
+        return Config.PROFILE_BASE_URL + sender + ".jpg";
     }
 
     public void setIsImage(boolean isImage) {
@@ -580,22 +554,121 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
         boolean isCurrentUser = message.getSender().equals(currentUserName);
 
         holder.senderTextView.setText(message.getSender());
-        holder.timestampTextView.setText(message.getTimestamp());
 
-        // Align message to right if sent by current user, left otherwise
-        RelativeLayout.LayoutParams params = (RelativeLayout.LayoutParams) holder.messageContainer.getLayoutParams();
+        // Set timestamp
+        Date currentMessageDate = message.getFullDateTime();
+        String formattedTimestamp = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(currentMessageDate);
+        holder.timestampTextView.setText(formattedTimestamp);
+
+        // Align message and set background
+        RelativeLayout.LayoutParams messageParams = (RelativeLayout.LayoutParams) holder.messageContainer.getLayoutParams();
         if (isCurrentUser) {
-            params.addRule(RelativeLayout.ALIGN_PARENT_END);
-            params.removeRule(RelativeLayout.ALIGN_PARENT_START);
+            messageParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+            messageParams.removeRule(RelativeLayout.ALIGN_PARENT_START);
             holder.messageContainer.setBackgroundResource(R.drawable.sent_message_background);
             holder.senderTextView.setVisibility(View.GONE);
+            holder.profileImageView.setVisibility(View.GONE);
+            messageParams.setMargins(48, 0, 0, 0);  // Add left margin for sent messages
         } else {
-            params.addRule(RelativeLayout.ALIGN_PARENT_START);
-            params.removeRule(RelativeLayout.ALIGN_PARENT_END);
+            messageParams.addRule(RelativeLayout.ALIGN_PARENT_START);
+            messageParams.removeRule(RelativeLayout.ALIGN_PARENT_END);
             holder.messageContainer.setBackgroundResource(R.drawable.received_message_background);
             holder.senderTextView.setVisibility(View.VISIBLE);
+            holder.profileImageView.setVisibility(View.VISIBLE);
+            messageParams.setMargins(48, 0, 48, 0);  // Add right margin for received messages
         }
-        holder.messageContainer.setLayoutParams(params);
+        holder.messageContainer.setLayoutParams(messageParams);
+
+        // Set message content
+        if (message.isImage()) {
+            holder.contentTextView.setVisibility(View.GONE);
+            holder.imageView.setVisibility(View.VISIBLE);
+            Glide.with(holder.itemView.getContext())
+                    .load(message.getContent())
+                    .apply(new RequestOptions()
+                            .placeholder(R.drawable.image_placeholder)
+                            .error(R.drawable.image_error)
+                            .diskCacheStrategy(DiskCacheStrategy.ALL)
+                            .fitCenter())
+                    .into(holder.imageView);
+        } else {
+            holder.contentTextView.setVisibility(View.VISIBLE);
+            holder.imageView.setVisibility(View.GONE);
+            holder.contentTextView.setText(message.getContent());
+        }
+
+        // Load profile image
+        if (!isCurrentUser) {
+            Glide.with(holder.itemView.getContext())
+                    .load(message.getSenderProfileImageUrl())
+                    .apply(new RequestOptions()
+                            .placeholder(R.drawable.default_profile_image)
+                            .error(R.drawable.default_profile_image)
+                            .circleCrop())
+                    .into(holder.profileImageView);
+        }
+    }
+
+
+    public void onBindViewHolder_orig(MessageViewHolder holder, int position) {
+        Message message = messages.get(position);
+        boolean isCurrentUser = message.getSender().equals(currentUserName);
+
+        holder.senderTextView.setText(message.getSender());
+
+        // Compare dates and set timestamp format
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
+        SimpleDateFormat fullFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
+        Date currentMessageDate = message.getFullDateTime();
+        String formattedTimestamp;
+
+        if (position > 0) {
+            Date previousMessageDate = messages.get(position - 1).getFullDateTime();
+            if (dateFormat.format(currentMessageDate).equals(dateFormat.format(previousMessageDate))) {
+                // Same day, show only time
+                formattedTimestamp = timeFormat.format(currentMessageDate);
+            } else {
+                // Different day, show full date and time
+                formattedTimestamp = fullFormat.format(currentMessageDate);
+            }
+        } else {
+            // First message, always show full date and time
+            formattedTimestamp = fullFormat.format(currentMessageDate);
+        }
+
+        holder.timestampTextView.setText(formattedTimestamp);
+
+        // Always make the profile image view visible
+        holder.profileImageView.setVisibility(View.VISIBLE);
+
+
+        RelativeLayout.LayoutParams messageParams = (RelativeLayout.LayoutParams) holder.messageContainer.getLayoutParams();
+        RelativeLayout.LayoutParams imageParams = (RelativeLayout.LayoutParams) holder.profileImageView.getLayoutParams();
+
+        if (isCurrentUser) {
+            messageParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+            messageParams.removeRule(RelativeLayout.ALIGN_PARENT_START);
+            messageParams.removeRule(RelativeLayout.END_OF);
+            imageParams.addRule(RelativeLayout.ALIGN_PARENT_END);
+            imageParams.removeRule(RelativeLayout.ALIGN_PARENT_START);
+            holder.messageContainer.setBackgroundResource(R.drawable.sent_message_background);
+            holder.senderTextView.setVisibility(View.GONE);
+            holder.profileImageView.setVisibility(View.GONE);
+        } else {
+            messageParams.addRule(RelativeLayout.ALIGN_PARENT_START);
+            messageParams.removeRule(RelativeLayout.ALIGN_PARENT_END);
+            messageParams.addRule(RelativeLayout.END_OF, R.id.profileImageView);
+            imageParams.addRule(RelativeLayout.ALIGN_PARENT_START);
+            imageParams.removeRule(RelativeLayout.ALIGN_PARENT_END);
+            holder.messageContainer.setBackgroundResource(R.drawable.received_message_background);
+            holder.senderTextView.setVisibility(View.VISIBLE);
+            holder.profileImageView.setVisibility(View.VISIBLE);
+        }
+
+        holder.messageContainer.setLayoutParams(messageParams);
+        holder.profileImageView.setLayoutParams(imageParams);
 
         if (message.isImage()) {
             // For image messages
@@ -635,14 +708,38 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
             holder.contentTextView.setText(message.getContent());
         }
 
-        // Profile image is always gone as per your layout
-        holder.profileImageView.setVisibility(View.GONE);
+        if (!isCurrentUser) {
+            String profileImageUrl = message.getSenderProfileImageUrl();
+            Log.d("MessageAdapter", "--m-- Attempting to load profile image from URL: " + profileImageUrl);
+
+            Glide.with(holder.itemView.getContext())
+                    .load(profileImageUrl)
+                    .apply(new RequestOptions()
+                            .placeholder(R.drawable.default_profile_image)
+                            .error(R.drawable.default_profile_image)
+                            .circleCrop())
+                    .listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                            Log.e("MessageAdapter", "--m-- Failed to load profile image: " + e.getMessage(), e);
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            Log.d("MessageAdapter", "--m-- Profile image loaded successfully from " + dataSource);
+                            return false;
+                        }
+                    })
+                    .into(holder.profileImageView);
+        } else {
+            holder.profileImageView.setImageResource(R.drawable.default_profile_image);
+        }
 
         Log.d("MessageAdapter", "--m-- Bound message: sender=" + message.getSender() +
                 ", isImage=" + message.isImage() +
                 ", content=" + (message.isImage() ? "Image" : message.getContent()));
     }
-
 
 
     private void removeMessageFromDatabase(Message message) {
@@ -675,7 +772,7 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
         ImageView imageView;
         TextView timestampTextView;
         LinearLayout messageContainer;
-        CircleImageView profileImageView;
+        ShapeableImageView profileImageView;
 
         MessageViewHolder(View itemView) {
             super(itemView);

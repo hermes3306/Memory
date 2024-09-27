@@ -534,6 +534,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
+    public boolean isValidLocation(LocationData currentLocation, LocationData previousLocation) {
+        if (previousLocation == null) {
+            return true; // First location is always valid
+        }
+
+        double distanceKm = calculateDistanceBetweenPoints(previousLocation, currentLocation);
+        long timeDifferenceSeconds = (currentLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
+
+        // Check if the distance and time difference meet the thresholds
+        if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM) {
+            return false; // Too close to the previous point
+        }
+
+        if (distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM) {
+            return false; // Too far from the previous point
+        }
+
+        if (timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
+            return false; // Too soon after the previous point
+        }
+
+        // Calculate speed in km/h
+        double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600;
+
+        if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
+            return false; // Speed is unreasonably high
+        }
+
+        return true;
+    }
+
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();
         SQLiteDatabase db = this.getReadableDatabase();
@@ -648,23 +679,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
-    public boolean isValidLocation(LocationData newLocation, LocationData previousLocation) {
-        if (previousLocation == null) {
-            return true; // We can't validate the first point without previous data
-        }
-
-        double distanceKm = calculateDistance(
-                previousLocation.getLatitude(), previousLocation.getLongitude(),
-                newLocation.getLatitude(), newLocation.getLongitude()
-        );
-
-        long timeDifferenceSeconds = (newLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
-        double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600; // Speed in km/h
-
-        return distanceKm >= Config.MIN_DISTANCE_THRESHOLD_KM
-                && distanceKm <= Config.MAX_DISTANCE_THRESHOLD_KM
-                && speedKmh <= Config.MAX_SPEED_THRESHOLD_KMH
-                && timeDifferenceSeconds >= Config.MIN_TIME_THRESHOLD_SECONDS;
+    private double calculateDistanceBetweenPoints(LocationData start, LocationData end) {
+        double earthRadius = 6371; // in kilometers
+        double dLat = Math.toRadians(end.getLatitude() - start.getLatitude());
+        double dLon = Math.toRadians(end.getLongitude() - start.getLongitude());
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(start.getLatitude())) * Math.cos(Math.toRadians(end.getLatitude())) *
+                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadius * c; // Distance in kilometers
     }
 
     public void deleteAllData() {
