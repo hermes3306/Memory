@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.OnMemoryClickListener {
+
     private static final String TAG = "MemoryActivity";
     private ZoomableRecyclerView memoriesRecyclerView;
     private MemoryAdapter memoryAdapter;
@@ -58,18 +59,25 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         Log.d(TAG, "--m-- onCreate: MemoryActivity setup complete");
     }
 
+
     private void updateMemoryList() {
         Log.d(TAG, "--m-- updateMemoryList: Fetching memories from database");
         List<MemoryItem> memoryItems = dbHelper.getAllMemories();
         Log.d(TAG, "--m-- updateMemoryList: Retrieved " + memoryItems.size() + " memories");
-        memoryAdapter = new MemoryAdapter(memoryItems, this, this);
-        if (memoriesRecyclerView != null) {
-            memoriesRecyclerView.setAdapter(memoryAdapter);
-            Log.d(TAG, "--m-- updateMemoryList: Adapter set on RecyclerView");
+
+        if (memoryAdapter == null) {
+            memoryAdapter = new MemoryAdapter(memoryItems, this, this);
+            if (memoriesRecyclerView != null) {
+                memoriesRecyclerView.setAdapter(memoryAdapter);
+                Log.d(TAG, "--m-- updateMemoryList: Adapter set on RecyclerView");
+            } else {
+                Log.e(TAG, "--m-- updateMemoryList: memoriesRecyclerView is null");
+            }
         } else {
-            Log.e(TAG, "--m-- updateMemoryList: memoriesRecyclerView is null");
+            memoryAdapter.updateMemories(memoryItems);
         }
     }
+
 
     @Override
     protected void onResume() {
@@ -112,6 +120,45 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         Toast.makeText(this, "Search function not implemented yet", Toast.LENGTH_SHORT).show();
     }
 
+    @Override
+    public void onLikeCountClick(long memoryId) {
+        // Implement what should happen when like count is clicked
+        // For example, show a list of users who liked the memory
+    }
+
+    @Override
+    public void onCommentCountClick(long memoryId) {
+        // Implement what should happen when comment count is clicked
+        // For example, expand/collapse the comments section
+    }
+
+    @Override
+    public void onLikeClick(long memoryId, String userId) {
+        Log.d(TAG, "--m-- onLikeClick: Attempting to increment like count for memory ID: " + memoryId + " by user: " + userId);
+        boolean likeAdded = dbHelper.incrementLikeCount(memoryId, userId);
+        if (likeAdded) {
+            MemoryItem updatedItem = dbHelper.getMemory(memoryId);
+            memoryAdapter.updateItem(memoryId, updatedItem);
+        }
+    }
+
+    @Override
+    public void onCommentSend(long memoryId, String comment) {
+        Log.d(TAG, "--m-- onCommentSend: Adding comment for memory ID: " + memoryId);
+        MemoryItem updatedItem = dbHelper.addComment(memoryId, comment, this);
+
+
+        // Update only this item in the adapter
+        memoryAdapter.updateItem(memoryId, updatedItem);
+
+    }
+
+    @Override
+    public boolean hasUserLikedMemory(long memoryId, String userId) {
+        return dbHelper.hasUserLikedMemory(memoryId, userId);
+    }
+
+
     private void saveMemories() {
         Log.d(TAG, "--m-- saveMemories: Starting save process");
         try {
@@ -141,15 +188,21 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
 
     private void syncMemories() {
         Log.d(TAG, "--m-- syncMemories: Showing sync confirmation dialog");
-        new AlertDialog.Builder(this)
-                .setTitle("Sync with Server")
-                .setMessage("Do you want to download and merge the latest data from the server?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    Log.d(TAG, "--m-- syncMemories: Starting sync process");
-                    Utility.downloadJsonAndMergeServerData(this, Config.MEMORY_EXT, dbHelper, this::onSyncComplete);
-                })
-                .setNegativeButton("No", null)
-                .show();
+        boolean noalert=true;
+        if (noalert) {
+            Log.d(TAG, "--m-- syncMemories: Starting sync process");
+            Utility.downloadJsonAndMergeServerData(this, Config.MEMORY_EXT, dbHelper, this::onSyncComplete);
+        } else {
+            new AlertDialog.Builder(this)
+                    .setTitle("Sync with Server")
+                    .setMessage("Do you want to download and merge the latest data from the server?")
+                    .setPositiveButton("Yes", (dialog, which) -> {
+                        Log.d(TAG, "--m-- syncMemories: Starting sync process");
+                        Utility.downloadJsonAndMergeServerData(this, Config.MEMORY_EXT, dbHelper, this::onSyncComplete);
+                    })
+                    .setNegativeButton("No", null)
+                    .show();
+        }
     }
 
     private void onSyncComplete(boolean success) {

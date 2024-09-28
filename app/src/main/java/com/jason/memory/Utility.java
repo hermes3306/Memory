@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 
 public class Utility {
     private static final String TAG = "Utility";
@@ -101,7 +102,7 @@ public class Utility {
                         Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId);
                     } else {
                         Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle());
-                        existingMemoryItem.setDate(memoryItem.getDate());
+                        existingMemoryItem.setTimestamp(memoryItem.getTimestamp());
                         int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
                         Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
                     }
@@ -703,6 +704,25 @@ public class Utility {
         }
     }
 
+    public static String generateRandomName(String userName) {
+        String[] names = {"Ali", "Amy", "Ben", "Cloe", "Jack", "Kate", "Soyer", "Tayler"};
+        String newName;
+        do {
+            newName = names[new Random().nextInt(names.length)];
+        } while (newName.equals(userName));
+        return newName;
+    }
+
+    public static String getUserName(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("ChatPrefs", Context.MODE_PRIVATE);
+        String userName = prefs.getString("PREF_USERNAME", null);
+        if (userName == null) {
+            userName = generateRandomName("Unknown");
+            prefs.edit().putString("PREF_USERNAME", userName).apply();
+        }
+        return userName;
+    }
+
 
     public static String calculateCalories(Context context, double distanceKm) {
         SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
@@ -710,7 +730,7 @@ public class Utility {
         double metValue = 7.0;
         double timeHours = distanceKm / 10.0; // Assuming 10 km/h average speed
         double calories = metValue * weightKg * timeHours;
-        Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
+        //Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
         return String.format(Locale.getDefault(), "%.0f", calories);
     }
 
