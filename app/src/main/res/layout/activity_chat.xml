@@ -1,47 +1,107 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#F0F0F0">
+    android:layout_height="match_parent">
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewMessages"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/bottomLayout"
-        android:padding="8dp" />
+        android:layout_above="@+id/bottomLayout" />
 
     <LinearLayout
         android:id="@+id/bottomLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:background="#FFFFFF"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:padding="8dp">
 
-        <EditText
-            android:id="@+id/editTextMessage"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:hint="Type a message"
-            android:padding="8dp" />
+            android:orientation="horizontal">
 
-        <ImageButton
-            android:id="@+id/buttonSendImage"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@android:color/transparent"
-            android:src="@android:drawable/ic_menu_gallery" />
+            <EditText
+                android:id="@+id/editTextMessage"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Type a message" />
 
-        <ImageButton
-            android:id="@+id/buttonSend"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@android:color/transparent"
-            android:src="@android:drawable/ic_menu_send" />
+            <ImageButton
+                android:id="@+id/buttonSendImage"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_image"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+            <ImageButton
+                android:id="@+id/buttonToggleMore"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_plus"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+            <ImageButton
+                android:id="@+id/buttonSend"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_send"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layoutMoreOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/buttonCollapse"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_minus"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+            <ImageButton
+                android:id="@+id/buttonSendAudio"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_audio"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+            <ImageButton
+                android:id="@+id/buttonSendVideo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_video"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+            <ImageButton
+                android:id="@+id/buttonSendFile"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@android:color/transparent"
+                android:src="@drawable/ic_file"
+                android:scaleType="fitCenter"
+                android:padding="4dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.OnMemoryClickListener {
+
     private static final String TAG = "MemoryActivity";
     private ZoomableRecyclerView memoriesRecyclerView;
     private MemoryAdapter memoryAdapter;
@@ -110,6 +111,20 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
     private void searchMemories() {
         Log.d(TAG, "--m-- searchMemories: Search function not implemented yet");
         Toast.makeText(this, "Search function not implemented yet", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onLikeClick(long memoryId) {
+        Log.d(TAG, "--m-- onLikeClick: Incrementing like count for memory ID: " + memoryId);
+        dbHelper.incrementLikeCount(memoryId);
+        updateMemoryList(); // Refresh the list to show updated like count
+    }
+
+    @Override
+    public void onCommentSend(long memoryId, String comment) {
+        Log.d(TAG, "--m-- onCommentSend: Adding comment for memory ID: " + memoryId);
+        dbHelper.addComment(memoryId, comment, this);
+        updateMemoryList(); // Refresh the list to show the new comment
     }
 
     private void saveMemories() {

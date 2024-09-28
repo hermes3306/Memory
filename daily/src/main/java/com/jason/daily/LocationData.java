@@ -1,4 +1,5 @@
 package com.jason.daily;
+
 import android.content.Context;
 import android.location.Address;
 import android.location.Geocoder;
@@ -25,6 +26,7 @@ public class LocationData {
     public long getId() {
         return id;
     }
+    public void setId(long id) {this.id = id;}
 
     public double getLatitude() {
         return latitude;

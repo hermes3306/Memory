@@ -1,5 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.jason.daily">
+
+
 
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -9,28 +12,33 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+
 
     <application
         android:allowBackup="true"
         android:icon="@drawable/memories48"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@drawable/memories48"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Memory"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:theme="@style/Theme.Memory">
+
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBf5uSDsFq0iBAihgLmBCGkXOM8ooLxFAQ" />
+
+
+        <activity
+            android:name=".ServerActivity"
+            android:exported="false" />
 
         <service
             android:name=".LocationService"
-            android:foregroundServiceType="location"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.jason.daily.START_SERVICE" />
-                <action android:name="com.jason.daily.STOP_SERVICE" />
-                <action android:name="com.jason.daily.CHECK_STATUS" />
-                <action android:name="com.jason.daily.SEND_ALARM" />
-            </intent-filter>
-        </service>
-
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <receiver
             android:name=".BootCompletedReceiver"
@@ -39,24 +47,29 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
 
-
+        <activity
+            android:name=".LocationMapActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.jason.daily.INITIAL_ALARM" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <activity
             android:name=".MainActivity"
-            android:theme="@style/SplashTheme"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/SplashTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
     </application>
 
 </manifest>
-
-
