@@ -49,7 +49,7 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
     private GoogleMap mMap;
 
     private static final long UI_UPDATE_INTERVAL = 1000; // 1 second
-    private static final long MAP_UPDATE_INTERVAL = 3000; // 10 seconds
+    private static final long MAP_UPDATE_INTERVAL = 10000; // 10 seconds
 
     private DatabaseHelper dbHelper;
     private long activityId;
@@ -439,12 +439,8 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
         if (allLocations == null || allLocations.isEmpty()) return;
 
         List<LatLng> newPoints = new ArrayList<>();
-        LocationData previousValidLocation = null;
         for (LocationData location : allLocations) {
-            if (dbHelper.isValidLocation(location, previousValidLocation)) {
-                newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
-                previousValidLocation = location;
-            }
+            newPoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
         }
 
         if (newPoints.isEmpty()) {
@@ -637,12 +633,10 @@ public class MyActivity extends AppCompatActivity implements OnMapReadyCallback 
 
         LocationData previousValidLocation = null;
         for (LocationData location : locations) {
-            if (dbHelper.isValidLocation(location, previousValidLocation)) {
-                if (previousValidLocation != null) {
-                    totalDistance += calculateDistanceBetweenPoints(previousValidLocation, location);
-                }
-                previousValidLocation = location;
+            if (previousValidLocation != null) {
+                totalDistance += calculateDistanceBetweenPoints(previousValidLocation, location);
             }
+            previousValidLocation = location;
         }
         return totalDistance;
     }

@@ -1,7 +1,10 @@
 package com.jason.memory;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
@@ -10,7 +13,10 @@ import android.location.Location;
 
 import com.google.android.gms.maps.model.LatLng;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import android.location.Address;
 import android.location.Geocoder;
@@ -32,7 +38,8 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 10; // Increment this from 9 to 10
+    private static final int DATABASE_VERSION = 12;
+
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -71,10 +78,37 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_MESSAGE_CONTENT = "content";
     private static final String COLUMN_MESSAGE_IS_IMAGE = "is_image";
     private static final String COLUMN_MESSAGE_TIMESTAMP = "timestamp";
+    private boolean locationValidationEnabled;
 
+    private static final String TABLE_MEMORIES = "memories";
+    private static final String COLUMN_MEMORY_ID = "id";
+    private static final String COLUMN_MEMORY_TITLE = "title";
+    private static final String COLUMN_MEMORY_DATE = "date";
+    private static final String COLUMN_MEMORY_TEXT = "memory_text";
+    private static final String COLUMN_MEMORY_USERID = "userid";
+    private static final String COLUMN_MEMORY_PLACE = "place";
+    private static final String COLUMN_MEMORY_AUDIO = "audio";
+    private static final String COLUMN_MEMORY_HASHTAG = "hashtag";
+    private static final String COLUMN_MEMORY_LIKES = "likes";
+    private static final String COLUMN_MEMORY_WHO_LIKES ="wholikes";
+    private static final String PREF_USERNAME = "chat_username";
+
+
+    // Add these constants for the new columns
+    private static final String[] COLUMN_MEMORY_PICTURES = {
+            "picture1", "picture2", "picture3", "picture4", "picture5",
+            "picture6", "picture7", "picture8", "picture9"
+    };
+    private static final String[] COLUMN_MEMORY_COMMENTS = {
+            "comment1", "comment2", "comment3", "comment4", "comment5",
+            "comment6", "comment7", "comment8", "comment9", "comment10",
+            "comment11", "comment12", "comment13", "comment14", "comment15",
+            "comment16", "comment17", "comment18", "comment19", "comment20"
+    };
 
     private Context context;
     private static final String TAG = "DatabaseHelper";
+
 
     // Constructor
     public DatabaseHelper(Context context) {
@@ -148,48 +182,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Check if locations table exists
-        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_LOCATIONS});
-        if (cursor.getCount() == 0) {
-            String CREATE_TABLE = "CREATE TABLE " + TABLE_LOCATIONS + "("
-                    + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_LATITUDE + " REAL,"
-                    + COLUMN_LONGITUDE + " REAL,"
-                    + COLUMN_ALTITUDE + " REAL,"
-                    + COLUMN_TIMESTAMP + " INTEGER" + ")";
-            db.execSQL(CREATE_TABLE);
-        }
-        cursor.close();
+        // Create locations table
+        String CREATE_LOCATIONS_TABLE = "CREATE TABLE " + TABLE_LOCATIONS + "("
+                + COLUMN_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_LATITUDE + " REAL,"
+                + COLUMN_LONGITUDE + " REAL,"
+                + COLUMN_ALTITUDE + " REAL,"
+                + COLUMN_TIMESTAMP + " INTEGER" + ")";
+        db.execSQL(CREATE_LOCATIONS_TABLE);
 
-        // Check if activities table exists
-        cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name=?", new String[]{TABLE_ACTIVITIES});
-        if (cursor.getCount() == 0) {
-            String CREATE_ACTIVITIES_TABLE = "CREATE TABLE " + TABLE_ACTIVITIES + "("
-                    + COLUMN_ACTIVITY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_ACTIVITY_TYPE + " TEXT,"
-                    + COLUMN_ACTIVITY_NAME + " TEXT,"
-                    + COLUMN_START_TIMESTAMP + " INTEGER,"
-                    + COLUMN_END_TIMESTAMP + " INTEGER,"
-                    + COLUMN_START_LOCATION + " INTEGER,"
-                    + COLUMN_END_LOCATION + " INTEGER,"
-                    + COLUMN_DESC + " TEXT,"
-                    + COLUMN_DISTANCE + " REAL,"
-                    + COLUMN_ELAPSED_TIME + " INTEGER,"
-                    + COLUMN_ADDRESS + " TEXT"
-                    + ")";
-            db.execSQL(CREATE_ACTIVITIES_TABLE);
-        }
-        cursor.close();
-
-        // Add this code to create the memories table
-        String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
-                + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + COLUMN_MEMORY_TITLE + " TEXT,"
-                + COLUMN_MEMORY_DATE + " TEXT,"
-                + COLUMN_MEMORY_TEXT + " TEXT"
+        // Create activities table
+        String CREATE_ACTIVITIES_TABLE = "CREATE TABLE " + TABLE_ACTIVITIES + "("
+                + COLUMN_ACTIVITY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_ACTIVITY_TYPE + " TEXT,"
+                + COLUMN_ACTIVITY_NAME + " TEXT,"
+                + COLUMN_START_TIMESTAMP + " INTEGER,"
+                + COLUMN_END_TIMESTAMP + " INTEGER,"
+                + COLUMN_START_LOCATION + " INTEGER,"
+                + COLUMN_END_LOCATION + " INTEGER,"
+                + COLUMN_DESC + " TEXT,"
+                + COLUMN_DISTANCE + " REAL,"
+                + COLUMN_ELAPSED_TIME + " INTEGER,"
+                + COLUMN_ADDRESS + " TEXT"
                 + ")";
-        db.execSQL(CREATE_MEMORIES_TABLE);
+        db.execSQL(CREATE_ACTIVITIES_TABLE);
 
+        // Create messages table
         String CREATE_MESSAGES_TABLE = "CREATE TABLE " + TABLE_MESSAGES + "("
                 + COLUMN_MESSAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_MESSAGE_SENDER + " TEXT,"
@@ -198,7 +216,63 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_MESSAGE_TIMESTAMP + " TEXT"
                 + ")";
         db.execSQL(CREATE_MESSAGES_TABLE);
+
+        // Create places table
+        String CREATE_PLACES_TABLE = "CREATE TABLE " + TABLE_PLACES + " ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "country TEXT DEFAULT 'Current Country',"
+                + "type TEXT DEFAULT 'place',"
+                + "name TEXT,"
+                + "address TEXT,"
+                + "first_visited INTEGER,"
+                + "number_of_visits INTEGER DEFAULT 0,"
+                + "last_visited INTEGER,"
+                + "lat REAL,"
+                + "lon REAL,"
+                + "alt REAL,"
+                + "memo TEXT)";
+        db.execSQL(CREATE_PLACES_TABLE);
+
+// Create memories table
+        String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
+                + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + COLUMN_MEMORY_TITLE + " TEXT,"
+                + COLUMN_MEMORY_DATE + " TEXT,"
+                + COLUMN_MEMORY_TEXT + " TEXT,"
+                + COLUMN_MEMORY_USERID + " TEXT,"
+                + COLUMN_MEMORY_PLACE + " INTEGER REFERENCES " + TABLE_PLACES + "(id),"
+                + COLUMN_MEMORY_AUDIO + " TEXT,"
+                + COLUMN_MEMORY_HASHTAG + " TEXT,"
+                + COLUMN_MEMORY_LIKES + " INTEGER DEFAULT 0,"
+                + COLUMN_MEMORY_WHO_LIKES + " TEXT DEFAULT ''";  // Add this line
+
+// Add picture columns
+        for (String pictureColumn : COLUMN_MEMORY_PICTURES) {
+            CREATE_MEMORIES_TABLE += "," + pictureColumn + " TEXT DEFAULT NULL";
+        }
+
+// Add comment columns
+        for (String commentColumn : COLUMN_MEMORY_COMMENTS) {
+            CREATE_MEMORIES_TABLE += "," + commentColumn + " TEXT";
+        }
+
+        CREATE_MEMORIES_TABLE += ")";
+        db.execSQL(CREATE_MEMORIES_TABLE);
     }
+
+    @Override
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        // Drop older tables if existed
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_LOCATIONS);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ACTIVITIES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_MESSAGES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_PLACES);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEMORIES);
+
+        // Create tables again
+        onCreate(db);
+    }
+
 
     public long addMessage(Message message) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -242,31 +316,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-
-    @Override
-    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if(oldVersion < 8)  {
-        // Create messages table if it doesn't exist
-        String CREATE_MESSAGES_TABLE = "CREATE TABLE IF NOT EXISTS " + TABLE_MESSAGES + "("
-                + COLUMN_MESSAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + COLUMN_MESSAGE_SENDER + " TEXT,"
-                + COLUMN_MESSAGE_CONTENT + " TEXT,"
-                + COLUMN_MESSAGE_IS_IMAGE + " INTEGER,"
-                + COLUMN_MESSAGE_TIMESTAMP + " TEXT"
-                + ")";
-        db.execSQL(CREATE_MESSAGES_TABLE);
-        }
-
-        if (oldVersion < 9) { // Adjust this condition based on when you're adding the table
-            String CREATE_MEMORIES_TABLE = "CREATE TABLE IF NOT EXISTS " + TABLE_MEMORIES + "("
-                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_MEMORY_TITLE + " TEXT,"
-                    + COLUMN_MEMORY_DATE + " TEXT,"
-                    + COLUMN_MEMORY_TEXT + " TEXT"
-                    + ")";
-            db.execSQL(CREATE_MEMORIES_TABLE);
-        }
-    }
 
     public void insertLocationsBatch(List<LocationData> locations) {
         SQLiteDatabase db = getWritableDatabase();
@@ -534,36 +583,77 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
+    public void setLocationValidationEnabled(boolean enabled) {
+        this.locationValidationEnabled = enabled;
+    }
+
     public boolean isValidLocation(LocationData currentLocation, LocationData previousLocation) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
+        boolean locationValidationEnabled = prefs.getBoolean(Config.PREF_LOCATION_VALIDATION, false);
+
+        if (!locationValidationEnabled) {
+            return true; // Skip validation if the checkbox is unchecked
+        }
+
         if (previousLocation == null) {
+            Log.d(TAG, "--m-- First location, automatically valid");
             return true; // First location is always valid
         }
 
         double distanceKm = calculateDistanceBetweenPoints(previousLocation, currentLocation);
         long timeDifferenceSeconds = (currentLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
-
-        // Check if the distance and time difference meet the thresholds
-        if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM) {
-            return false; // Too close to the previous point
-        }
-
-        if (distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM) {
-            return false; // Too far from the previous point
-        }
-
-        if (timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
-            return false; // Too soon after the previous point
-        }
-
         // Calculate speed in km/h
         double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600;
 
-        if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
-            return false; // Speed is unreasonably high
+
+        Log.d(TAG, "--m-- Distance: " + (distanceKm * 1000) + " m, Time diff: " + timeDifferenceSeconds + " seconds, Calculated speed: " + speedKmh + " km/h");
+
+        // Check if the distance and time difference meet the thresholds
+        if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM ||
+                distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM ||
+                timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
+
+            Log.d(TAG, "--m-- Invalid -- Distance: " + (distanceKm * 1000) + " m, Time difference: " + timeDifferenceSeconds + " seconds");
+
+            logInvalidLocation(previousLocation, currentLocation);
+
+            //deleteInvalidLocation(currentLocation);
+            deleteInvalidLocation(previousLocation);
+            return false;
         }
 
+        if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
+            Log.d(TAG, "--m-- Invalid: Speed (" + speedKmh + " km/h) exceeds maximum threshold (" + Config.MAX_SPEED_THRESHOLD_KMH + " km/h)");
+            logInvalidLocation(previousLocation, currentLocation);
+
+            //deleteInvalidLocation(currentLocation);
+            deleteInvalidLocation(previousLocation);
+
+            return false; // Speed is unreasonably high
+        }
         return true;
     }
+
+    private void deleteInvalidLocation(LocationData location) {
+        if (location.getId() != 0) {  // Ensure the location has a valid ID
+            deleteLocation(location.getId());
+            Log.d(TAG, "--m-- Deleted invalid location with ID: " + location.getId());
+        } else {
+            Log.d(TAG, "--m-- Invalid location not yet saved to database, no deletion needed");
+        }
+    }
+
+    public void deleteLocation(long id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_LOCATIONS, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+    }
+
+    private void logInvalidLocation(LocationData previousLocation, LocationData currentLocation) {
+        Log.d(TAG, "--m-- Invalid location detected:");
+        Log.d(TAG, "--m-- Previous location: Lat " + previousLocation.getLatitude() + ", Lon " + previousLocation.getLongitude());
+        Log.d(TAG, "--m-- Current location: Lat " + currentLocation.getLatitude() + ", Lon " + currentLocation.getLongitude());
+    }
+
 
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();
@@ -1027,19 +1117,126 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return (columnIndex != -1) ? cursor.getString(columnIndex) : "";
     }
 
+    public boolean incrementLikeCount(long memoryId, String userId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + ", " + COLUMN_MEMORY_LIKES + " FROM " + TABLE_MEMORIES +
+                    " WHERE " + COLUMN_MEMORY_ID + " = ?";
+            Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
 
-    private static final String TABLE_MEMORIES = "memories";
-    private static final String COLUMN_MEMORY_ID = "id";
-    private static final String COLUMN_MEMORY_TITLE = "title";
-    private static final String COLUMN_MEMORY_DATE = "date";
-    private static final String COLUMN_MEMORY_TEXT = "memory_text";
+            if (cursor.moveToFirst()) {
+                String whoLikes = cursor.getString(0);
+                int currentLikes = cursor.getInt(1);
+                if (whoLikes == null) whoLikes = "";
+
+                if (!whoLikes.contains(userId)) {
+                    whoLikes = whoLikes.isEmpty() ? userId : whoLikes + "," + userId;
+                    currentLikes++;
+
+                    ContentValues values = new ContentValues();
+                    values.put(COLUMN_MEMORY_WHO_LIKES, whoLikes);
+                    values.put(COLUMN_MEMORY_LIKES, currentLikes);
+
+                    db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+                            new String[]{String.valueOf(memoryId)});
+                    db.setTransactionSuccessful();
+                    return true;
+                }
+            }
+            cursor.close();
+        } finally {
+            db.endTransaction();
+        }
+        return false;
+    }
+
+    public boolean hasUserLikedMemory(long memoryId, String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + " FROM " + TABLE_MEMORIES +
+                " WHERE " + COLUMN_MEMORY_ID + " = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
+
+        if (cursor.moveToFirst()) {
+            String whoLikes = cursor.getString(0);
+            cursor.close();
+            return whoLikes != null && whoLikes.contains(userId);
+        }
+        cursor.close();
+        return false;
+    }
+
+
+    public MemoryItem addComment(long memoryId, String comment, Context context) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        // Get username
+        SharedPreferences prefs = context.getSharedPreferences("ChatPrefs", Context.MODE_PRIVATE);
+        String userName = prefs.getString(PREF_USERNAME, null);
+        if (userName == null) {
+            userName = Utility.generateRandomName(userName);
+            prefs.edit().putString(PREF_USERNAME, userName).apply();
+        }
+
+        // Format the comment with username
+        String formattedComment = userName + ": " + comment;
+
+        // Find the first empty comment column
+        String[] commentColumns = COLUMN_MEMORY_COMMENTS;
+        String emptyColumn = null;
+
+        Cursor cursor = db.query(TABLE_MEMORIES, commentColumns, COLUMN_MEMORY_ID + "=?",
+                new String[]{String.valueOf(memoryId)}, null, null, null);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            for (String column : commentColumns) {
+                int columnIndex = cursor.getColumnIndex(column);
+                if (columnIndex != -1 && cursor.isNull(columnIndex)) {
+                    emptyColumn = column;
+                    break;
+                }
+            }
+            cursor.close();
+        }
+
+        if (emptyColumn != null) {
+            ContentValues values = new ContentValues();
+            values.put(emptyColumn, formattedComment);
+            db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?", new String[]{String.valueOf(memoryId)});
+        } else {
+            Log.w("DatabaseHelper", "No empty comment columns available for memory ID: " + memoryId);
+            // Optionally, you could implement a strategy here to handle when all comment columns are full
+            // For example, you could overwrite the oldest comment or use a separate table for comments
+        }
+        return getMemory(memoryId);
+    }
+
 
     public long addMemory(MemoryItem memory) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memory.getDate());
+        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp()); // This should be a long value
         values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
+
+        values.put(COLUMN_MEMORY_USERID, memory.getUserId());
+        values.put(COLUMN_MEMORY_PLACE, memory.getPlaceId());
+        values.put(COLUMN_MEMORY_AUDIO, memory.getAudio());
+        values.put(COLUMN_MEMORY_HASHTAG, memory.getHashtag());
+        values.put(COLUMN_MEMORY_LIKES, memory.getLikes());
+
+        // Add pictures
+        List<String> pictures = memory.getPictures();
+        for (int i = 0; i < COLUMN_MEMORY_PICTURES.length && i < pictures.size(); i++) {
+            values.put(COLUMN_MEMORY_PICTURES[i], pictures.get(i));
+        }
+
+        // Add comments
+        List<String> comments = memory.getComments();
+        for (int i = 0; i < COLUMN_MEMORY_COMMENTS.length && i < comments.size(); i++) {
+            values.put(COLUMN_MEMORY_COMMENTS[i], comments.get(i));
+        }
+
         return db.insert(TABLE_MEMORIES, null, values);
     }
 
@@ -1047,8 +1244,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memory.getDate());
+        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp()); // This should be a long value
         values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
+
         return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memory.getId())});
     }
@@ -1063,9 +1261,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 MemoryItem memory = new MemoryItem(
                         cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_DATE)), // Change to getLong
                         cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
                 );
+                memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+
+                // Retrieve comments
+                List<String> comments = new ArrayList<>();
+                for (String commentColumn : COLUMN_MEMORY_COMMENTS) {
+                    String comment = cursor.getString(cursor.getColumnIndex(commentColumn));
+                    if (comment != null && !comment.isEmpty()) {
+                        comments.add(comment);
+                    }
+                }
+                memory.setComments(comments);
+
                 memories.add(memory);
             } while (cursor.moveToNext());
         }
@@ -1080,12 +1290,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         MemoryItem memory = null;
         if (cursor != null && cursor.moveToFirst()) {
+            long timestamp = cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_DATE));
+
             memory = new MemoryItem(
                     cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                    timestamp,
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
             );
+            memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+
+            // Retrieve comments
+            List<String> comments = new ArrayList<>();
+            for (String commentColumn : COLUMN_MEMORY_COMMENTS) {
+                String commentText = cursor.getString(cursor.getColumnIndex(commentColumn));
+                if (commentText != null && !commentText.isEmpty()) {
+                    comments.add(commentText);
+                }
+            }
+            memory.setComments(comments);
             cursor.close();
         }
         return memory;
@@ -1098,10 +1321,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         MemoryItem memory = null;
         if (cursor != null && cursor.moveToFirst()) {
+            String dateString = cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE));
+            long timestamp = dateStringToTimestamp(dateString);
+
             memory = new MemoryItem(
                     cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                    timestamp,
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
             );
             cursor.close();
@@ -1109,11 +1335,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return memory;
     }
 
+    private long dateStringToTimestamp(String dateString) {
+        try {
+            return Long.parseLong(dateString);
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+            return System.currentTimeMillis(); // Return current time if parsing fails
+        }
+    }
+
     public long addMemoryItem(MemoryItem memoryItem) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
+        values.put(COLUMN_MEMORY_DATE, memoryItem.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
         return db.insert(TABLE_MEMORIES, null, values);
     }
@@ -1122,13 +1357,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
+        values.put(COLUMN_MEMORY_DATE, memoryItem.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
         return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memoryItem.getId())});
     }
-
-
 
     public int deleteMemory(long id) {
         SQLiteDatabase db = this.getWritableDatabase();

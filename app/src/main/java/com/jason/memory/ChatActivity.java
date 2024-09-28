@@ -148,9 +148,11 @@ public class ChatActivity extends AppCompatActivity {
         SharedPreferences prefs = getSharedPreferences("ChatPrefs", MODE_PRIVATE);
         userName = prefs.getString(PREF_USERNAME, null);
         if (userName == null) {
-            userName = generateRandomName();
+            userName = Utility.generateRandomName(userName);
             prefs.edit().putString(PREF_USERNAME, userName).apply();
         }
+
+
         //Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
 
         recyclerView = findViewById(R.id.recyclerViewMessages);
@@ -185,6 +187,23 @@ public class ChatActivity extends AppCompatActivity {
             intent.setAction(Intent.ACTION_GET_CONTENT);
             startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
         });
+
+
+        ImageButton buttonToggleMore = findViewById(R.id.buttonToggleMore);
+        ImageButton buttonCollapse = findViewById(R.id.buttonCollapse);
+        LinearLayout layoutMoreOptions = findViewById(R.id.layoutMoreOptions);
+
+        buttonToggleMore.setOnClickListener(v -> {
+            layoutMoreOptions.setVisibility(View.VISIBLE);
+            buttonToggleMore.setVisibility(View.GONE);
+        });
+
+        buttonCollapse.setOnClickListener(v -> {
+            layoutMoreOptions.setVisibility(View.GONE);
+            buttonToggleMore.setVisibility(View.VISIBLE);
+        });
+
+
     }
 
     private void showChangeUserDialog() {
@@ -202,7 +221,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void changeUserRandomly() {
-        String newUserName = generateRandomName();
+        String newUserName = Utility.generateRandomName(userName);
         SharedPreferences prefs = getSharedPreferences("ChatPrefs", MODE_PRIVATE);
         prefs.edit().putString(PREF_USERNAME, newUserName).apply();
         userName = newUserName;
@@ -210,14 +229,7 @@ public class ChatActivity extends AppCompatActivity {
         Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
     }
 
-    private String generateRandomName() {
-        String[] names = {"Ali", "Amy", "Ben", "Cloe", "Jack", "Kate", "Soyer", "Tayler"};
-        String newName;
-        do {
-            newName = names[new Random().nextInt(names.length)];
-        } while (newName.equals(userName));
-        return newName;
-    }
+
 
     private void connectWebSocket() {
         if (webSocket != null) {
@@ -588,6 +600,8 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .fitCenter())
                     .into(holder.imageView);
+            // Add this click listener
+            holder.imageView.setOnClickListener(v -> openFullScreenImage(v.getContext(), message.getContent()));
         } else {
             holder.contentTextView.setVisibility(View.VISIBLE);
             holder.imageView.setVisibility(View.GONE);
@@ -603,9 +617,11 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
                             .error(R.drawable.default_profile_image)
                             .circleCrop())
                     .into(holder.profileImageView);
+            // Add this click listener for profile images
+            holder.profileImageView.setOnClickListener(v -> openFullScreenImage(v.getContext(), message.getSenderProfileImageUrl()));
+
         }
     }
-
 
     public void onBindViewHolder_orig(MessageViewHolder holder, int position) {
         Message message = messages.get(position);
