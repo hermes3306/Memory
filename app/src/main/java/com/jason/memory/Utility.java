@@ -710,7 +710,7 @@ public class Utility {
         double metValue = 7.0;
         double timeHours = distanceKm / 10.0; // Assuming 10 km/h average speed
         double calories = metValue * weightKg * timeHours;
-        Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
+        //Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
         return String.format(Locale.getDefault(), "%.0f", calories);
     }
 

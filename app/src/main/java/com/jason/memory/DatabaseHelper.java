@@ -1,7 +1,10 @@
 package com.jason.memory;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
@@ -71,10 +74,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_MESSAGE_CONTENT = "content";
     private static final String COLUMN_MESSAGE_IS_IMAGE = "is_image";
     private static final String COLUMN_MESSAGE_TIMESTAMP = "timestamp";
-
+    private boolean locationValidationEnabled;
 
     private Context context;
     private static final String TAG = "DatabaseHelper";
+
 
     // Constructor
     public DatabaseHelper(Context context) {
@@ -534,36 +538,67 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
+    public void setLocationValidationEnabled(boolean enabled) {
+        this.locationValidationEnabled = enabled;
+    }
+
     public boolean isValidLocation(LocationData currentLocation, LocationData previousLocation) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
+        boolean locationValidationEnabled = prefs.getBoolean(Config.PREF_LOCATION_VALIDATION, false);
+
+        if (!locationValidationEnabled) {
+            return true; // Skip validation if the checkbox is unchecked
+        }
+
         if (previousLocation == null) {
+            Log.d(TAG, "--m-- First location, automatically valid");
             return true; // First location is always valid
         }
 
         double distanceKm = calculateDistanceBetweenPoints(previousLocation, currentLocation);
         long timeDifferenceSeconds = (currentLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
 
+        Log.d(TAG, "--m-- Distance: " + distanceKm + " km, Time difference: " + timeDifferenceSeconds + " seconds");
+
         // Check if the distance and time difference meet the thresholds
         if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM) {
+            Log.d(TAG, "--m-- Invalid: Distance (" + distanceKm + " km) is below minimum threshold (" + Config.MIN_DISTANCE_THRESHOLD_KM + " km)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too close to the previous point
         }
 
         if (distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM) {
+            Log.d(TAG, "--m-- Invalid: Distance (" + distanceKm + " km) exceeds maximum threshold (" + Config.MAX_DISTANCE_THRESHOLD_KM + " km)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too far from the previous point
         }
 
         if (timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
+            Log.d(TAG, "--m-- Invalid: Time difference (" + timeDifferenceSeconds + " seconds) is below minimum threshold (" + Config.MIN_TIME_THRESHOLD_SECONDS + " seconds)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too soon after the previous point
         }
 
         // Calculate speed in km/h
         double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600;
+        Log.d(TAG, "--m-- Calculated speed: " + speedKmh + " km/h");
 
         if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
+            Log.d(TAG, "--m-- Invalid: Speed (" + speedKmh + " km/h) exceeds maximum threshold (" + Config.MAX_SPEED_THRESHOLD_KMH + " km/h)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Speed is unreasonably high
         }
 
+        Log.d(TAG, "--m-- Location is valid");
         return true;
     }
+
+    private void logInvalidLocation(LocationData previousLocation, LocationData currentLocation) {
+        Log.d(TAG, "--m-- Invalid location detected:");
+        Log.d(TAG, "--m-- Previous location: Lat " + previousLocation.getLatitude() + ", Lon " + previousLocation.getLongitude());
+        Log.d(TAG, "--m-- Current location: Lat " + currentLocation.getLatitude() + ", Lon " + currentLocation.getLongitude());
+    }
+
 
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();
