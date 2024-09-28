@@ -234,8 +234,6 @@ public class ChatActivity extends AppCompatActivity {
                 });
             }
 
-
-
             @Override
             public void onMessage(WebSocket webSocket, String text) {
                 runOnUiThread(() -> {
@@ -298,7 +296,6 @@ public class ChatActivity extends AppCompatActivity {
             }
         });
     }
-
 
     private void sendMessage(String messageContent) {
         JsonObject jsonMessage = new JsonObject();
