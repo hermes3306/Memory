@@ -1,7 +1,10 @@
 package com.jason.memory;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
@@ -71,10 +74,11 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_MESSAGE_CONTENT = "content";
     private static final String COLUMN_MESSAGE_IS_IMAGE = "is_image";
     private static final String COLUMN_MESSAGE_TIMESTAMP = "timestamp";
-
+    private boolean locationValidationEnabled;
 
     private Context context;
     private static final String TAG = "DatabaseHelper";
+
 
     // Constructor
     public DatabaseHelper(Context context) {
@@ -534,36 +538,77 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
+    public void setLocationValidationEnabled(boolean enabled) {
+        this.locationValidationEnabled = enabled;
+    }
+
     public boolean isValidLocation(LocationData currentLocation, LocationData previousLocation) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
+        boolean locationValidationEnabled = prefs.getBoolean(Config.PREF_LOCATION_VALIDATION, false);
+
+        if (!locationValidationEnabled) {
+            return true; // Skip validation if the checkbox is unchecked
+        }
+
         if (previousLocation == null) {
+            Log.d(TAG, "--m-- First location, automatically valid");
             return true; // First location is always valid
         }
 
         double distanceKm = calculateDistanceBetweenPoints(previousLocation, currentLocation);
         long timeDifferenceSeconds = (currentLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
-
-        // Check if the distance and time difference meet the thresholds
-        if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM) {
-            return false; // Too close to the previous point
-        }
-
-        if (distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM) {
-            return false; // Too far from the previous point
-        }
-
-        if (timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
-            return false; // Too soon after the previous point
-        }
-
         // Calculate speed in km/h
         double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600;
 
-        if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
-            return false; // Speed is unreasonably high
+
+        Log.d(TAG, "--m-- Distance: " + (distanceKm * 1000) + " m, Time diff: " + timeDifferenceSeconds + " seconds, Calculated speed: " + speedKmh + " km/h");
+
+        // Check if the distance and time difference meet the thresholds
+        if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM ||
+                distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM ||
+                timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
+
+            Log.d(TAG, "--m-- Invalid -- Distance: " + (distanceKm * 1000) + " m, Time difference: " + timeDifferenceSeconds + " seconds");
+
+            logInvalidLocation(previousLocation, currentLocation);
+
+            //deleteInvalidLocation(currentLocation);
+            deleteInvalidLocation(previousLocation);
+            return false;
         }
 
+        if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
+            Log.d(TAG, "--m-- Invalid: Speed (" + speedKmh + " km/h) exceeds maximum threshold (" + Config.MAX_SPEED_THRESHOLD_KMH + " km/h)");
+            logInvalidLocation(previousLocation, currentLocation);
+
+            //deleteInvalidLocation(currentLocation);
+            deleteInvalidLocation(previousLocation);
+
+            return false; // Speed is unreasonably high
+        }
         return true;
     }
+
+    private void deleteInvalidLocation(LocationData location) {
+        if (location.getId() != 0) {  // Ensure the location has a valid ID
+            deleteLocation(location.getId());
+            Log.d(TAG, "--m-- Deleted invalid location with ID: " + location.getId());
+        } else {
+            Log.d(TAG, "--m-- Invalid location not yet saved to database, no deletion needed");
+        }
+    }
+
+    public void deleteLocation(long id) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_LOCATIONS, COLUMN_ID + " = ?", new String[]{String.valueOf(id)});
+    }
+
+    private void logInvalidLocation(LocationData previousLocation, LocationData currentLocation) {
+        Log.d(TAG, "--m-- Invalid location detected:");
+        Log.d(TAG, "--m-- Previous location: Lat " + previousLocation.getLatitude() + ", Lon " + previousLocation.getLongitude());
+        Log.d(TAG, "--m-- Current location: Lat " + currentLocation.getLatitude() + ", Lon " + currentLocation.getLongitude());
+    }
+
 
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();

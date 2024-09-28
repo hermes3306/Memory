@@ -6,21 +6,21 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
-import android.content.pm.ServiceInfo;
-import android.util.Log;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class LocationService extends Service {
+public class LocationService_backup extends Service {
     private static final int NOTIFICATION_ID = 1;
     private static final String CHANNEL_ID = "LocationServiceChannel";
     private static final String TAG = "LocationService";
@@ -46,7 +46,7 @@ public class LocationService extends Service {
     private static List<LocationData> dailyLocations = new ArrayList<>();
     private static final long INTERVAL = 24 * 60 * 60 * 1000 / LOCATIONS_PER_DAY; // Interval for 24 locations per day
 
-    private Handler handler = new Handler(Looper.getMainLooper());
+    private Handler handler = new Handler();
     private Runnable locationRunnable = new Runnable() {
         @Override
         public void run() {
@@ -54,9 +54,6 @@ public class LocationService extends Service {
             handler.postDelayed(this, INTERVAL);
         }
     };
-
-    private static final long MIN_TIME_BETWEEN_UPDATES = 3 * 1000; // 2 seconds
-    private long lastUpdateTime = 0;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -76,19 +73,17 @@ public class LocationService extends Service {
         return START_STICKY;
     }
 
+
+
     private void captureLocation() {
         try {
-            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+            fusedLocationClient.getLastLocation()
                     .addOnSuccessListener(location -> {
-                        if (location != null && isValidLocation(location)) {
-                            long currentTime = System.currentTimeMillis();
-                            if (currentTime - lastUpdateTime > MIN_TIME_BETWEEN_UPDATES) {
-                                LocationData locationData = new LocationData(0, location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getTime());
-                                dailyLocations.add(locationData);
-                                if (dailyLocations.size() >= LOCATIONS_PER_DAY) {
-                                    uploadLocations();
-                                }
-                                lastUpdateTime = currentTime;
+                        if (location != null) {
+                            LocationData locationData = new LocationData(0, location.getLatitude(), location.getLongitude(), location.getAltitude(), location.getTime());
+                            dailyLocations.add(locationData);
+                            if (dailyLocations.size() >= LOCATIONS_PER_DAY) {
+                                uploadLocations();
                             }
                         }
                     });
@@ -97,21 +92,13 @@ public class LocationService extends Service {
         }
     }
 
-    private boolean isValidLocation(Location location) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-            if (location.isFromMockProvider()) {
-                return false;
-            }
-        }
-        return location.getAccuracy() <= 20; // Only accept locations with accuracy of 20 meters or better
-    }
-
     private void uploadLocations() {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
         String fileName = sdf.format(new Date()) + ".loc";
         Utility.uploadLocationsToServer(this, dailyLocations, fileName);
         dailyLocations.clear();
     }
+
 
     @Override
     public void onCreate() {
@@ -126,15 +113,9 @@ public class LocationService extends Service {
                     return;
                 }
                 for (Location location : locationResult.getLocations()) {
-                    if (isValidLocation(location)) {
-                        long currentTime = System.currentTimeMillis();
-                        if (currentTime - lastUpdateTime > MIN_TIME_BETWEEN_UPDATES) {
-                            dbHelper.addLocation(location.getLatitude(), location.getLongitude(),
-                                    location.getAltitude(), location.getTime());
-                            sendBroadcast(new Intent(ACTION_LOCATION_UPDATED));
-                            lastUpdateTime = currentTime;
-                        }
-                    }
+                    dbHelper.addLocation(location.getLatitude(), location.getLongitude(),
+                            location.getAltitude(), location.getTime());
+                    sendBroadcast(new Intent(ACTION_LOCATION_UPDATED));
                 }
             }
         };
@@ -177,17 +158,16 @@ public class LocationService extends Service {
 
     private void requestLocationUpdates() {
         LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setInterval(5000); // Update interval in milliseconds
-        locationRequest.setFastestInterval(3000); // Fastest update interval in milliseconds
-        locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setSmallestDisplacement(5); // Minimum displacement in meters
+        locationRequest.setInterval(10000);
+        locationRequest.setFastestInterval(5000);
+        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 
         try {
             fusedLocationClient.requestLocationUpdates(locationRequest,
                     locationCallback,
-                    Looper.getMainLooper());
+                    getMainLooper());
         } catch (SecurityException e) {
-            Log.e(TAG, "Error requesting location updates", e);
+            e.printStackTrace();
         }
     }
 
@@ -196,6 +176,7 @@ public class LocationService extends Service {
     public IBinder onBind(Intent intent) {
         return null;
     }
+
 
     @Override
     public void onDestroy() {

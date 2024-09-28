@@ -5,7 +5,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
@@ -16,16 +16,16 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-
 public class AddEditMemoryActivity extends AppCompatActivity {
     private static final String TAG = "AddEditMemoryActivity";
     private EditText titleEditText;
-    private TextView dateTextView;
     private EditText memoryEditText;
     private DatabaseHelper dbHelper;
     private long editMemoryId = -1;
-    private Button deleteButton;
-    private Button addPlaceInfoButton;
+    private ImageButton closeButton;
+    private Button saveButton;
+    private ImageButton addPlaceInfoImage;
+    private ImageButton deleteImage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,16 +35,17 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         dbHelper = new DatabaseHelper(this);
 
         titleEditText = findViewById(R.id.titleEditText);
-        dateTextView = findViewById(R.id.dateTextView);
-        memoryEditText = findViewById(R.id.memoryEditText);
-        deleteButton = findViewById(R.id.deleteButton);
-        addPlaceInfoButton = findViewById(R.id.addPlaceInfoButton);
-        addPlaceInfoButton.setOnClickListener(v -> showPlaceInfoDialog());
 
-        // Set the current date
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        String currentDate = dateFormat.format(new Date());
-        dateTextView.setText(currentDate);
+        memoryEditText = findViewById(R.id.memoryEditText);
+        closeButton = findViewById(R.id.closeButton);
+        saveButton = findViewById(R.id.saveButton); // This should now work correctly
+        addPlaceInfoImage = findViewById(R.id.addPlaceInfoImage);
+        deleteImage = findViewById(R.id.deleteImage);
+
+        closeButton.setOnClickListener(v -> finish());
+        saveButton.setOnClickListener(v -> saveMemory());
+        addPlaceInfoImage.setOnClickListener(v -> showPlaceInfoDialog());
+        deleteImage.setOnClickListener(v -> deleteMemory());
 
         // Check if we're editing an existing memory
         if (getIntent().getBooleanExtra("IS_EDIT", false)) {
@@ -53,20 +54,14 @@ public class AddEditMemoryActivity extends AppCompatActivity {
                 editMemoryId = memoryId;
                 MemoryItem memory = dbHelper.getMemory(memoryId);
                 titleEditText.setText(memory.getTitle());
-                dateTextView.setText(memory.getDate());
                 memoryEditText.setText(memory.getMemoryText());
 
-                // Show delete button for existing memories
-                deleteButton.setVisibility(View.VISIBLE);
+                // Show delete image for existing memories
+                deleteImage.setVisibility(View.VISIBLE);
             }
+        } else {
+            deleteImage.setVisibility(View.GONE);
         }
-
-        // Set up save button
-        Button saveButton = findViewById(R.id.saveButton);
-        saveButton.setOnClickListener(v -> saveMemory());
-
-        // Set up delete button
-        deleteButton.setOnClickListener(v -> deleteMemory());
     }
 
     private void showPlaceInfoDialog() {
@@ -119,11 +114,10 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         return sdf.format(new Date(timestamp));
     }
 
-
     private void saveMemory() {
         String title = titleEditText.getText().toString();
         String memoryText = memoryEditText.getText().toString();
-        String date = dateTextView.getText().toString();
+        String date = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
         if (title.isEmpty() || memoryText.isEmpty()) {
             Toast.makeText(this, "Please fill in all fields", Toast.LENGTH_SHORT).show();
@@ -149,7 +143,6 @@ public class AddEditMemoryActivity extends AppCompatActivity {
             }
         }
     }
-
 
     private void deleteMemory() {
         if (editMemoryId != -1) {
