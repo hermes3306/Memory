@@ -45,10 +45,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class SettingActivity extends AppCompatActivity {
-
-
-
     private Switch switchKeepScreenOn;
+    private Switch locationValidationSwitch;
 
     private static final String TAG = "SettingActivity";
     private static final String BASE_URL = Config.BASE_URL;
@@ -109,6 +107,7 @@ public class SettingActivity extends AppCompatActivity {
         registerDownloadReceiver();
     }
 
+
     private void initializeViews() {
         fileDownloadButton = findViewById(R.id.fileDownloadButton);
         fileUploadButton = findViewById(R.id.fileUploadButton);
@@ -121,6 +120,7 @@ public class SettingActivity extends AppCompatActivity {
         initActivityButton = findViewById(R.id.initActivityButton);
         migrateButton = findViewById(R.id.migrateButton);
         switchKeepScreenOn = findViewById(R.id.switchKeepScreenOn);
+        locationValidationSwitch = findViewById(R.id.switchLocationValidation);
 
         runTypeRadioGroup = findViewById(R.id.idnew_runTypeRadioGroup);
         memoryRadioButton = findViewById(R.id.idnew_memoryRadioButton);
@@ -139,6 +139,18 @@ public class SettingActivity extends AppCompatActivity {
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, tableNames);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         tableSpinner.setAdapter(adapter);
+
+        // Load the saved preference
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        boolean isLocationValidationEnabled = locationValidationSwitch.isChecked();
+        locationValidationSwitch.setChecked(isLocationValidationEnabled);
+
+        // Set up the listener
+        locationValidationSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putBoolean(Config.PREF_LOCATION_VALIDATION, isChecked);
+            editor.apply();
+        });
 
 
     }

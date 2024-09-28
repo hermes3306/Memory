@@ -180,7 +180,22 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             writer.close();
 
             // 2. Upload file to server
-            Utility.uploadFile(this, file);
+            Utility.uploadFile(this, file, new Utility.UploadCallback() {
+                @Override
+                public void onUploadComplete(boolean success, String serverResponse) {
+                    runOnUiThread(() -> {
+                        if (success) {
+                            Toast.makeText(PlacesActivity.this,
+                                    "Places saved and uploaded successfully",
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(PlacesActivity.this,
+                                    "Error uploading places: " + serverResponse,
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            });
 
             // 3. Show toast for save result
             Toast.makeText(this, "Places saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();

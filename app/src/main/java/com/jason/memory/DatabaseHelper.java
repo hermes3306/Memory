@@ -1,7 +1,10 @@
 package com.jason.memory;
 
+import static android.content.Context.MODE_PRIVATE;
+
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
@@ -32,7 +35,7 @@ import java.util.Locale;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "LocationDatabase";
-    private static final int DATABASE_VERSION = 10; // Increment this from 9 to 10
+    private static final int DATABASE_VERSION = 12; // Increment this from 9 to 10
     public static final String TABLE_LOCATIONS = "locations";
     private static final String COLUMN_ID = "id";
     public static final String COLUMN_LATITUDE = "latitude";
@@ -71,10 +74,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     private static final String COLUMN_MESSAGE_CONTENT = "content";
     private static final String COLUMN_MESSAGE_IS_IMAGE = "is_image";
     private static final String COLUMN_MESSAGE_TIMESTAMP = "timestamp";
+    private boolean locationValidationEnabled;
+
+
+    public static final String COLUMN_MEMORY_PICTURE = "picture";
+    public static final String COLUMN_MEMORY_PICTURE1 = "picture1";
+    public static final String COLUMN_MEMORY_PICTURE2 = "picture2";
+    public static final String COLUMN_MEMORY_PICTURE3 = "picture3";
+    public static final String COLUMN_MEMORY_PICTURE4 = "picture4";
+    public static final String COLUMN_MEMORY_PICTURE5 = "picture5";
+    public static final String COLUMN_MEMORY_PICTURE6 = "picture6";
+    public static final String COLUMN_MEMORY_PICTURE7 = "picture7";
+    public static final String COLUMN_MEMORY_PICTURE8 = "picture8";
+    public static final String COLUMN_MEMORY_PICTURE9 = "picture9";
+    public static final String COLUMN_MEMORY_PLACE = "place";
 
 
     private Context context;
     private static final String TAG = "DatabaseHelper";
+
 
     // Constructor
     public DatabaseHelper(Context context) {
@@ -181,12 +199,22 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
         cursor.close();
 
-        // Add this code to create the memories table
+
         String CREATE_MEMORIES_TABLE = "CREATE TABLE " + TABLE_MEMORIES + "("
                 + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
                 + COLUMN_MEMORY_TITLE + " TEXT,"
                 + COLUMN_MEMORY_DATE + " TEXT,"
-                + COLUMN_MEMORY_TEXT + " TEXT"
+                + COLUMN_MEMORY_TEXT + " TEXT,"
+                + COLUMN_MEMORY_PICTURE1 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE2 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE3 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE4 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE5 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE6 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE7 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE8 + " TEXT,"
+                + COLUMN_MEMORY_PICTURE9 + " TEXT,"
+                + COLUMN_MEMORY_PLACE + " TEXT"
                 + ")";
         db.execSQL(CREATE_MEMORIES_TABLE);
 
@@ -245,26 +273,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if(oldVersion < 8)  {
-        // Create messages table if it doesn't exist
-        String CREATE_MESSAGES_TABLE = "CREATE TABLE IF NOT EXISTS " + TABLE_MESSAGES + "("
-                + COLUMN_MESSAGE_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + COLUMN_MESSAGE_SENDER + " TEXT,"
-                + COLUMN_MESSAGE_CONTENT + " TEXT,"
-                + COLUMN_MESSAGE_IS_IMAGE + " INTEGER,"
-                + COLUMN_MESSAGE_TIMESTAMP + " TEXT"
-                + ")";
-        db.execSQL(CREATE_MESSAGES_TABLE);
-        }
-
-        if (oldVersion < 9) { // Adjust this condition based on when you're adding the table
-            String CREATE_MEMORIES_TABLE = "CREATE TABLE IF NOT EXISTS " + TABLE_MEMORIES + "("
-                    + COLUMN_MEMORY_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                    + COLUMN_MEMORY_TITLE + " TEXT,"
-                    + COLUMN_MEMORY_DATE + " TEXT,"
-                    + COLUMN_MEMORY_TEXT + " TEXT"
-                    + ")";
-            db.execSQL(CREATE_MEMORIES_TABLE);
+        if (oldVersion < 12) { // Adjust this version number as needed
+            db.execSQL("DROP TABLE IF EXISTS " + TABLE_MEMORIES);
+            onCreate(db);
         }
     }
 
@@ -534,36 +545,67 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return location;
     }
 
+    public void setLocationValidationEnabled(boolean enabled) {
+        this.locationValidationEnabled = enabled;
+    }
+
     public boolean isValidLocation(LocationData currentLocation, LocationData previousLocation) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
+        boolean locationValidationEnabled = prefs.getBoolean(Config.PREF_LOCATION_VALIDATION, false);
+
+        if (!locationValidationEnabled) {
+            return true; // Skip validation if the checkbox is unchecked
+        }
+
         if (previousLocation == null) {
+            Log.d(TAG, "--m-- First location, automatically valid");
             return true; // First location is always valid
         }
 
         double distanceKm = calculateDistanceBetweenPoints(previousLocation, currentLocation);
         long timeDifferenceSeconds = (currentLocation.getTimestamp() - previousLocation.getTimestamp()) / 1000;
 
+        Log.d(TAG, "--m-- Distance: " + distanceKm + " km, Time difference: " + timeDifferenceSeconds + " seconds");
+
         // Check if the distance and time difference meet the thresholds
         if (distanceKm < Config.MIN_DISTANCE_THRESHOLD_KM) {
+            Log.d(TAG, "--m-- Invalid: Distance (" + distanceKm + " km) is below minimum threshold (" + Config.MIN_DISTANCE_THRESHOLD_KM + " km)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too close to the previous point
         }
 
         if (distanceKm > Config.MAX_DISTANCE_THRESHOLD_KM) {
+            Log.d(TAG, "--m-- Invalid: Distance (" + distanceKm + " km) exceeds maximum threshold (" + Config.MAX_DISTANCE_THRESHOLD_KM + " km)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too far from the previous point
         }
 
         if (timeDifferenceSeconds < Config.MIN_TIME_THRESHOLD_SECONDS) {
+            Log.d(TAG, "--m-- Invalid: Time difference (" + timeDifferenceSeconds + " seconds) is below minimum threshold (" + Config.MIN_TIME_THRESHOLD_SECONDS + " seconds)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Too soon after the previous point
         }
 
         // Calculate speed in km/h
         double speedKmh = (distanceKm / timeDifferenceSeconds) * 3600;
+        Log.d(TAG, "--m-- Calculated speed: " + speedKmh + " km/h");
 
         if (speedKmh > Config.MAX_SPEED_THRESHOLD_KMH) {
+            Log.d(TAG, "--m-- Invalid: Speed (" + speedKmh + " km/h) exceeds maximum threshold (" + Config.MAX_SPEED_THRESHOLD_KMH + " km/h)");
+            logInvalidLocation(previousLocation, currentLocation);
             return false; // Speed is unreasonably high
         }
 
+        Log.d(TAG, "--m-- Location is valid");
         return true;
     }
+
+    private void logInvalidLocation(LocationData previousLocation, LocationData currentLocation) {
+        Log.d(TAG, "--m-- Invalid location detected:");
+        Log.d(TAG, "--m-- Previous location: Lat " + previousLocation.getLatitude() + ", Lon " + previousLocation.getLongitude());
+        Log.d(TAG, "--m-- Current location: Lat " + currentLocation.getLatitude() + ", Lon " + currentLocation.getLongitude());
+    }
+
 
     public List<LocationData> getLocationsBetweenTimestamps(long startTimestamp, long endTimestamp) {
         List<LocationData> locations = new ArrayList<>();
@@ -1043,6 +1085,75 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.insert(TABLE_MEMORIES, null, values);
     }
 
+    public MemoryItem getMemory(long id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_ID + "=?",
+                new String[]{String.valueOf(id)}, null, null, null);
+
+        MemoryItem memory = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            String[] pictures = new String[9];
+            for (int i = 0; i < 9; i++) {
+                int columnIndex = cursor.getColumnIndex(COLUMN_MEMORY_PICTURE1 + i);
+                if (columnIndex != -1) {
+                    pictures[i] = cursor.getString(columnIndex);
+                }
+            }
+
+            int idIndex = cursor.getColumnIndex(COLUMN_MEMORY_ID);
+            int titleIndex = cursor.getColumnIndex(COLUMN_MEMORY_TITLE);
+            int dateIndex = cursor.getColumnIndex(COLUMN_MEMORY_DATE);
+            int textIndex = cursor.getColumnIndex(COLUMN_MEMORY_TEXT);
+            int placeIndex = cursor.getColumnIndex(COLUMN_MEMORY_PLACE);
+
+            if (idIndex != -1 && titleIndex != -1 && dateIndex != -1 && textIndex != -1 && placeIndex != -1) {
+                memory = new MemoryItem(
+                        cursor.getLong(idIndex),
+                        cursor.getString(titleIndex),
+                        cursor.getString(dateIndex),
+                        cursor.getString(textIndex),
+                        pictures,
+                        cursor.getString(placeIndex)
+                );
+            } else {
+                Log.e("DatabaseHelper", "One or more required columns are missing in the memories table");
+            }
+            cursor.close();
+        }
+        return memory;
+    }
+
+
+    public MemoryItem getMemoryItemByText(String memoryText) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_TEXT + "=?",
+                new String[]{memoryText}, null, null, null);
+
+        MemoryItem memory = null;
+        if (cursor != null && cursor.moveToFirst()) {
+            String[] pictures = new String[9];
+            for (int i = 0; i < 9; i++) {
+                int columnIndex = cursor.getColumnIndex(COLUMN_MEMORY_PICTURE1 + i);
+                if (columnIndex != -1 && !cursor.isNull(columnIndex)) {
+                    pictures[i] = cursor.getString(columnIndex);
+                } else {
+                    pictures[i] = null; // or you could use an empty string if you prefer: pictures[i] = "";
+                }
+            }
+
+            memory = new MemoryItem(
+                    cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT)),
+                    pictures,
+                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_PLACE))
+            );
+            cursor.close();
+        }
+        return memory;
+    }
+
     public int updateMemory(MemoryItem memory) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -1053,61 +1164,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 new String[]{String.valueOf(memory.getId())});
     }
 
-    public List<MemoryItem> getAllMemories() {
-        List<MemoryItem> memories = new ArrayList<>();
-        String selectQuery = "SELECT * FROM " + TABLE_MEMORIES + " ORDER BY " + COLUMN_MEMORY_DATE + " DESC";
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.rawQuery(selectQuery, null);
-        if (cursor.moveToFirst()) {
-            do {
-                MemoryItem memory = new MemoryItem(
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
-                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
-                );
-                memories.add(memory);
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-        return memories;
-    }
-
-    public MemoryItem getMemory(long id) {
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_ID + "=?",
-                new String[]{String.valueOf(id)}, null, null, null);
-
-        MemoryItem memory = null;
-        if (cursor != null && cursor.moveToFirst()) {
-            memory = new MemoryItem(
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
-            );
-            cursor.close();
-        }
-        return memory;
-    }
-
-    public MemoryItem getMemoryItemByText(String memoryText) {
-        SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_MEMORIES, null, COLUMN_MEMORY_TEXT + "=?",
-                new String[]{memoryText}, null, null, null);
-
-        MemoryItem memory = null;
-        if (cursor != null && cursor.moveToFirst()) {
-            memory = new MemoryItem(
-                    cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
-                    cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
-            );
-            cursor.close();
-        }
-        return memory;
-    }
 
     public long addMemoryItem(MemoryItem memoryItem) {
         SQLiteDatabase db = this.getWritableDatabase();
@@ -1115,6 +1171,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
         values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        values.put(COLUMN_MEMORY_PLACE, memoryItem.getPlace());
+
+        String[] pictures = memoryItem.getPictures();
+        for (int i = 0; i < 9; i++) {
+            String pictureColumn = COLUMN_MEMORY_PICTURE + (i + 1);
+            if (pictures != null && i < pictures.length && pictures[i] != null) {
+                values.put(pictureColumn, pictures[i]);
+            } else {
+                values.putNull(pictureColumn);
+            }
+        }
+
         return db.insert(TABLE_MEMORIES, null, values);
     }
 
@@ -1124,11 +1192,67 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
         values.put(COLUMN_MEMORY_DATE, memoryItem.getDate());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        values.put(COLUMN_MEMORY_PLACE, memoryItem.getPlace());
+
+        String[] pictures = memoryItem.getPictures();
+        for (int i = 0; i < 9; i++) {
+            values.put(COLUMN_MEMORY_PICTURE + (i + 1), pictures[i]);
+        }
+
         return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memoryItem.getId())});
     }
 
+    public List<MemoryItem> getAllMemories() {
+        List<MemoryItem> memories = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_MEMORIES + " ORDER BY " + COLUMN_MEMORY_DATE + " DESC";
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = null;
 
+        try {
+            cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor.moveToFirst()) {
+                do {
+                    String[] pictures = new String[9];
+                    for (int i = 0; i < 9; i++) {
+                        int columnIndex = cursor.getColumnIndex(COLUMN_MEMORY_PICTURE1 + i);
+                        if (columnIndex != -1) {
+                            pictures[i] = cursor.getString(columnIndex);
+                        }
+                    }
+
+                    int idIndex = cursor.getColumnIndex(COLUMN_MEMORY_ID);
+                    int titleIndex = cursor.getColumnIndex(COLUMN_MEMORY_TITLE);
+                    int dateIndex = cursor.getColumnIndex(COLUMN_MEMORY_DATE);
+                    int textIndex = cursor.getColumnIndex(COLUMN_MEMORY_TEXT);
+                    int placeIndex = cursor.getColumnIndex(COLUMN_MEMORY_PLACE);
+
+                    if (idIndex != -1 && titleIndex != -1 && dateIndex != -1 && textIndex != -1 && placeIndex != -1) {
+                        MemoryItem memory = new MemoryItem(
+                                cursor.getLong(idIndex),
+                                cursor.getString(titleIndex),
+                                cursor.getString(dateIndex),
+                                cursor.getString(textIndex),
+                                pictures,
+                                cursor.getString(placeIndex)
+                        );
+                        memories.add(memory);
+                    } else {
+                        Log.e("DatabaseHelper", "One or more required columns are missing in the memories table");
+                    }
+                } while (cursor.moveToNext());
+            }
+        } catch (Exception e) {
+            Log.e("DatabaseHelper", "Error getting memories: " + e.getMessage());
+        } finally {
+            if (cursor != null && !cursor.isClosed()) {
+                cursor.close();
+            }
+        }
+
+        return memories;
+    }
 
     public int deleteMemory(long id) {
         SQLiteDatabase db = this.getWritableDatabase();

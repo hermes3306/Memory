@@ -58,6 +58,18 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         Log.d(TAG, "--m-- onCreate: MemoryActivity setup complete");
     }
 
+    @Override
+    public void onEditMemory(long memoryId) {
+        openAddEditMemoryActivity(memoryId);
+    }
+
+    private void openAddEditMemoryActivity(long memoryId) {
+        Intent intent = new Intent(this, AddEditMemoryActivity.class);
+        intent.putExtra("MEMORY_ID", memoryId);
+        intent.putExtra("IS_EDIT", true);
+        startActivity(intent);
+    }
+
     private void updateMemoryList() {
         Log.d(TAG, "--m-- updateMemoryList: Fetching memories from database");
         List<MemoryItem> memoryItems = dbHelper.getAllMemories();
@@ -99,13 +111,6 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         startActivity(intent);
     }
 
-    private void openAddEditMemoryActivity(long memoryId) {
-        Log.d(TAG, "--m-- openAddEditMemoryActivity: Opening activity to edit memory ID: " + memoryId);
-        Intent intent = new Intent(this, AddEditMemoryActivity.class);
-        intent.putExtra("MEMORY_ID", memoryId);
-        intent.putExtra("IS_EDIT", true);
-        startActivity(intent);
-    }
 
     private void searchMemories() {
         Log.d(TAG, "--m-- searchMemories: Search function not implemented yet");
@@ -123,16 +128,28 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
             if (!directory.exists()) {
                 directory.mkdirs();
             }
-            String fileName =System.currentTimeMillis() + Config.MEMORY_EXT;
+            String fileName = System.currentTimeMillis() + Config.MEMORY_EXT;
             File file = new File(directory, fileName);
             FileWriter writer = new FileWriter(file);
             writer.write(jsonMemories);
             writer.close();
 
-            Utility.uploadFile(this, file);
+            Utility.uploadFile(this, file, new Utility.UploadCallback() {
+                @Override
+                public void onUploadComplete(boolean success, String serverResponse) {
+                    runOnUiThread(() -> {
+                        if (success) {
+                            Log.d(TAG, "--m-- saveMemories: Memories saved and uploaded successfully");
+                            Toast.makeText(MemoryActivity.this, "Memories saved and uploaded successfully", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Log.e(TAG, "--m-- saveMemories: Error uploading memories: " + serverResponse);
+                            Toast.makeText(MemoryActivity.this, "Error uploading memories: " + serverResponse, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            });
 
             Log.d(TAG, "--m-- saveMemories: Memories saved to " + file.getAbsolutePath());
-            Toast.makeText(this, "Memories saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             Log.e(TAG, "--m-- saveMemories: Error saving memories", e);
             Toast.makeText(this, "Error saving memories: " + e.getMessage(), Toast.LENGTH_SHORT).show();

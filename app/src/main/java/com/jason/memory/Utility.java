@@ -87,6 +87,13 @@ public class Utility {
         }.execute();
     }
 
+    public interface UploadCallback {
+        void onUploadComplete(boolean success, String serverResponse);
+    }
+
+
+
+
     private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
         Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
         Gson gson = new Gson();
@@ -244,7 +251,16 @@ public class Utility {
                 File savedFile = saveActivityToFile(context, currentActivity, dbHelper);
                 if (savedFile != null) {
                     Log.d(TAG, "--m-- Activity saved to file, uploading to server");
-                    uploadFile(context, savedFile);
+                    uploadFile(context, savedFile, new UploadCallback() {
+                        @Override
+                        public void onUploadComplete(boolean success, String serverResponse) {
+                            if (success) {
+                                Log.d(TAG, "--m-- Activity uploaded successfully: " + serverResponse);
+                            } else {
+                                Log.e(TAG, "--m-- Failed to upload activity: " + serverResponse);
+                            }
+                        }
+                    });
                 } else {
                     Log.e(TAG, "--m-- Failed to save activity to file");
                 }
@@ -265,142 +281,43 @@ public class Utility {
         }
     }
 
-    public static void finalizeActivity_old(Context context, DatabaseHelper dbHelper, StravaUploader stravaUploader,
-                                        long activityId, long startTimestamp, long endTimestamp,
-                                        FinalizeCallback callback, StravaUploadCallback stravaCallback) {
-
-        Log.d(TAG, "--m-- Finalizing activity: " + activityId);
-
-        LocationData startLocation = dbHelper.getFirstLocationAfterTimestamp(startTimestamp);
-        LocationData endLocation = dbHelper.getLatestLocation();
-
-        if (startLocation != null && endLocation != null) {
-            Log.d(TAG, "--m-- Start and end locations found");
-            double distance = calculateDistance(dbHelper, startTimestamp, endTimestamp);
-            long elapsedTime = endTimestamp - startTimestamp;
-
-            Log.d(TAG, "--m-- Calculated distance: " + distance + ", elapsed time: " + elapsedTime);
-
-            ActivityData currentActivity = dbHelper.getActivity(activityId);
-            String address = (currentActivity != null) ? currentActivity.getAddress() : "";
-
-            if (address.isEmpty()) {
-                address = endLocation.getSimpleAddress(context);
-                Log.d(TAG, "--m-- Using end location address: " + address);
-            }
-
-            dbHelper.updateActivity(activityId, endTimestamp, startLocation.getId(), endLocation.getId(), distance, elapsedTime, address);
-            Log.d(TAG, "--m-- Activity updated in database");
-            currentActivity = dbHelper.getActivity(activityId);
-
-            SharedPreferences prefs = context.getSharedPreferences(Config.PREFS_NAME, Context.MODE_PRIVATE);
-            boolean uploadToServer = prefs.getBoolean(Config.PREF_UPLOAD_SERVER, false);
-            boolean uploadToStrava = prefs.getBoolean(Config.PREF_UPLOAD_STRAVA, false);
-
-            Log.d(TAG, "--m-- Upload preferences: Server=" + uploadToServer + ", Strava=" + uploadToStrava);
-
-            if (uploadToServer) {
-                File savedFile = saveActivityToFile(context, currentActivity, dbHelper);
-                if (savedFile != null) {
-                    Log.d(TAG, "--m-- Activity saved to file, uploading to server");
-                    uploadFile(context, savedFile);
-                } else {
-                    Log.e(TAG, "--m-- Failed to save activity to file");
-                }
-            }
-
-            if (uploadToStrava) {
-                Log.d(TAG, "--m-- Uploading to Strava");
-                uploadToStrava(context, dbHelper, stravaUploader, currentActivity, stravaCallback);
-            } else {
-                stravaCallback.onStravaUploadComplete(false);
-            }
-
-            callback.onFinalize();
-        } else {
-            Log.e(TAG, "--m-- Unable to save activity(" + activityId + "): location data missing");
-            Toast.makeText(context, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
-            callback.onFinalize();
-        }
-    }
 
     public static void uploadLocationsToServer(Context context, List<LocationData> locations, String fileName) {
-        new AsyncTask<Void, Void, String>() {
-            @Override
-            protected String doInBackground(Void... voids) {
-                HttpURLConnection httpUrlConnection = null;
-                try {
-                    URL url = new URL(UPLOAD_URL);
-                    httpUrlConnection = (HttpURLConnection) url.openConnection();
-                    httpUrlConnection.setUseCaches(false);
-                    httpUrlConnection.setDoInput(true);
-                    httpUrlConnection.setDoOutput(true);
-                    httpUrlConnection.setConnectTimeout(15000);
-
-                    httpUrlConnection.setRequestMethod("POST");
-                    httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
-                    httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
-
-                    String boundary = "*****";
-                    String crlf = "\r\n";
-                    String twoHyphens = "--";
-
-                    httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-
-                    DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
-
-                    request.writeBytes(twoHyphens + boundary + crlf);
-                    request.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName + "\"" + crlf);
-                    request.writeBytes("Content-Type: text/plain" + crlf);
-                    request.writeBytes(crlf);
-
-                    for (LocationData location : locations) {
-                        String locationString = String.format(Locale.US, "%.8f,%.8f,%.2f,%d\n",
-                                location.getLatitude(),
-                                location.getLongitude(),
-                                location.getAltitude(),
-                                location.getTimestamp());
-                        request.writeBytes(locationString);
-                    }
-
-                    request.writeBytes(crlf);
-                    request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
-
-                    request.flush();
-                    request.close();
-
-                    int responseCode = httpUrlConnection.getResponseCode();
-                    if (responseCode == HttpURLConnection.HTTP_OK) {
-                        BufferedReader in = new BufferedReader(new InputStreamReader(httpUrlConnection.getInputStream()));
-                        String inputLine;
-                        StringBuilder response = new StringBuilder();
-                        while ((inputLine = in.readLine()) != null) {
-                            response.append(inputLine);
-                        }
-                        in.close();
-                        Log.d(TAG, "--m-- Upload successful. Server response: " + response.toString());
-                        return "Upload successful. Server response: " + response.toString();
+        File file = createTemporaryFile(context, locations, fileName);
+        if (file != null) {
+            uploadFile(context, file, new UploadCallback() {
+                @Override
+                public void onUploadComplete(boolean success, String serverResponse) {
+                    if (success) {
+                        Log.d(TAG, "--m-- Locations uploaded successfully: " + serverResponse);
                     } else {
-                        Log.e(TAG, "--m-- Upload failed. Server returned: " + responseCode);
-                        return "Upload failed. Server returned: " + responseCode;
+                        Log.e(TAG, "--m-- Failed to upload locations: " + serverResponse);
                     }
-
-                } catch (Exception e) {
-                    Log.e(TAG, "--m-- Upload failed: " + e.getMessage(), e);
-                    return "Upload failed: " + e.getMessage();
-                } finally {
-                    if (httpUrlConnection != null) {
-                        httpUrlConnection.disconnect();
-                    }
+                    file.delete(); // Clean up the temporary file
                 }
-            }
+            });
+        } else {
+            Log.e(TAG, "--m-- Failed to create temporary file for locations");
+        }
+    }
 
-            @Override
-            protected void onPostExecute(String result) {
-                Log.d(TAG, "--m-- Upload result: " + result);
-                Toast.makeText(context, result, Toast.LENGTH_LONG).show();
+    private static File createTemporaryFile(Context context, List<LocationData> locations, String fileName) {
+        try {
+            File file = File.createTempFile(fileName, ".csv", context.getCacheDir());
+            FileWriter writer = new FileWriter(file);
+            for (LocationData location : locations) {
+                writer.append(String.format(Locale.US, "%.8f,%.8f,%.2f,%d\n",
+                        location.getLatitude(),
+                        location.getLongitude(),
+                        location.getAltitude(),
+                        location.getTimestamp()));
             }
-        }.execute();
+            writer.close();
+            return file;
+        } catch (IOException e) {
+            Log.e(TAG, "--m-- Error creating temporary file: " + e.getMessage(), e);
+            return null;
+        }
     }
 
     public interface StravaUploadCallback {
@@ -599,7 +516,7 @@ public class Utility {
         return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes % 60, seconds % 60);
     }
 
-    public static void uploadFile(Context context, File file) {
+    public static void uploadFile(Context context, File file, UploadCallback callback) {
         new AsyncTask<Void, Void, String>() {
             @Override
             protected String doInBackground(Void... voids) {
@@ -673,7 +590,8 @@ public class Utility {
             @Override
             protected void onPostExecute(String result) {
                 Log.d(TAG, "--m-- Upload result: " + result);
-                Toast.makeText(context, result, Toast.LENGTH_LONG).show();
+                boolean success = result.startsWith("Upload successful");
+                callback.onUploadComplete(success, result);
             }
         }.execute();
     }
@@ -710,7 +628,7 @@ public class Utility {
         double metValue = 7.0;
         double timeHours = distanceKm / 10.0; // Assuming 10 km/h average speed
         double calories = metValue * weightKg * timeHours;
-        Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
+        //Log.d(TAG, "--m-- Calculated calories: " + calories + " for distance: " + distanceKm + "km and weight: " + weightKg + "kg");
         return String.format(Locale.getDefault(), "%.0f", calories);
     }
 
