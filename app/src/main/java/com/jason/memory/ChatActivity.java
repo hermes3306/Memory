@@ -185,6 +185,23 @@ public class ChatActivity extends AppCompatActivity {
             intent.setAction(Intent.ACTION_GET_CONTENT);
             startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST);
         });
+
+
+        ImageButton buttonToggleMore = findViewById(R.id.buttonToggleMore);
+        ImageButton buttonCollapse = findViewById(R.id.buttonCollapse);
+        LinearLayout layoutMoreOptions = findViewById(R.id.layoutMoreOptions);
+
+        buttonToggleMore.setOnClickListener(v -> {
+            layoutMoreOptions.setVisibility(View.VISIBLE);
+            buttonToggleMore.setVisibility(View.GONE);
+        });
+
+        buttonCollapse.setOnClickListener(v -> {
+            layoutMoreOptions.setVisibility(View.GONE);
+            buttonToggleMore.setVisibility(View.VISIBLE);
+        });
+
+
     }
 
     private void showChangeUserDialog() {
@@ -588,6 +605,8 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
                             .diskCacheStrategy(DiskCacheStrategy.ALL)
                             .fitCenter())
                     .into(holder.imageView);
+            // Add this click listener
+            holder.imageView.setOnClickListener(v -> openFullScreenImage(v.getContext(), message.getContent()));
         } else {
             holder.contentTextView.setVisibility(View.VISIBLE);
             holder.imageView.setVisibility(View.GONE);
@@ -603,9 +622,11 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
                             .error(R.drawable.default_profile_image)
                             .circleCrop())
                     .into(holder.profileImageView);
+            // Add this click listener for profile images
+            holder.profileImageView.setOnClickListener(v -> openFullScreenImage(v.getContext(), message.getSenderProfileImageUrl()));
+
         }
     }
-
 
     public void onBindViewHolder_orig(MessageViewHolder holder, int position) {
         Message message = messages.get(position);
