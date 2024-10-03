@@ -71,31 +71,54 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <EditText
-        android:id="@+id/memoryEditText"
-        android:layout_width="0dp"
+    <ScrollView
+        android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:hint="1. Memory를 게시합니다. 이는 여러분의 경험입니다.\n\n2. 사진이나 음성 메모를 추가하여 Memory를 더욱 돋보이게 만드세요.\n\n3. 여러개의 태그를 추가하면 Memory가 눈에 띄고 여러분에게 전해질 수 있습니다."
-        android:gravity="top"
-        android:padding="16dp"
-        android:background="@null"
-        android:textColor="#666666"
-        android:textSize="14sp"
         app:layout_constraintTop_toBottomOf="@id/titleEditText"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintBottom_toTopOf="@id/bottomBar">
 
-    <TextView
-        android:id="@+id/hashtagTextView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="#Memory"
-        android:textColor="#2196F3"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <EditText
+                android:id="@+id/memoryEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="1. Memory를 게시합니다. 이는 여러분의 경험입니다.\n\n2. 사진이나 음성 메모를 추가하여 Memory를 더욱 돋보이게 만드세요.\n\n3. 여러개의 태그를 추가하면 Memory가 눈에 띄고 여러분에게 전해질 수 있습니다."
+                android:gravity="top"
+                android:padding="16dp"
+                android:background="@null"
+                android:textColor="#666666"
+                android:textSize="14sp"
+                android:minHeight="200dp" />
+
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <LinearLayout
+                    android:id="@+id/imagePreviewContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="8dp" />
+
+            </HorizontalScrollView>
+
+            <TextView
+                android:id="@+id/hashtagTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="#Memory"
+                android:textColor="#2196F3"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp" />
+
+        </LinearLayout>
+
+    </ScrollView>
 
     <LinearLayout
         android:id="@+id/bottomBar"

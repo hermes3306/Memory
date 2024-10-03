@@ -1216,10 +1216,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp()); // This should be a long value
+        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
-
         values.put(COLUMN_MEMORY_USERID, memory.getUserId());
+
         values.put(COLUMN_MEMORY_PLACE, memory.getPlaceId());
         values.put(COLUMN_MEMORY_AUDIO, memory.getAudio());
         values.put(COLUMN_MEMORY_HASHTAG, memory.getHashtag());
@@ -1244,8 +1244,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put(COLUMN_MEMORY_TITLE, memory.getTitle());
-        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp()); // This should be a long value
+        values.put(COLUMN_MEMORY_DATE, memory.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memory.getMemoryText());
+        values.put(COLUMN_MEMORY_USERID, memory.getUserId());
 
         return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memory.getId())});
@@ -1261,11 +1262,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 MemoryItem memory = new MemoryItem(
                         cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
-                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_DATE)), // Change to getLong
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
                         cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
                 );
-                memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+                memory.setUserId(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_USERID)));
 
+                memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+                // In DatabaseHelper.java, modify the getAllMemories method:
+                memory.setWhoLikes(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_WHO_LIKES)));
                 // Retrieve comments
                 List<String> comments = new ArrayList<>();
                 for (String commentColumn : COLUMN_MEMORY_COMMENTS) {
@@ -1275,6 +1279,15 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     }
                 }
                 memory.setComments(comments);
+                List<String> pictures = new ArrayList<>();
+                for (String pictureColumn : COLUMN_MEMORY_PICTURES) {
+                    String pictureUrl = cursor.getString(cursor.getColumnIndex(pictureColumn));
+                    if (pictureUrl != null && !pictureUrl.isEmpty()) {
+                        pictures.add(pictureUrl);
+                    }
+                }
+                memory.setPictures(pictures);
+
 
                 memories.add(memory);
             } while (cursor.moveToNext());
@@ -1298,6 +1311,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     timestamp,
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
             );
+            memory.setUserId(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_USERID)));
+
             memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
 
             // Retrieve comments
@@ -1309,8 +1324,19 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 }
             }
             memory.setComments(comments);
+            List<String> pictures = new ArrayList<>();
+            for (String pictureColumn : COLUMN_MEMORY_PICTURES) {
+                String pictureUrl = cursor.getString(cursor.getColumnIndex(pictureColumn));
+                if (pictureUrl != null && !pictureUrl.isEmpty()) {
+                    pictures.add(pictureUrl);
+                }
+            }
+            memory.setPictures(pictures);
+
             cursor.close();
         }
+
+
         return memory;
     }
 
@@ -1350,6 +1376,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
         values.put(COLUMN_MEMORY_DATE, memoryItem.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        values.put(COLUMN_MEMORY_USERID, memoryItem.getUserId());
         return db.insert(TABLE_MEMORIES, null, values);
     }
 
@@ -1359,6 +1386,13 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_TITLE, memoryItem.getTitle());
         values.put(COLUMN_MEMORY_DATE, memoryItem.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
+        values.put(COLUMN_MEMORY_USERID, memoryItem.getUserId());
+        values.put(COLUMN_MEMORY_LIKES, memoryItem.getLikes());
+
+        for (int i = 0; i < COLUMN_MEMORY_COMMENTS.length && i < memoryItem.getComments().size(); i++) {
+            values.put(COLUMN_MEMORY_COMMENTS[i], memoryItem.getComments().get(i));
+        }
+
         return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memoryItem.getId())});
     }
@@ -1366,6 +1400,67 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public int deleteMemory(long id) {
         SQLiteDatabase db = this.getWritableDatabase();
         return db.delete(TABLE_MEMORIES, COLUMN_MEMORY_ID + " = ?", new String[]{String.valueOf(id)});
+    }
+
+    public void addImageToMemory(long memoryId, String imageUrl) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        // Find the first empty picture column
+        String[] columns = COLUMN_MEMORY_PICTURES;
+
+        Cursor cursor = db.query(TABLE_MEMORIES, columns, COLUMN_MEMORY_ID + "=?",
+                new String[]{String.valueOf(memoryId)}, null, null, null);
+
+        if (cursor.moveToFirst()) {
+            for (int i = 0; i < columns.length; i++) {
+                if (cursor.isNull(i)) {
+                    values.put(columns[i], imageUrl);
+                    db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + "=?", new String[]{String.valueOf(memoryId)});
+                    break;
+                }
+            }
+        }
+        cursor.close();
+    }
+
+    public boolean decrementLikeCount(long memoryId, String userId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + ", " + COLUMN_MEMORY_LIKES + " FROM " + TABLE_MEMORIES +
+                    " WHERE " + COLUMN_MEMORY_ID + " = ?";
+            Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
+
+            if (cursor.moveToFirst()) {
+                String whoLikes = cursor.getString(0);
+                int currentLikes = cursor.getInt(1);
+                if (whoLikes != null && whoLikes.contains(userId)) {
+                    String[] likers = whoLikes.split(",");
+                    StringBuilder newWhoLikes = new StringBuilder();
+                    for (String liker : likers) {
+                        if (!liker.equals(userId)) {
+                            if (newWhoLikes.length() > 0) newWhoLikes.append(",");
+                            newWhoLikes.append(liker);
+                        }
+                    }
+                    currentLikes--;
+
+                    ContentValues values = new ContentValues();
+                    values.put(COLUMN_MEMORY_WHO_LIKES, newWhoLikes.toString());
+                    values.put(COLUMN_MEMORY_LIKES, currentLikes);
+
+                    db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+                            new String[]{String.valueOf(memoryId)});
+                    db.setTransactionSuccessful();
+                    return true;
+                }
+            }
+            cursor.close();
+        } finally {
+            db.endTransaction();
+        }
+        return false;
     }
 
     public void beginTransaction() {
