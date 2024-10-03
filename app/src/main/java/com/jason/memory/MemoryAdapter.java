@@ -9,6 +9,8 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.ImageButton;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -30,6 +32,7 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         void onMemoryClick(long memoryId);
         void onMemoryLongClick(String content);
         void onLikeClick(long memoryId, String userId);
+        void onUnlikeClick(long memoryId, String userId);
         void onCommentSend(long memoryId, String comment);
         boolean hasUserLikedMemory(long memoryId, String userId);
         void onLikeCountClick(long memoryId);
@@ -64,11 +67,10 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         notifyDataSetChanged();
     }
 
-
-
     @Override
     public void onBindViewHolder(@NonNull MemoryViewHolder holder, int position) {
         MemoryItem item = memoryItems.get(position);
+
         holder.titleTextView.setText(item.getTitle());
         holder.dateTextView.setText(item.getFormattedDate());
         holder.memoryTextView.setText(item.getMemoryText());
@@ -84,9 +86,8 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
             holder.picturesRecyclerView.setVisibility(View.GONE);
         }
 
-
-
         String currentUserId = getCurrentUserId();
+        holder.usernameTextView.setText(item.getUserId()); // Display the correct user ID
         boolean isLiked = listener.hasUserLikedMemory(item.getId(), currentUserId);
 
         // Using Glide or your preferred image loading library
@@ -94,15 +95,32 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
                 .load(item.getUserProfilePictureUrl())
                 .placeholder(R.drawable.default_profile_image)
                 .into(holder.profileImageView);
-        updateLikeUI(holder, isLiked);
-
-        holder.likeIcon.setOnClickListener(v -> {
-            if (!isLiked) {
-                listener.onLikeClick(item.getId(), currentUserId);
-            }
-        });
+        updateLikeUI(holder, isLiked, item.getLikes());
 
         holder.likeCountTextView.setText(String.valueOf(item.getLikes()));
+
+        holder.likeIcon.setOnClickListener(v -> {
+            if (isLiked) {
+                // Unlike
+                listener.onUnlikeClick(item.getId(), currentUserId);
+                int newLikeCount = Math.max(0, item.getLikes() - 1);
+                item.setLikes(newLikeCount);
+                updateLikeUI(holder, false, newLikeCount);
+            } else {
+                // Like
+                listener.onLikeClick(item.getId(), currentUserId);
+                int newLikeCount = item.getLikes() + 1;
+                item.setLikes(newLikeCount);
+                updateLikeUI(holder, true, newLikeCount);
+            }
+            String postUserId = item.getUserId();
+            String whoLikes = item.getWhoLikes();
+            Toast.makeText(context,
+                    "Post User ID: " + postUserId +
+                            ",Who likes: " + whoLikes +
+                            ",Current user: " + currentUserId,
+                    Toast.LENGTH_LONG).show();
+        });
 
         // Set comment count and show comments
         List<String> comments = item.getComments();
@@ -118,17 +136,6 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         } else {
             holder.commentsRecyclerView.setVisibility(View.GONE);
         }
-
-        holder.likeIcon.setOnClickListener(v -> {
-            if (!isLiked) {
-                //String currentUserId = getCurrentUserId(); // Make sure this method exists and returns the current user's ID
-                listener.onLikeClick(item.getId(), currentUserId);
-                int newLikeCount = item.getLikes() + 1;
-                item.setLikes(newLikeCount);
-                holder.likeCountTextView.setText(String.valueOf(newLikeCount));
-                updateLikeUI(holder, true);
-            }
-        });
 
         // Handle comment click
         holder.commentIcon.setOnClickListener(v -> {
@@ -165,11 +172,13 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         });
     }
 
-    private void updateLikeUI(MemoryViewHolder holder, boolean isLiked) {
+    private void updateLikeUI(MemoryViewHolder holder, boolean isLiked, int likeCount) {
         int color = isLiked ? context.getResources().getColor(R.color.Red) : context.getResources().getColor(R.color.Gray);
         holder.likeIcon.setColorFilter(color);
         holder.likeCountTextView.setTextColor(color);
+        holder.likeCountTextView.setText(String.valueOf(likeCount));
     }
+
 
     private String getCurrentUserId() {
         // Implement this method to get the current user's ID
@@ -187,6 +196,8 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         TextView titleTextView;
         TextView dateTextView;
         TextView memoryTextView;
+        TextView usernameTextView;
+;
         ImageView likeIcon;
         TextView likeCountTextView;
         ImageView commentIcon;
@@ -200,6 +211,7 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
 
         MemoryViewHolder(View itemView) {
             super(itemView);
+            usernameTextView = itemView.findViewById(R.id.usernameTextView);
             titleTextView = itemView.findViewById(R.id.titleTextView);
             dateTextView = itemView.findViewById(R.id.dateTextView);
             memoryTextView = itemView.findViewById(R.id.memoryTextView);

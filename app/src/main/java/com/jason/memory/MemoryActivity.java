@@ -158,6 +158,16 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         return dbHelper.hasUserLikedMemory(memoryId, userId);
     }
 
+    @Override
+    public void onUnlikeClick(long memoryId, String userId) {
+        Log.d(TAG, "--m-- onUnlikeClick: Attempting to decrement like count for memory ID: " + memoryId + " by user: " + userId);
+        boolean likeRemoved = dbHelper.decrementLikeCount(memoryId, userId);
+        if (likeRemoved) {
+            MemoryItem updatedItem = dbHelper.getMemory(memoryId);
+            memoryAdapter.updateItem(memoryId, updatedItem);
+        }
+    }
+
 
     private void saveMemories() {
         Log.d(TAG, "--m-- saveMemories: Starting save process");

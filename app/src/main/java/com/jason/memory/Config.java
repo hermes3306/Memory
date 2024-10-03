@@ -1,13 +1,13 @@
 package com.jason.memory;
 
+import android.content.Context;
 import android.os.Environment;
 
 import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "V1.0";
-    private static String tmp_dir  = "temp";
+    private static String version = "V1.1";
 
     public static final String APPNAME = appname + version;
 
@@ -67,12 +67,9 @@ public class Config {
         return getDownloadDir();
     }
 
-    public static File getTmpDir() {
-        File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), APPNAME + '/' +tmp_dir);
-        if (!directory.exists()) {
-            directory.mkdirs();
-        }
-        return directory;
+    public static File getTmpDir(Context context) {
+        File tempDir = context.getCacheDir(); // Use the app's cache directory
+        return tempDir;
     }
 
 }

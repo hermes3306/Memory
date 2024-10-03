@@ -3,6 +3,7 @@ package com.jason.memory;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -30,6 +31,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import android.net.Uri;
 
 public class Utility {
     private static final String TAG = "Utility";
@@ -99,10 +101,13 @@ public class Utility {
                     MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
                     if (existingMemoryItem == null) {
                         long newId = dbHelper.addMemoryItem(memoryItem);
-                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId);
+                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId + ", User ID: " + memoryItem.getUserId());
                     } else {
-                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle());
+                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle() + ", User ID: " + memoryItem.getUserId());
                         existingMemoryItem.setTimestamp(memoryItem.getTimestamp());
+                        existingMemoryItem.setLikes(memoryItem.getLikes());
+                        existingMemoryItem.setComments(memoryItem.getComments());
+                        existingMemoryItem.setUserId(memoryItem.getUserId()); // Ensure user ID is updated
                         int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
                         Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
                     }
@@ -114,6 +119,7 @@ public class Utility {
         }
         Log.d(TAG, "--m-- Finished merging memory items from file: " + file.getName());
     }
+
 
     private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
         Log.d(TAG, "--m-- Starting to merge places from file: " + file.getName());
@@ -181,6 +187,98 @@ public class Utility {
             connection.disconnect();
         }
     }
+
+
+    public interface UploadImageCallback {
+        void onUploadComplete(String imageUrl);
+        void onUploadFailed(Exception e);
+    }
+
+    public static void uploadImage(Context context, String base64Image, long memoryId, UploadImageCallback callback) {
+        new AsyncTask<Void, Void, String>() {
+            @Override
+            protected String doInBackground(Void... voids) {
+                HttpURLConnection httpUrlConnection = null;
+                try {
+                    URL url = new URL(UPLOAD_URL);
+                    httpUrlConnection = (HttpURLConnection) url.openConnection();
+                    httpUrlConnection.setUseCaches(false);
+                    httpUrlConnection.setDoInput(true);
+                    httpUrlConnection.setDoOutput(true);
+                    httpUrlConnection.setConnectTimeout(15000);
+
+                    httpUrlConnection.setRequestMethod("POST");
+                    httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
+                    httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
+
+                    String boundary = "*****";
+                    String crlf = "\r\n";
+                    String twoHyphens = "--";
+
+                    httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
+
+                    DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+
+                    // Add memoryId to the request
+                    request.writeBytes(twoHyphens + boundary + crlf);
+                    request.writeBytes("Content-Disposition: form-data; name=\"memoryId\"" + crlf);
+                    request.writeBytes(crlf);
+                    request.writeBytes(String.valueOf(memoryId));
+                    request.writeBytes(crlf);
+
+                    // Add the image data
+                    request.writeBytes(twoHyphens + boundary + crlf);
+                    request.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"" + crlf);
+                    request.writeBytes("Content-Type: image/jpeg" + crlf);
+                    request.writeBytes("Content-Transfer-Encoding: binary" + crlf);
+                    request.writeBytes(crlf);
+
+                    byte[] imageBytes = Base64.decode(base64Image, Base64.DEFAULT);
+                    request.write(imageBytes);
+
+                    request.writeBytes(crlf);
+                    request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
+
+                    request.flush();
+                    request.close();
+
+                    int responseCode = httpUrlConnection.getResponseCode();
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        BufferedReader in = new BufferedReader(new InputStreamReader(httpUrlConnection.getInputStream()));
+                        String inputLine;
+                        StringBuilder response = new StringBuilder();
+                        while ((inputLine = in.readLine()) != null) {
+                            response.append(inputLine);
+                        }
+                        in.close();
+                        Log.d(TAG, "--m-- Image upload successful. Server response: " + response.toString());
+                        return response.toString();
+                    } else {
+                        Log.e(TAG, "--m-- Image upload failed. Server returned: " + responseCode);
+                        return null;
+                    }
+
+                } catch (Exception e) {
+                    Log.e(TAG, "--m-- Image upload failed: " + e.getMessage(), e);
+                    return null;
+                } finally {
+                    if (httpUrlConnection != null) {
+                        httpUrlConnection.disconnect();
+                    }
+                }
+            }
+
+            @Override
+            protected void onPostExecute(String result) {
+                if (result != null) {
+                    callback.onUploadComplete(result);
+                } else {
+                    callback.onUploadFailed(new Exception("Upload failed"));
+                }
+            }
+        }.execute();
+    }
+
 
 
     private static List<String> fetchFileList() throws IOException {
@@ -716,7 +814,7 @@ public class Utility {
     public static String getUserName(Context context) {
         SharedPreferences prefs = context.getSharedPreferences("ChatPrefs", Context.MODE_PRIVATE);
         String userName = prefs.getString("PREF_USERNAME", null);
-        if (userName == null) {
+        if (userName == null || userName.equals("-")) {
             userName = generateRandomName("Unknown");
             prefs.edit().putString("PREF_USERNAME", userName).apply();
         }
