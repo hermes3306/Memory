@@ -12,256 +12,328 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Settings"
-        android:textSize="24sp"
+        android:textSize="14sp"
         android:textStyle="bold"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="12dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/moreOptionsText"/>
+
+    <TextView
+        android:id="@+id/moreOptionsText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="..."
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:orientation="vertical"
-        android:padding="16dp"
         app:layout_constraintTop_toBottomOf="@id/settingsTitle"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/layoutBottomNavigation"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Keep Screen On switch -->
-        <Switch
-            android:id="@+id/switchKeepScreenOn"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Keep Screen On"
-            android:layout_marginTop="16dp"/>
-
-        <Switch
-            android:id="@+id/switchLocationValidation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Location Validation Check"
-            android:layout_marginTop="8dp"/>
-
-        <!-- Run Type Layout -->
         <LinearLayout
-            android:id="@+id/idnew_runTypeLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp">
+            android:orientation="vertical"
+            android:padding="12dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Keep Screen On switch -->
+            <Switch
+                android:id="@+id/switchKeepScreenOn"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Run:"
-                android:layout_gravity="center_vertical"
-                android:textSize="14sp"/>
+                android:text="Keep Screen On"
+                android:textSize="12sp"
+                android:layout_marginTop="12dp"/>
 
-            <RadioGroup
-                android:id="@+id/idnew_runTypeRadioGroup"
-                android:layout_width="wrap_content"
+            <Switch
+                android:id="@+id/switchLocationValidation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Location Validation Check"
+                android:textSize="12sp"
+                android:layout_marginTop="6dp"/>
+
+            <!-- Run Type Layout -->
+            <LinearLayout
+                android:id="@+id/idnew_runTypeLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginLeft="16dp">
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp">
 
-                <RadioButton
-                    android:id="@+id/idnew_memoryRadioButton"
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Memory"
-                    android:layout_marginRight="16dp"/>
+                    android:text="Run:"
+                    android:layout_gravity="center_vertical"
+                    android:textSize="12sp"/>
 
-                <RadioButton
-                    android:id="@+id/idnew_momentRadioButton"
+                <RadioGroup
+                    android:id="@+id/idnew_runTypeRadioGroup"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Moment"/>
-            </RadioGroup>
-        </LinearLayout>
+                    android:orientation="horizontal"
+                    android:layout_marginLeft="12dp">
 
-        <!-- Save Type Layout -->
-        <LinearLayout
-            android:id="@+id/idnew_saveTypeLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="8dp">
+                    <RadioButton
+                        android:id="@+id/idnew_memoryRadioButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Memory"
+                        android:textSize="12sp"
+                        android:layout_marginRight="12dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
+                    <RadioButton
+                        android:id="@+id/idnew_momentRadioButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Moment"
+                        android:textSize="12sp"/>
+                </RadioGroup>
+            </LinearLayout>
+
+            <!-- Save Type Layout -->
+            <LinearLayout
+                android:id="@+id/idnew_saveTypeLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Save:"
-                android:layout_gravity="center_vertical"
-                android:textSize="14sp"/>
+                android:orientation="horizontal"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Save:"
+                    android:layout_gravity="center_vertical"
+                    android:textSize="12sp"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginLeft="12dp">
+
+                    <CheckBox
+                        android:id="@+id/idnew_save_server"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Server"
+                        android:textSize="12sp"
+                        android:layout_marginRight="12dp"/>
+
+                    <CheckBox
+                        android:id="@+id/idnew_save_Strava"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Strava"
+                        android:textSize="12sp"/>
+                </LinearLayout>
+            </LinearLayout>
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginLeft="16dp">
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="6dp">
 
-                <CheckBox
-                    android:id="@+id/idnew_save_server"
-                    android:layout_width="wrap_content"
+                <EditText
+                    android:id="@+id/editTextDownloadDir"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Server"
-                    android:layout_marginRight="16dp"/>
+                    android:layout_weight="2"
+                    android:textSize="12sp"
+                    android:hint="Download Directory Name"/>
 
-                <CheckBox
-                    android:id="@+id/idnew_save_Strava"
-                    android:layout_width="wrap_content"
+                <Button
+                    android:id="@+id/buttonSaveDownloadDir"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="Strava"/>
+                    android:layout_weight="1"
+                    android:text="Save"
+                    android:textSize="12sp"/>
+
             </LinearLayout>
+
+            <!-- Download and Upload Files Layout -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/fileDownloadButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Dn"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="2dp"/>
+
+                <Button
+                    android:id="@+id/fileUploadButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Up"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"/>
+
+                <Button
+                    android:id="@+id/listServerFilesButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Serv"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"/>
+            </LinearLayout>
+
+            <!-- Initialize and Migrate Layout -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/initActivityButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Init"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="2dp"/>
+
+                <Button
+                    android:id="@+id/migrateButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Mig"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"/>
+
+                <Button
+                    android:id="@+id/listActivitiesButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Act"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"/>
+            </LinearLayout>
+
+            <!-- List, Delete, and File Layout -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/fileViewButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="View"
+                    android:textSize="12sp"
+                    android:layout_marginEnd="2dp"/>
+                <Button
+                    android:id="@+id/deleteFilesButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Del"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp"/>
+                <Button
+                    android:id="@+id/listFilesButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="File"
+                    android:textSize="12sp"
+                    android:layout_marginStart="2dp"/>
+
+            </LinearLayout>
+
+            <!-- Database Table Selection and View Layout -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp">
+
+                <Spinner
+                    android:id="@+id/tableSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"/>
+
+                <Button
+                    android:id="@+id/viewTableButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="See"
+                    android:textSize="12sp"/>
+
+                <Button
+                    android:id="@+id/deleteAllDataButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Del"
+                    android:textSize="12sp"/>
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/progressBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/statusTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text=""
+                android:maxLines="4"
+                android:ellipsize="end"
+                android:textSize="12sp"/>
+
         </LinearLayout>
 
-        <!-- Download and Upload Files Layout -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+    </ScrollView>
 
-            <Button
-                android:id="@+id/fileDownloadButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Dn"
-                android:layout_marginEnd="4dp"/>
-
-            <Button
-                android:id="@+id/fileUploadButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Up"
-                android:layout_marginStart="4dp"/>
-
-            <Button
-                android:id="@+id/listServerFilesButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Serv"
-                android:layout_marginEnd="4dp"/>
-        </LinearLayout>
-
-        <!-- Initialize and Migrate Layout -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <Button
-                android:id="@+id/initActivityButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Init"
-                android:layout_marginEnd="4dp"/>
-
-            <Button
-                android:id="@+id/migrateButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Mig"
-                android:layout_marginStart="4dp"/>
-
-            <Button
-                android:id="@+id/listActivitiesButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Act"
-                android:layout_marginStart="4dp"/>
-        </LinearLayout>
-
-        <!-- List, Delete, and File Layout -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
-
-            <Button
-                android:id="@+id/fileViewButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="View"
-                android:layout_marginStart="4dp"/>
-            <Button
-                android:id="@+id/deleteFilesButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Del"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"/>
-            <Button
-                android:id="@+id/listFilesButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="File"
-                android:layout_marginEnd="4dp"/>
-
-        </LinearLayout>
-
-        <!-- Database Table Selection and View Layout -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp">
-
-            <Spinner
-                android:id="@+id/tableSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"/>
-
-            <Button
-                android:id="@+id/viewTableButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="See"/>
-
-            <Button
-                android:id="@+id/deleteAllDataButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Del"/>
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/progressBar"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:visibility="gone"/>
-
-        <TextView
-            android:id="@+id/statusTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text=""
-            android:maxLines="4"
-            android:ellipsize="end"/>
-
-    </LinearLayout>
-
-
+    <include
+        android:id="@+id/layoutBottomNavigation"
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

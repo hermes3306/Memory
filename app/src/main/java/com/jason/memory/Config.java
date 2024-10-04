@@ -1,15 +1,19 @@
 package com.jason.memory;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Environment;
 
 import java.io.File;
 
 public class Config {
     private static String appname = "MEMORY";
-    private static String version = "V1.1";
+    private static String version = "V1.2";
 
     public static final String APPNAME = appname + version;
+
+    public static final String PREF_DOWNLOAD_DIR_NAME = "downloadDirName";
+    public static final String DEFAULT_DOWNLOAD_DIR_NAME = APPNAME;
 
     public static final String WEBSOCKET_URL ="ws://58.233.69.198:8765";
     public static final String BASE_URL = "http://58.233.69.198:8080/moment/";
@@ -54,20 +58,22 @@ public class Config {
 
     public static final boolean DEFAULT_LOCATION_VALIDATION = true;
 
-    public static File getDownloadDir() {
-        File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), APPNAME);
+    public static File getDownloadDir(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String dirName = prefs.getString(PREF_DOWNLOAD_DIR_NAME, DEFAULT_DOWNLOAD_DIR_NAME);
+        File directory = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), dirName);
         if (!directory.exists()) {
             directory.mkdirs();
         }
         return directory;
     }
 
-    public static File getDownloadDir4Places() {
-        return getDownloadDir();
+    public static File getDownloadDir4Places(Context context) {
+        return getDownloadDir(context);
     }
 
-    public static File getDownloadDir4Memories() {
-        return getDownloadDir();
+    public static File getDownloadDir4Memories(Context context) {
+        return getDownloadDir(context);
     }
 
     public static File getTmpDir(Context context) {

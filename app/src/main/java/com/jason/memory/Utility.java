@@ -93,6 +93,50 @@ public class Utility {
         }.execute();
     }
 
+    private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Log.d(TAG, "--m-- Starting to merge places from file: " + file.getName());
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(file)) {
+            Place[] places = gson.fromJson(reader, Place[].class);
+            Log.d(TAG, "--m-- Found " + places.length + " places in file");
+
+            for (Place place : places) {
+                if (place != null && place.getName() != null) {
+                    Place existingPlace = dbHelper.getPlaceByName(place.getName());
+                    if (existingPlace == null) {
+                        if (place.getUserId() == null || place.getUserId().isEmpty()) {
+                            place.setUserId(getCurrentUser(context));
+                        }
+                        long newId = dbHelper.addPlace(place);
+                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId + ", UserId: " + place.getUserId() + ", Memo: " + place.getMemo());
+                    } else {
+                        Log.d(TAG, "--m-- Updating existing place: " + place.getName());
+                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
+                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
+                        existingPlace.setMemo(place.getMemo() != null && !place.getMemo().isEmpty() ? place.getMemo() : existingPlace.getMemo());
+
+                        // Handle userId
+                        if (place.getUserId() != null && !place.getUserId().isEmpty()) {
+                            existingPlace.setUserId(place.getUserId());
+                        } else if (existingPlace.getUserId() == null || existingPlace.getUserId().isEmpty()) {
+                            existingPlace.setUserId(getCurrentUser(context));
+                        }
+
+                        int updatedRows = dbHelper.updatePlace(existingPlace);
+                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows + ", UserId: " + existingPlace.getUserId() + ", Memo: " + existingPlace.getMemo());
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error in mergePlacesFromFile: " + e.getMessage(), e);
+            throw e;
+        }
+        Log.d(TAG, "--m-- Finished merging places from file: " + file.getName());
+    }
+
+
+
     private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
         Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
         Gson gson = new Gson();
@@ -104,13 +148,19 @@ public class Utility {
                     MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
                     if (existingMemoryItem == null) {
                         long newId = dbHelper.addMemoryItem(memoryItem);
-                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId + ", User ID: " + memoryItem.getUserId());
+                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId +
+                                ", User ID: " + memoryItem.getUserId() +
+                                ", Who likes: " + memoryItem.getWhoLikes());
                     } else {
-                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle() + ", User ID: " + memoryItem.getUserId());
+                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle() +
+                                ", User ID: " + memoryItem.getUserId() +
+                                ", Who likes: " + memoryItem.getWhoLikes());
                         existingMemoryItem.setTimestamp(memoryItem.getTimestamp());
                         existingMemoryItem.setLikes(memoryItem.getLikes());
                         existingMemoryItem.setComments(memoryItem.getComments());
-                        existingMemoryItem.setUserId(memoryItem.getUserId()); // Ensure user ID is updated
+                        existingMemoryItem.setUserId(memoryItem.getUserId());
+                        existingMemoryItem.setPictures(memoryItem.getPictures());
+                        existingMemoryItem.setWhoLikes(memoryItem.getWhoLikes());
                         int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
                         Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
                     }
@@ -122,37 +172,6 @@ public class Utility {
         }
         Log.d(TAG, "--m-- Finished merging memory items from file: " + file.getName());
     }
-
-
-    private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
-        Log.d(TAG, "--m-- Starting to merge places from file: " + file.getName());
-        Gson gson = new Gson();
-        try (FileReader reader = new FileReader(file)) {
-            Place[] places = gson.fromJson(reader, Place[].class);
-            Log.d(TAG, "--m-- Found " + places.length + " places in file");
-            for (Place place : places) {
-                if (place != null && place.getName() != null) {
-                    Place existingPlace = dbHelper.getPlaceByName(place.getName());
-                    if (existingPlace == null) {
-                        long newId = dbHelper.addPlace(place);
-                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId);
-                    } else {
-                        Log.d(TAG, "--m-- Updating existing place: " + place.getName());
-                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
-                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
-                        int updatedRows = dbHelper.updatePlace(existingPlace);
-                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "--m-- Error in mergePlacesFromFile: " + e.getMessage(), e);
-            throw e;
-        }
-        Log.d(TAG, "--m-- Finished merging places from file: " + file.getName());
-    }
-
-
     private static List<String> fetchJSONFileList(String ext) throws IOException {
         if (ext.startsWith(".")) {
             ext = ext.substring(1);
@@ -657,7 +676,7 @@ public class Utility {
         String fileName = fileNameFormat.format(new Date(activity.getStartTimestamp())) + ".csv";
         Log.d(TAG, "--m-- Saving activity to file: " + fileName);
 
-        File directory = Config.getDownloadDir();
+        File directory = Config.getDownloadDir(context);
 
         if (!directory.exists()) {
             boolean dirCreated = directory.mkdirs();

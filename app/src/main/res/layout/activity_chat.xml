@@ -3,105 +3,190 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Top layer -->
+    <LinearLayout
+        android:id="@+id/topLayer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#FFFFFF">
+
+        <ImageButton
+            android:id="@+id/alarmButton"
+            android:layout_width="30dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_alarm_ht"
+            android:background="@android:color/transparent"
+            android:contentDescription="Alarm"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="8dp" />
+
+        <EditText
+            android:id="@+id/searchEditText"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:hint="Search"
+            android:background="@drawable/rounded_edittext_background"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="8dp"
+            android:inputType="text"
+            android:imeOptions="actionSearch" />
+
+        <ImageButton
+            android:id="@+id/syncButton"
+            android:layout_width="30dp"
+            android:layout_height="40dp"
+            android:src="@drawable/update"
+            android:background="@android:color/transparent"
+            android:contentDescription="update"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="8dp" />
+
+        <ImageButton
+            android:id="@+id/addButton"
+            android:layout_width="20dp"
+            android:layout_height="30dp"
+            android:src="@drawable/ic_edit_black"
+            android:background="@android:color/transparent"
+            android:contentDescription="Edit"
+            android:scaleType="fitCenter" />
+
+    </LinearLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewMessages"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/bottomLayout" />
+        android:layout_below="@id/topLayer"
+        android:layout_above="@+id/bottomContainer" />
 
     <LinearLayout
-        android:id="@+id/bottomLayout"
+        android:id="@+id/bottomContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:orientation="vertical"
-        android:padding="8dp">
+        android:orientation="vertical">
 
         <LinearLayout
+            android:id="@+id/bottomLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:padding="8dp">
 
-            <EditText
-                android:id="@+id/editTextMessage"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Type a message" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <ImageButton
-                android:id="@+id/buttonSendImage"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_image"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
+                <EditText
+                    android:id="@+id/editTextMessage"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:hint="Type a message"
+                    android:textColor="#808080"
+                    android:textSize="14sp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:layout_marginEnd="8dp" />
 
-            <ImageButton
-                android:id="@+id/buttonToggleMore"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_plus"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
+                <ImageButton
+                    android:id="@+id/buttonSendImage"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_image"
+                    android:scaleType="fitCenter"
+                    android:padding="4dp" />
 
-            <ImageButton
-                android:id="@+id/buttonSend"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_send"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
+                <ImageButton
+                    android:id="@+id/buttonToggleMore"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_plus"
+                    android:scaleType="fitCenter"
+                    android:padding="4dp" />
+
+                <ImageButton
+                    android:id="@+id/buttonSend"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_send"
+                    android:scaleType="fitCenter"
+                    android:padding="4dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1" />
+
+                <LinearLayout
+                    android:id="@+id/layoutMoreOptions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <ImageButton
+                        android:id="@+id/buttonSendAudio"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_audio"
+                        android:scaleType="fitCenter"
+                        android:padding="4dp" />
+
+                    <ImageButton
+                        android:id="@+id/buttonSendVideo"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_video"
+                        android:scaleType="fitCenter"
+                        android:padding="4dp" />
+
+                    <ImageButton
+                        android:id="@+id/buttonSendFile"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_file"
+                        android:scaleType="fitCenter"
+                        android:padding="4dp" />
+
+                    <ImageButton
+                        android:id="@+id/buttonCollapse"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@android:color/transparent"
+                        android:src="@drawable/ic_minus"
+                        android:scaleType="fitCenter"
+                        android:padding="4dp" />
+
+                </LinearLayout>
+            </LinearLayout>
+
 
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/layoutMoreOptions"
+        <include
+            android:id="@+id/layoutBottomNavigation"
+            layout="@layout/layout_bottom_navigation"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone">
-
-            <ImageButton
-                android:id="@+id/buttonCollapse"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_minus"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
-
-            <ImageButton
-                android:id="@+id/buttonSendAudio"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_audio"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
-
-            <ImageButton
-                android:id="@+id/buttonSendVideo"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_video"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
-
-            <ImageButton
-                android:id="@+id/buttonSendFile"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@android:color/transparent"
-                android:src="@drawable/ic_file"
-                android:scaleType="fitCenter"
-                android:padding="4dp" />
-
-        </LinearLayout>
+            android:layout_height="wrap_content" />
 
     </LinearLayout>
 

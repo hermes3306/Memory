@@ -12,6 +12,8 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.TextPaint;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -21,18 +23,26 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-public class MainActivity extends AppCompatActivity {
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+
+import com.jason.memory.lab.LabRunActivity;
+
+public class LabActivity extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_LOCATION = 100;
     private Button startServiceButton;
     private Button stopServiceButton;
-    private Button chatButton;
     private TextView statusTextView;
     private BroadcastReceiver serviceStatusReceiver;
+    private Spinner labSpinner;
+    private Context context;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_lab);
+        context = this;
 
         if (getIntent().getBooleanExtra("START_FROM_BOOT", false)) {
             // The app was started from boot, you might want to start your service here
@@ -43,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
         startServiceButton = findViewById(R.id.startServiceButton);
         stopServiceButton = findViewById(R.id.stopServiceButton);
         statusTextView = findViewById(R.id.statusTextView);
-        chatButton = findViewById(R.id.btnChat);
 
         Button monitorButton = findViewById(R.id.monitorButton);
 
@@ -64,14 +73,7 @@ public class MainActivity extends AppCompatActivity {
         monitorButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, MonitorActivity.class));
-            }
-        });
-
-        chatButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(MainActivity.this, ChatActivity.class));
+                startActivity(new Intent(LabActivity.this, MonitorActivity.class));
             }
         });
 
@@ -79,22 +81,7 @@ public class MainActivity extends AppCompatActivity {
         btnShowMap.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, MapActivity.class);
-                startActivity(intent);
-            }
-        });
-
-        Button btnMemoryActivity = findViewById(R.id.memoryButton);
-        btnMemoryActivity.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, MemoryActivity.class);
-            startActivity(intent);
-        });
-
-        Button btnMyPlaces = findViewById(R.id.btnMyPlaces);
-        btnMyPlaces.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, PlacesActivity.class);
+                Intent intent = new Intent(LabActivity.this, MapActivity.class);
                 startActivity(intent);
             }
         });
@@ -104,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
         btnBehaviorAnalysis.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, BehaviorAnalysisActivity.class);
+                Intent intent = new Intent(LabActivity.this, BehaviorAnalysisActivity.class);
                 startActivity(intent);
             }
         });
@@ -115,41 +102,24 @@ public class MainActivity extends AppCompatActivity {
         settingsIcon.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, SettingActivity.class);
+                Intent intent = new Intent(LabActivity.this, SettingActivity.class);
                 // SettingActivity 시작
                 startActivity(intent);
             }
         });
 
-
-        // Start MyActivity 버튼에 대한 리스너 추가
-        Button btnStartMyActivity = findViewById(R.id.btnStartMyActivity);
-        btnStartMyActivity.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivityWithTracking(MyActivity.class);
-            }
-        });
-
-        Button btnListActivity = findViewById(R.id.btnListActivity);
-        btnListActivity.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ListActivityActivity.class);
-            startActivity(intent);
-        });
-
-
         Button btnListCloud = findViewById(R.id.btnListCloud);
         btnListCloud.setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, ListCloudActivity.class);
+            Intent intent = new Intent(LabActivity.this, ListCloudActivity.class);
             startActivity(intent);
         });
 
-        // In MainActivity.java, add this inside onCreate() method
+        // In LabActivity.java, add this inside onCreate() method
         Button btnFileList = findViewById(R.id.btnFileList);
         btnFileList.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, FileActivity.class);
+                Intent intent = new Intent(LabActivity.this, FileActivity.class);
                 startActivity(intent);
             }
         });
@@ -177,6 +147,50 @@ public class MainActivity extends AppCompatActivity {
 
         // Add this line to check for unfinished activities when the app starts
         checkForUnfinishedActivity();
+
+        setupLabSpinner();
+    }
+
+    private void setupLabSpinner() {
+        labSpinner = findViewById(R.id.labSpinner);
+
+        // Create an ArrayAdapter using a simple spinner layout and lab options
+        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
+                R.array.lab_options, android.R.layout.simple_spinner_item);
+
+        // Specify the layout to use when the list of choices appears
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+
+        // Apply the adapter to the spinner
+        labSpinner.setAdapter(adapter);
+
+        // Set the item selected listener
+        labSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String selectedOption = parent.getItemAtPosition(position).toString();
+                if (selectedOption.equals("포스트")) {
+                    startActivity(new Intent(LabActivity.this, PostActivity.class));
+                } else
+                if (selectedOption.equals("LabRun")) {
+                    startActivity(new Intent(LabActivity.this, LabRunActivity.class));
+                } else
+                if (selectedOption.equals("PlaceUserJason")) {
+                    try {
+                        DatabaseHelper databasehelper = new DatabaseHelper(context);
+                        databasehelper.updateAllPlacesUserId("Jason");
+                    }catch(Exception exception){
+                        Log.e("LabActivity", " --m-- " + exception.getMessage());
+                    }
+                }
+
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                // Do nothing
+            }
+        });
     }
 
     private void startServiceIfPermissionsGranted() {
@@ -207,7 +221,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchActivity(Class<?> activityClass) {
-        Intent intent = new Intent(MainActivity.this, activityClass);
+        Intent intent = new Intent(LabActivity.this, activityClass);
         startActivity(intent);
     }
 
@@ -234,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
         builder.setPositiveButton("Yes", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                Intent intent = new Intent(MainActivity.this, MyActivity.class);
+                Intent intent = new Intent(LabActivity.this, MyActivity.class);
                 intent.putExtra("ACTIVITY_ID", activity.getId());
                 startActivity(intent);
             }
