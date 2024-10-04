@@ -61,16 +61,32 @@
                 android:layout_gravity="top" />
         </LinearLayout>
 
-
-        <TextView
-            android:id="@+id/memoryTextView"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:maxLines="10"
-            android:textSize="14sp"
-            android:textColor="#808080"
-            android:ellipsize="end" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/memoryTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:maxLines="15"
+                android:textSize="14sp"
+                android:textColor="#808080"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/continueTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="(continue)"
+                android:textColor="#808080"
+                android:textStyle="bold"
+                android:visibility="gone"
+                android:layout_marginTop="4dp"/>
+
+        </LinearLayout>
 
         <!-- Add this RecyclerView for pictures -->
         <androidx.recyclerview.widget.RecyclerView
