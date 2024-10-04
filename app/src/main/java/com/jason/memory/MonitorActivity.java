@@ -9,6 +9,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.animation.AnimationUtils;
 import android.widget.Button;
 import android.widget.TextView;
@@ -42,6 +43,10 @@ public class MonitorActivity extends AppCompatActivity {
     private static final SimpleDateFormat FILE_DATE_FORMAT = new SimpleDateFormat("yyMMdd", Locale.getDefault());
     private static final SimpleDateFormat CSV_DATE_FORMAT = new SimpleDateFormat("yyyy/MM/dd,HH:mm:ss", Locale.getDefault());
 
+    private static final int PAGE_SIZE = 100;
+    private int currentPage = 0;
+    private boolean isLoading = false;
+    private boolean hasMoreData = true;
 
     private Button btnBackup, btnRestore, btnInitialize;
 
@@ -89,6 +94,75 @@ public class MonitorActivity extends AppCompatActivity {
             registerReceiver(locationUpdateReceiver,
                     new IntentFilter(LocationService.ACTION_LOCATION_UPDATED));
         }
+
+        setupRecyclerView();
+        loadMoreLocations();
+    }
+
+    private void setupRecyclerView() {
+        locationAdapter = new LocationAdapter(locationList);
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setReverseLayout(true);
+        layoutManager.setStackFromEnd(true);
+        locationRecyclerView.setLayoutManager(layoutManager);
+        locationRecyclerView.setAdapter(locationAdapter);
+
+        locationRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                if (!isLoading && hasMoreData) {
+                    int visibleItemCount = layoutManager.getChildCount();
+                    int totalItemCount = layoutManager.getItemCount();
+                    int firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition();
+
+                    if ((visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                            && firstVisibleItemPosition >= 0) {
+                        loadMoreLocations();
+                    }
+                }
+            }
+        });
+    }
+
+    private void loadMoreLocations() {
+        if (isLoading) return;
+        isLoading = true;
+
+        new Thread(() -> {
+            List<LocationData> newLocations = dbHelper.getLocationsPage(currentPage, PAGE_SIZE);
+            runOnUiThread(() -> {
+                if (newLocations.size() > 0) {
+                    int startPosition = locationList.size();
+                    locationList.addAll(newLocations);
+                    locationAdapter.notifyItemRangeInserted(startPosition, newLocations.size());
+                    currentPage++;
+                } else {
+                    hasMoreData = false;
+                }
+                isLoading = false;
+                updateLocationCount();
+            });
+        }).start();
+    }
+
+    private void loadLatestLocation() {
+        new Thread(() -> {
+            LocationData latestLocation = dbHelper.getLatestLocation();
+            if (latestLocation != null) {
+                runOnUiThread(() -> {
+                    locationList.add(0, latestLocation);
+                    locationAdapter.notifyItemInserted(0);
+                    locationRecyclerView.smoothScrollToPosition(0);
+                    updateLocationCount();
+
+                    View firstItem = locationRecyclerView.getLayoutManager().findViewByPosition(0);
+                    if (firstItem != null) {
+                        firstItem.startAnimation(AnimationUtils.loadAnimation(this, R.anim.item_animation_fall_down));
+                    }
+                });
+            }
+        }).start();
     }
 
     private void showBackupDialog() {
@@ -288,22 +362,6 @@ public class MonitorActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
-    }
-
-
-
-    private void loadLatestLocation() {
-        LocationData latestLocation = dbHelper.getLatestLocation();
-        if (latestLocation != null) {
-            locationList.add(0, latestLocation);
-            locationAdapter.notifyItemInserted(0);
-            locationRecyclerView.smoothScrollToPosition(0);
-            updateLocationCount();
-
-            // Apply animation to the new item
-            locationRecyclerView.getLayoutManager().findViewByPosition(0)
-                    .startAnimation(AnimationUtils.loadAnimation(this, R.anim.item_animation_fall_down));
-        }
     }
 
 

@@ -1,5 +1,6 @@
 package com.jason.memory;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -35,11 +36,19 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
     private static final String TAG = "FileAdapter";
     private List<ActivityData> activities;
     private ListActivityActivity.OnItemClickListener listener;
+    private Context context;
 
     public FileAdapter(List<ActivityData> activities, ListActivityActivity.OnItemClickListener listener) {
         this.activities = activities;
         this.listener = listener;
     }
+
+    public FileAdapter(Context context, List<ActivityData> activities, ListActivityActivity.OnItemClickListener listener) {
+        this.context = context;
+        this.activities = activities;
+        this.listener = listener;
+    }
+
 
     @NonNull
     @Override
@@ -185,7 +194,7 @@ public class FileAdapter extends RecyclerView.Adapter<FileAdapter.ViewHolder> {
 
     private List<LocationData> getLocationDataFromFile(String fileName) {
         List<LocationData> locations = new ArrayList<>();
-        File file = new File(Config.getDownloadDir(), fileName);
+        File file = new File(Config.getDownloadDir(context), fileName);
 
         if (!file.exists()) {
             Log.e(TAG, "File does not exist: " + file.getAbsolutePath());

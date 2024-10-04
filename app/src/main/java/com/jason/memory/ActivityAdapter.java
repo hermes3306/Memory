@@ -35,6 +35,12 @@ public class ActivityAdapter extends RecyclerView.Adapter<ActivityAdapter.ViewHo
         this.dbHelper = dbHelper;
     }
 
+    public void updateActivities(List<ActivityData> newActivities) {
+        activities.clear();
+        activities.addAll(newActivities);
+        notifyDataSetChanged();
+    }
+
     public ActivityAdapter(List<ActivityData> activities, ListActivityActivity.OnItemClickListener listener) {
         this.activities = activities;
         this.listener = listener;

@@ -1,18 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerView"
+    <!-- Top layer -->
+    <LinearLayout
+        android:id="@+id/topLayer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone" />
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="#FFFFFF">
 
-</FrameLayout>
+        <ImageButton
+            android:id="@+id/alarmButton"
+            android:layout_width="30dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_alarm_ht"
+            android:background="@android:color/transparent"
+            android:contentDescription="Alarm"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="8dp" />
+
+        <EditText
+            android:id="@+id/searchEditText"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:hint="Search"
+            android:background="@drawable/rounded_edittext_background"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:layout_marginEnd="8dp"
+            android:inputType="text"
+            android:imeOptions="actionSearch" />
+
+        <ImageButton
+            android:id="@+id/syncButton"
+            android:layout_width="30dp"
+            android:layout_height="40dp"
+            android:src="@drawable/update"
+            android:background="@android:color/transparent"
+            android:contentDescription="update"
+            android:scaleType="fitCenter"
+            android:layout_marginEnd="8dp" />
+
+        <ImageButton
+            android:id="@+id/addButton"
+            android:layout_width="20dp"
+            android:layout_height="30dp"
+            android:src="@drawable/ic_edit_black"
+            android:background="@android:color/transparent"
+            android:contentDescription="Edit"
+            android:scaleType="fitCenter" />
+
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/topLayer"
+        android:layout_above="@id/bottomNavigation">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/noActivitiesMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No activities found. Add some activities to get started!"
+        android:visibility="gone"
+        android:gravity="center"
+        android:padding="16dp"/>
+
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/layout_bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true" />
+
+</RelativeLayout>

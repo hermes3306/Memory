@@ -41,7 +41,7 @@ public class FileActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         activityList = new ArrayList<>();
-        adapter = new FileAdapter(activityList, activity -> {
+        adapter = new FileAdapter(this, activityList, activity -> {
             Log.d(TAG, "--m-- onItemClick: Starting ActivityDetailActivity for " + activity.getName());
             Intent intent = new Intent(FileActivity.this, ActivityDetailActivity.class);
             intent.putExtra("ACTIVITY_FILENAME", activity.getName() + ".csv");
@@ -70,7 +70,7 @@ public class FileActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- loadFileList: Starting to load file list");
         showProgressBar(true);
         new Thread(() -> {
-            File directory = Config.getDownloadDir();
+            File directory = Config.getDownloadDir(this);
             File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
             if (files == null || files.length == 0) {

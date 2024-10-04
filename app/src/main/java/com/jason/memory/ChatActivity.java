@@ -7,11 +7,8 @@ import android.app.ProgressDialog;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import de.hdodenhof.circleimageview.CircleImageView;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
@@ -19,11 +16,9 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -43,7 +38,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import okhttp3.*;
 
 import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.load.resource.bitmap.Rotate;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.request.target.Target;
@@ -52,33 +46,19 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.bumptech.glide.Glide;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.UUID;
-import android.os.Handler;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.TextView;
-import androidx.recyclerview.widget.RecyclerView;
-import com.bumptech.glide.Glide;
-import java.util.List;
-import com.jason.memory.FullScreenImageActivity;
+
 import android.graphics.Matrix;
 import androidx.exifinterface.media.ExifInterface;
-import com.bumptech.glide.request.target.Target;
+
 import com.bumptech.glide.load.DataSource;
-import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.request.RequestListener;
-import com.bumptech.glide.request.target.Target;
+
 import android.Manifest;
 
 public class ChatActivity extends AppCompatActivity {
@@ -195,8 +175,61 @@ public class ChatActivity extends AppCompatActivity {
             buttonToggleMore.setVisibility(View.VISIBLE);
         });
 
-
+        setupBottomNavigation();
     }
+
+
+    private void setupBottomNavigation() {
+        // Find layout views
+        View chatLayout = findViewById(R.id.chatLayout);
+        View runLayout = findViewById(R.id.runLayout);
+        View memoryLayout = findViewById(R.id.memoryLayout);
+        View placeLayout = findViewById(R.id.placeLayout);
+        View meLayout = findViewById(R.id.meLayout);
+
+        // Find icon views
+        ImageView chatIcon = findViewById(R.id.iconChat);
+        ImageView runIcon = findViewById(R.id.iconRun);
+        ImageView memoryIcon = findViewById(R.id.iconMemory);
+        ImageView placeIcon = findViewById(R.id.iconPlace);
+        ImageView meIcon = findViewById(R.id.iconMe);
+
+        // Set default icon colors
+        chatIcon.setImageResource(R.drawable.ht_chat_blue);
+        runIcon.setImageResource(R.drawable.ht_run);
+        memoryIcon.setImageResource(R.drawable.ht_memory);
+        placeIcon.setImageResource(R.drawable.ht_place);
+        meIcon.setImageResource(R.drawable.ht_my);
+
+        // Add click listeners for bottom navigation layouts
+        //chatLayout.setOnClickListener(v -> openChatActivity());
+        runLayout.setOnClickListener(v -> openListActivityActivity());
+        memoryLayout.setOnClickListener(v -> openMemoryActivity());
+        placeLayout.setOnClickListener(v -> openPlacesActivity());
+        meLayout.setOnClickListener(v -> openSettingActivity());
+    }
+
+
+    private void openMemoryActivity() {
+        Intent intent = new Intent(this, MemoryActivity.class);
+        startActivity(intent);
+    }
+
+    private void openPlacesActivity() {
+        Intent intent = new Intent(this, PlacesActivity.class);
+        startActivity(intent);
+    }
+
+    private void openListActivityActivity() {
+        Intent intent = new Intent(this, ListActivityActivity.class);
+        startActivity(intent);
+    }
+
+    private void openSettingActivity() {
+        Intent intent = new Intent(this, SettingActivity.class);
+        startActivity(intent);
+    }
+
 
     private void showChangeUserDialog() {
         boolean dialogshow = false;
@@ -603,13 +636,11 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
             Glide.with(holder.itemView.getContext())
                     .load(message.getSenderProfileImageUrl())
                     .apply(new RequestOptions()
-                            .placeholder(R.drawable.default_profile_image)
-                            .error(R.drawable.default_profile_image)
+                            .placeholder(R.drawable.default_profile)
+                            .error(R.drawable.default_profile)
                             .circleCrop())
                     .into(holder.profileImageView);
-            // Add this click listener for profile images
             holder.profileImageView.setOnClickListener(v -> openFullScreenImage(v.getContext(), message.getSenderProfileImageUrl()));
-
         }
     }
 
@@ -718,8 +749,8 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
             Glide.with(holder.itemView.getContext())
                     .load(profileImageUrl)
                     .apply(new RequestOptions()
-                            .placeholder(R.drawable.default_profile_image)
-                            .error(R.drawable.default_profile_image)
+                            .placeholder(R.drawable.default_profile)
+                            .error(R.drawable.default_profile)
                             .circleCrop())
                     .listener(new RequestListener<Drawable>() {
                         @Override
@@ -736,7 +767,7 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
                     })
                     .into(holder.profileImageView);
         } else {
-            holder.profileImageView.setImageResource(R.drawable.default_profile_image);
+            holder.profileImageView.setImageResource(R.drawable.default_profile);
         }
 
         Log.d("MessageAdapter", "--m-- Bound message: sender=" + message.getSender() +
@@ -755,6 +786,7 @@ class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHold
     private void openFullScreenImage(Context context, String imageUrl) {
         Intent intent = new Intent(context, FullScreenImageActivity.class);
         intent.putExtra("IMAGE_URL", imageUrl);
+        intent.putExtra("IS_PROFILE_IMAGE", imageUrl.contains(Config.PROFILE_BASE_URL));
         context.startActivity(intent);
     }
 

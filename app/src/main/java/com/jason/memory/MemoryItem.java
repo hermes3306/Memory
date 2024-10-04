@@ -37,6 +37,14 @@ public class MemoryItem {
         this(-1, title, timestamp, memoryText);
     }
 
+    public String getWhoLikes() {
+        return whoLikes;
+    }
+
+    public void setWhoLikes(String whoLikes) {
+        this.whoLikes = whoLikes;
+    }
+
     public boolean isLikedBy(String userId) {
         return whoLikes != null && Arrays.asList(whoLikes.split(",")).contains(userId);
     }
@@ -105,8 +113,7 @@ public class MemoryItem {
     public void setPictures(List<String> pictures) { this.pictures = pictures; }
     public List<String> getComments() { return comments; }
     public void setComments(List<String> comments) { this.comments = comments; }
-    public String getWhoLikes() { return whoLikes; }
-    public void setWhoLikes(String whoLikes) { this.whoLikes = whoLikes; }
+
 
     public void addPicture(String pictureUrl) {
         if (this.pictures == null) {

@@ -12,6 +12,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.location.Location;
 
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -30,6 +31,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.location.Address;
 import android.location.Geocoder;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -119,6 +121,87 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void clearAllData() {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_LOCATIONS, null, null);
+    }
+
+
+    public List<Place> searchPlacesByText(String searchText) {
+        Log.d("DatabaseHelper", "--m-- Searching for text: " + searchText);
+        return searchPlaces(searchText, searchText, "", searchText);
+    }
+
+    public List<LocationData> getLocationsPage(int page, int pageSize) {
+        List<LocationData> locationList = new ArrayList<>();
+        String selectQuery = "SELECT * FROM " + TABLE_LOCATIONS +
+                " ORDER BY " + COLUMN_TIMESTAMP + " DESC" +
+                " LIMIT " + pageSize + " OFFSET " + (page * pageSize);
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                LocationData location = new LocationData(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_ID)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE)),
+                        cursor.getDouble(cursor.getColumnIndex(COLUMN_ALTITUDE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_TIMESTAMP))
+                );
+                locationList.add(location);
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return locationList;
+    }
+
+    public List<LatLng> getPositionsPage(int page, int pageSize) {
+        List<LatLng> positions = new ArrayList<>();
+        String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE +
+                " FROM " + TABLE_LOCATIONS +
+                " ORDER BY " + COLUMN_TIMESTAMP + " DESC" +
+                " LIMIT " + pageSize + " OFFSET " + (page * pageSize);
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.rawQuery(selectQuery, null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                double latitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE));
+                double longitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE));
+                positions.add(new LatLng(latitude, longitude));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return positions;
+    }
+
+    public List<LatLng> getPositionsInBounds(LatLngBounds bounds, int limit) {
+        List<LatLng> positions = new ArrayList<>();
+        String selectQuery = "SELECT " + COLUMN_LATITUDE + ", " + COLUMN_LONGITUDE +
+                " FROM " + TABLE_LOCATIONS +
+                " WHERE " + COLUMN_LATITUDE + " BETWEEN ? AND ?" +
+                " AND " + COLUMN_LONGITUDE + " BETWEEN ? AND ?" +
+                " LIMIT " + limit;
+
+        SQLiteDatabase db = this.getReadableDatabase();
+        String[] selectionArgs = {
+                String.valueOf(bounds.southwest.latitude),
+                String.valueOf(bounds.northeast.latitude),
+                String.valueOf(bounds.southwest.longitude),
+                String.valueOf(bounds.northeast.longitude)
+        };
+        Cursor cursor = db.rawQuery(selectQuery, selectionArgs);
+
+        if (cursor.moveToFirst()) {
+            do {
+                double latitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LATITUDE));
+                double longitude = cursor.getDouble(cursor.getColumnIndex(COLUMN_LONGITUDE));
+                positions.add(new LatLng(latitude, longitude));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return positions;
     }
 
     public List<Place> searchPlacesByDistance(LatLng currentLocation, int distanceKm) {
@@ -550,7 +633,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
     public boolean isActivityExist(String activityName) {
         SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT * FROM " + TABLE_ACTIVITIES + " WHERE " + COLUMN_NAME + " = ?";
+        String query = "SELECT * FROM " + TABLE_ACTIVITIES + " WHERE " + COLUMN_ACTIVITY_NAME + " = ?";
         Cursor cursor = db.rawQuery(query, new String[]{activityName});
         boolean exists = cursor.getCount() > 0;
         cursor.close();
@@ -1036,16 +1119,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public List<Place> searchPlaces(String name, String address, String type, String memo) {
         List<Place> searchResults = new ArrayList<>();
         String query = "SELECT * FROM places WHERE " +
-                "name LIKE ? AND " +
-                "address LIKE ? AND " +
-                "type LIKE ? AND " +
-                "memo LIKE ?";
+                "(name LIKE ? OR " +
+                "address LIKE ? OR " +
+                "memo LIKE ? ) AND " +
+                "type LIKE ?";
 
         String[] selectionArgs = new String[]{
                 "%" + name + "%",
                 "%" + address + "%",
-                "%" + type + "%",
-                "%" + memo + "%"
+                "%" + memo + "%",
+                "%" + type + "%"
         };
 
         SQLiteDatabase db = this.getReadableDatabase();
@@ -1053,8 +1136,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         try {
             cursor = db.rawQuery(query, selectionArgs);
-            Log.d("DatabaseHelper", "Search query: " + query);
-            Log.d("DatabaseHelper", "Search parameters: name=" + name + ", address=" + address + ", type=" + type + ", memo=" + memo);
+            Log.d("DatabaseHelper", "--m-- Search query: " + query);
+            Log.d("DatabaseHelper", "--m-- Search parameters: name=" + name + ", address=" + address + ", type=" + type + ", memo=" + memo);
 
             if (cursor.moveToFirst()) {
                 do {
@@ -1076,14 +1159,14 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 } while (cursor.moveToNext());
             }
         } catch (Exception e) {
-            Log.e("DatabaseHelper", "Error in searchPlaces: " + e.getMessage());
+            Log.e("DatabaseHelper", "--m-- Error in searchPlaces: " + e.getMessage());
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
         }
 
-        Log.d("DatabaseHelper", "Search results count: " + searchResults.size());
+        Log.d("DatabaseHelper", "--m-- Search results count: " + searchResults.size());
         return searchResults;
     }
 
@@ -1143,54 +1226,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return (columnIndex != -1) ? cursor.getString(columnIndex) : "";
     }
 
-    public boolean incrementLikeCount(long memoryId, String userId) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        db.beginTransaction();
-        try {
-            String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + ", " + COLUMN_MEMORY_LIKES + " FROM " + TABLE_MEMORIES +
-                    " WHERE " + COLUMN_MEMORY_ID + " = ?";
-            Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
-
-            if (cursor.moveToFirst()) {
-                String whoLikes = cursor.getString(0);
-                int currentLikes = cursor.getInt(1);
-                if (whoLikes == null) whoLikes = "";
-
-                if (!whoLikes.contains(userId)) {
-                    whoLikes = whoLikes.isEmpty() ? userId : whoLikes + "," + userId;
-                    currentLikes++;
-
-                    ContentValues values = new ContentValues();
-                    values.put(COLUMN_MEMORY_WHO_LIKES, whoLikes);
-                    values.put(COLUMN_MEMORY_LIKES, currentLikes);
-
-                    db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
-                            new String[]{String.valueOf(memoryId)});
-                    db.setTransactionSuccessful();
-                    return true;
-                }
-            }
-            cursor.close();
-        } finally {
-            db.endTransaction();
-        }
-        return false;
-    }
-
-    public boolean hasUserLikedMemory(long memoryId, String userId) {
-        SQLiteDatabase db = this.getReadableDatabase();
-        String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + " FROM " + TABLE_MEMORIES +
-                " WHERE " + COLUMN_MEMORY_ID + " = ?";
-        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
-
-        if (cursor.moveToFirst()) {
-            String whoLikes = cursor.getString(0);
-            cursor.close();
-            return whoLikes != null && whoLikes.contains(userId);
-        }
-        cursor.close();
-        return false;
-    }
 
 
     public MemoryItem addComment(long memoryId, String comment, Context context) {
@@ -1338,8 +1373,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
             );
             memory.setUserId(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_USERID)));
-
             memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+            memory.setWhoLikes(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_WHO_LIKES)));
+
 
             // Retrieve comments
             List<String> comments = new ArrayList<>();
@@ -1350,6 +1386,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 }
             }
             memory.setComments(comments);
+
+            // Retrieve pictures
             List<String> pictures = new ArrayList<>();
             for (String pictureColumn : COLUMN_MEMORY_PICTURES) {
                 String pictureUrl = cursor.getString(cursor.getColumnIndex(pictureColumn));
@@ -1359,9 +1397,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
             memory.setPictures(pictures);
 
+            Log.d(TAG, "--m-- Retrieved memory item with ID: " + id + ", Pictures: " + pictures);
+
             cursor.close();
         }
-
 
         return memory;
     }
@@ -1387,6 +1426,57 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return memory;
     }
 
+    public List<MemoryItem> searchMemories(String searchText) {
+        List<MemoryItem> searchResults = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        String query = "SELECT * FROM " + TABLE_MEMORIES +
+                " WHERE " + COLUMN_MEMORY_TITLE + " LIKE ? OR " +
+                COLUMN_MEMORY_TEXT + " LIKE ?";
+        String[] selectionArgs = new String[]{"%" + searchText + "%", "%" + searchText + "%"};
+
+        Cursor cursor = db.rawQuery(query, selectionArgs);
+
+        if (cursor.moveToFirst()) {
+            do {
+                MemoryItem memory = new MemoryItem(
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_ID)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TITLE)),
+                        cursor.getLong(cursor.getColumnIndex(COLUMN_MEMORY_DATE)),
+                        cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_TEXT))
+                );
+                memory.setUserId(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_USERID)));
+                memory.setLikes(cursor.getInt(cursor.getColumnIndex(COLUMN_MEMORY_LIKES)));
+                memory.setWhoLikes(cursor.getString(cursor.getColumnIndex(COLUMN_MEMORY_WHO_LIKES)));
+
+                // Retrieve comments
+                List<String> comments = new ArrayList<>();
+                for (String commentColumn : COLUMN_MEMORY_COMMENTS) {
+                    String comment = cursor.getString(cursor.getColumnIndex(commentColumn));
+                    if (comment != null && !comment.isEmpty()) {
+                        comments.add(comment);
+                    }
+                }
+                memory.setComments(comments);
+
+                // Retrieve pictures
+                List<String> pictures = new ArrayList<>();
+                for (String pictureColumn : COLUMN_MEMORY_PICTURES) {
+                    String pictureUrl = cursor.getString(cursor.getColumnIndex(pictureColumn));
+                    if (pictureUrl != null && !pictureUrl.isEmpty()) {
+                        pictures.add(pictureUrl);
+                    }
+                }
+                memory.setPictures(pictures);
+
+                searchResults.add(memory);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        return searchResults;
+    }
+
+
     private long dateStringToTimestamp(String dateString) {
         try {
             return Long.parseLong(dateString);
@@ -1396,6 +1486,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
+
     public long addMemoryItem(MemoryItem memoryItem) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
@@ -1403,7 +1494,16 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_DATE, memoryItem.getTimestamp());
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
         values.put(COLUMN_MEMORY_USERID, memoryItem.getUserId());
-        return db.insert(TABLE_MEMORIES, null, values);
+        values.put(COLUMN_MEMORY_WHO_LIKES, memoryItem.getWhoLikes());
+
+        List<String> pictures = memoryItem.getPictures();
+        for (int i = 0; i < COLUMN_MEMORY_PICTURES.length && i < pictures.size(); i++) {
+            values.put(COLUMN_MEMORY_PICTURES[i], pictures.get(i));
+        }
+
+        long id = db.insert(TABLE_MEMORIES, null, values);
+        Log.d(TAG, "--m-- Added new memory item with ID: " + id + ", Pictures: " + pictures);
+        return id;
     }
 
     public int updateMemoryItem(MemoryItem memoryItem) {
@@ -1414,13 +1514,21 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_MEMORY_TEXT, memoryItem.getMemoryText());
         values.put(COLUMN_MEMORY_USERID, memoryItem.getUserId());
         values.put(COLUMN_MEMORY_LIKES, memoryItem.getLikes());
+        values.put(COLUMN_MEMORY_WHO_LIKES, memoryItem.getWhoLikes());
 
-        for (int i = 0; i < COLUMN_MEMORY_COMMENTS.length && i < memoryItem.getComments().size(); i++) {
-            values.put(COLUMN_MEMORY_COMMENTS[i], memoryItem.getComments().get(i));
+        List<String> pictures = memoryItem.getPictures();
+        for (int i = 0; i < COLUMN_MEMORY_PICTURES.length; i++) {
+            if (i < pictures.size()) {
+                values.put(COLUMN_MEMORY_PICTURES[i], pictures.get(i));
+            } else {
+                values.putNull(COLUMN_MEMORY_PICTURES[i]);
+            }
         }
 
-        return db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+        int updatedRows = db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                 new String[]{String.valueOf(memoryItem.getId())});
+        Log.d(TAG, "--m-- Updated memory item with ID: " + memoryItem.getId() + ", Rows affected: " + updatedRows + ", Pictures: " + pictures);
+        return updatedRows;
     }
 
     public int deleteMemory(long id) {
@@ -1448,6 +1556,42 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             }
         }
         cursor.close();
+    }
+
+    public boolean incrementLikeCount(long memoryId, String userId) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + ", " + COLUMN_MEMORY_LIKES + " FROM " + TABLE_MEMORIES +
+                    " WHERE " + COLUMN_MEMORY_ID + " = ?";
+            Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
+
+            if (cursor.moveToFirst()) {
+                String whoLikes = cursor.getString(0);
+                int currentLikes = cursor.getInt(1);
+                if (whoLikes == null) whoLikes = "";
+
+                if (!whoLikes.contains(userId)) {
+                    whoLikes = whoLikes.isEmpty() ? userId : whoLikes + "," + userId;
+                    currentLikes++;
+
+                    ContentValues values = new ContentValues();
+                    values.put(COLUMN_MEMORY_WHO_LIKES, whoLikes);
+                    values.put(COLUMN_MEMORY_LIKES, currentLikes);
+
+                    db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
+                            new String[]{String.valueOf(memoryId)});
+                    db.setTransactionSuccessful();
+                    Log.d(TAG, "--m-- Incremented like count for memory " + memoryId + ". New count: " + currentLikes + ", Who likes: " + whoLikes);
+                    return true;
+                }
+            }
+            cursor.close();
+        } finally {
+            db.endTransaction();
+        }
+        Log.d(TAG, "--m-- Like count not incremented for memory " + memoryId + ". User already liked or memory not found.");
+        return false;
     }
 
     public boolean decrementLikeCount(long memoryId, String userId) {
@@ -1479,6 +1623,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + " = ?",
                             new String[]{String.valueOf(memoryId)});
                     db.setTransactionSuccessful();
+                    Log.d(TAG, "--m-- Decremented like count for memory " + memoryId + ". New count: " + currentLikes + ", Who likes: " + newWhoLikes);
                     return true;
                 }
             }
@@ -1486,29 +1631,28 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } finally {
             db.endTransaction();
         }
+        Log.d(TAG, "--m-- Like count not decremented for memory " + memoryId + ". User hadn't liked or memory not found.");
         return false;
     }
 
-    public void beginTransaction() {
-        getWritableDatabase().beginTransaction();
-    }
+    public boolean hasUserLikedMemory(long memoryId, String userId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        String query = "SELECT " + COLUMN_MEMORY_WHO_LIKES + " FROM " + TABLE_MEMORIES +
+                " WHERE " + COLUMN_MEMORY_ID + " = ?";
+        Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(memoryId)});
 
-    public void setTransactionSuccessful() {
-        getWritableDatabase().setTransactionSuccessful();
-    }
-
-    public void endTransaction() {
-        getWritableDatabase().endTransaction();
-    }
-
-    public void insertActivitiesBatch(List<ActivityData> activities) {
-        SQLiteDatabase db = getWritableDatabase();
-        for (ActivityData activity : activities) {
-            ContentValues values = new ContentValues();
-            // Set values for each column
-            db.insert("activities", null, values);
+        if (cursor.moveToFirst()) {
+            String whoLikes = cursor.getString(0);
+            cursor.close();
+            boolean hasLiked = whoLikes != null && whoLikes.contains(userId);
+            Log.d(TAG, "--m-- Checking if user " + userId + " liked memory " + memoryId + ": " + hasLiked);
+            return hasLiked;
         }
+        cursor.close();
+        Log.d(TAG, "--m-- Memory " + memoryId + " not found when checking likes.");
+        return false;
     }
+
 
 
 }

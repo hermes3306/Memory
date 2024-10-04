@@ -2,16 +2,20 @@ package com.jason.memory;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.Switch;
@@ -70,6 +74,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private static final int MAX_ZOOM = 21;
     private int currentZoom = DEFAULT_ZOOM;
     private boolean isMapSizeReduced = false;
+    private EditText searchEditText;
 
     private List<Locale> getSupportedLocales() {
         List<Locale> locales = new ArrayList<>();
@@ -111,8 +116,16 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         ImageButton searchButton = findViewById(R.id.searchButton);
         searchButton.setOnClickListener(v -> searchPlace());
 
-        ImageButton saveButton = findViewById(R.id.saveButton);
-        saveButton.setOnClickListener(v -> savePlace());
+        searchEditText = findViewById(R.id.searchEditText);
+        searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                performSearch();
+                return true;
+            }
+            return false;
+        });
+
 
 
         // Initialize the map
@@ -122,7 +135,77 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             mapFragment.getMapAsync(this);
         }
 
+        setupBottomNavigation();
+
     }
+
+
+    private void setupBottomNavigation() {
+        // Find layout views
+        View chatLayout = findViewById(R.id.chatLayout);
+        View runLayout = findViewById(R.id.runLayout);
+        View memoryLayout = findViewById(R.id.memoryLayout);
+        View placeLayout = findViewById(R.id.placeLayout);
+        View meLayout = findViewById(R.id.meLayout);
+
+        // Find icon views
+        ImageView chatIcon = findViewById(R.id.iconChat);
+        ImageView runIcon = findViewById(R.id.iconRun);
+        ImageView memoryIcon = findViewById(R.id.iconMemory);
+        ImageView placeIcon = findViewById(R.id.iconPlace);
+        ImageView meIcon = findViewById(R.id.iconMe);
+
+        // Set default icon colors
+        chatIcon.setImageResource(R.drawable.ht_chat);
+        runIcon.setImageResource(R.drawable.ht_run);
+        memoryIcon.setImageResource(R.drawable.ht_memory);
+        placeIcon.setImageResource(R.drawable.ht_place_blue);
+        meIcon.setImageResource(R.drawable.ht_my);
+
+        // Add click listeners for bottom navigation layouts
+        chatLayout.setOnClickListener(v -> openChatActivity());
+        runLayout.setOnClickListener(v -> openListActivityActivity());
+        memoryLayout.setOnClickListener(v -> openMemoryActivity());
+        //placeLayout.setOnClickListener(v -> openPlacesActivity());
+        meLayout.setOnClickListener(v -> openSettingActivity());
+    }
+
+    private void performSearch() {
+        String searchText = searchEditText.getText().toString().trim();
+        if (!searchText.isEmpty()) {
+            try {
+                List<Place> searchResults = dbHelper.searchPlacesByText(searchText);
+                adapter.submitList(searchResults);
+                updateMap();
+                Toast.makeText(this, searchResults.size() + " places found", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error searching places: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void openChatActivity() {
+        Intent intent = new Intent(this, ChatActivity.class);
+        startActivity(intent);
+    }
+
+    private void openListActivityActivity() {
+        Intent intent = new Intent(this, ListActivityActivity.class);
+        startActivity(intent);
+    }
+
+    private void openMemoryActivity() {
+        Intent intent = new Intent(this, MemoryActivity.class);
+        startActivity(intent);
+    }
+
+    private void openSettingActivity() {
+        Intent intent = new Intent(this, SettingActivity.class);
+        startActivity(intent);
+    }
+
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -135,14 +218,27 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     }
 
     private void syncWithServer() {
-        new AlertDialog.Builder(this)
-                .setTitle("Sync with Server")
-                .setMessage("Do you want to download and merge the latest data from the server?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    Utility.downloadJsonAndMergeServerData(this, Config.PLACE_EXT, dbHelper, this::onSyncComplete);
-                })
-                .setNegativeButton("No", null)
-                .show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Sync with Server")
+                .setItems(new CharSequence[]{"Upload", "Download", "Both"}, (dialog, which) -> {
+                    switch (which) {
+                        case 0: // Upload
+                            savePlace();
+                            break;
+                        case 1: // Download
+                            downloadFromServer();
+                            break;
+                        case 2: // Both
+                            savePlace();
+                            downloadFromServer();
+                            break;
+                    }
+                });
+        builder.create().show();
+    }
+
+    private void downloadFromServer() {
+        Utility.downloadJsonAndMergeServerData(this, Config.PLACE_EXT, dbHelper, this::onSyncComplete);
     }
 
     private void onSyncComplete(boolean success) {
@@ -167,7 +263,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             String jsonPlaces = gson.toJson(allPlaces);
 
             // Create file in the download directory
-            File directory = Config.getDownloadDir4Places();
+            File directory = Config.getDownloadDir4Places(this);
             if (!directory.exists()) {
                 directory.mkdirs();
             }

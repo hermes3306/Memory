@@ -17,6 +17,8 @@ import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -83,7 +85,8 @@ public class SettingActivity extends AppCompatActivity {
     private Spinner tableSpinner;
     private Button viewTableButton;
     private String[] tableNames = {"locations", "activities", "places", "memories", "messages"};
-
+    private EditText editTextDownloadDir;
+    private Button buttonSaveDownloadDir;
 
 
     private BroadcastReceiver downloadReceiver = new BroadcastReceiver() {
@@ -105,7 +108,90 @@ public class SettingActivity extends AppCompatActivity {
 
         setClickListeners();
         registerDownloadReceiver();
+
+        editTextDownloadDir = findViewById(R.id.editTextDownloadDir);
+        buttonSaveDownloadDir = findViewById(R.id.buttonSaveDownloadDir);
+
+        // Load the current download directory name
+        SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+        String currentDirName = prefs.getString(Config.PREF_DOWNLOAD_DIR_NAME, Config.DEFAULT_DOWNLOAD_DIR_NAME);
+        editTextDownloadDir.setText(currentDirName);
+
+        buttonSaveDownloadDir.setOnClickListener(v -> saveDownloadDirName());
+
+        setupBottomNavigation();
     }
+
+
+    private void setupBottomNavigation() {
+        // Find layout views
+        View chatLayout = findViewById(R.id.chatLayout);
+        View runLayout = findViewById(R.id.runLayout);
+        View memoryLayout = findViewById(R.id.memoryLayout);
+        View placeLayout = findViewById(R.id.placeLayout);
+        View meLayout = findViewById(R.id.meLayout);
+
+        // Find icon views
+        ImageView chatIcon = findViewById(R.id.iconChat);
+        ImageView runIcon = findViewById(R.id.iconRun);
+        ImageView memoryIcon = findViewById(R.id.iconMemory);
+        ImageView placeIcon = findViewById(R.id.iconPlace);
+        ImageView meIcon = findViewById(R.id.iconMe);
+
+        // Set default icon colors
+        chatIcon.setImageResource(R.drawable.ht_chat);
+        runIcon.setImageResource(R.drawable.ht_run);
+        memoryIcon.setImageResource(R.drawable.ht_memory);
+        placeIcon.setImageResource(R.drawable.ht_place);
+        meIcon.setImageResource(R.drawable.ht_my_blue);
+
+        // Add click listeners for bottom navigation layouts
+        chatLayout.setOnClickListener(v -> openChatActivity());
+        runLayout.setOnClickListener(v -> openListActivityActivity());
+        memoryLayout.setOnClickListener(v -> openMemoryActivity());
+        placeLayout.setOnClickListener(v -> openPlacesActivity());
+        //meLayout.setOnClickListener(v -> openSettingActivity());
+    }
+
+    private void saveDownloadDirName() {
+        String newDirName = editTextDownloadDir.getText().toString().trim();
+        if (!newDirName.isEmpty()) {
+            SharedPreferences prefs = getSharedPreferences(Config.PREFS_NAME, MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.putString(Config.PREF_DOWNLOAD_DIR_NAME, newDirName);
+            editor.apply();
+
+            Toast.makeText(this, "Download directory name saved", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Please enter a valid directory name", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
+    private void openChatActivity() {
+        Intent intent = new Intent(this, ChatActivity.class);
+        startActivity(intent);
+    }
+
+    private void openMemoryActivity() {
+        Intent intent = new Intent(this, MemoryActivity.class);
+        startActivity(intent);
+    }
+
+    private void openPlacesActivity() {
+        Intent intent = new Intent(this, PlacesActivity.class);
+        startActivity(intent);
+    }
+
+    private void openListActivityActivity() {
+        Intent intent = new Intent(this, ListActivityActivity.class);
+        startActivity(intent);
+    }
+
+//    private void openSettingActivity() {
+//        Intent intent = new Intent(this, SettingActivity.class);
+//        startActivity(intent);
+//    }
 
 
     private void initializeViews() {
@@ -161,6 +247,13 @@ public class SettingActivity extends AppCompatActivity {
             editor.apply();
         });
 
+        TextView moreOptionsText = findViewById(R.id.moreOptionsText);
+        moreOptionsText.setOnClickListener(v -> openMainActivity());
+    }
+
+    private void openMainActivity() {
+        Intent intent = new Intent(this, LabActivity.class);
+        startActivity(intent);
     }
 
     private void showDeleteAllDataConfirmation() {
@@ -305,7 +398,7 @@ public class SettingActivity extends AppCompatActivity {
         stopServiceIntent.setAction(LocationService.ACTION_STOP_SERVICE);
         startService(stopServiceIntent);
 
-        File appDir = Config.getDownloadDir();
+        File appDir = Config.getDownloadDir(this);
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files == null || files.length == 0) {
@@ -329,15 +422,22 @@ public class SettingActivity extends AppCompatActivity {
 
             for (File file : files) {
                 String activityName = file.getName().replace(".csv", "");
-                if (dbHelper.isActivityExist(activityName)) {
+                boolean activityExistsInDb = dbHelper.isActivityExist(activityName);
+
+                Log.d(TAG, "Processing file: " + file.getName() +
+                        ", Exists in DB: " + activityExistsInDb);
+
+                if (activityExistsInDb) {
+                    Log.d(TAG, "Skipping file as activity exists in DB: " + activityName);
                     skippedFiles++;
                     processedFiles++;
-                    // ... (update UI code remains the same)
+                    // ... (update UI code)
                     continue;
                 }
 
                 List<LocationData> locations = readLocationsFromFile(file);
                 if (locations.isEmpty()) {
+                    Log.w(TAG, "Empty locations for file: " + file.getName());
                     skippedFiles++;
                     processedFiles++;
                     continue;
@@ -529,7 +629,7 @@ public class SettingActivity extends AppCompatActivity {
     }
 
     private void uploadFiles() {
-        File appDir = Config.getDownloadDir();
+        File appDir = Config.getDownloadDir(this);
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -615,8 +715,8 @@ public class SettingActivity extends AppCompatActivity {
         });
     }
 
-    private void listFiles() {
-        File appDir = Config.getDownloadDir();
+    private void listFiles_org() {
+        File appDir = Config.getDownloadDir(this);
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -638,8 +738,40 @@ public class SettingActivity extends AppCompatActivity {
         }
     }
 
+    private void listFiles() {
+        File appDir = Config.getDownloadDir(this);
+        File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
+
+        if (files != null && files.length > 0) {
+            // Sort files in descending order (newest first)
+            Arrays.sort(files, (f1, f2) -> {
+                // Extract the timestamp part from the filename (assuming format yyyyMMdd_HHmmss.csv)
+                String name1 = f1.getName().substring(0, f1.getName().lastIndexOf('.'));
+                String name2 = f2.getName().substring(0, f2.getName().lastIndexOf('.'));
+                // Compare in reverse order for descending sort
+                return name2.compareTo(name1);
+            });
+
+            StringBuilder fileList = new StringBuilder();
+            for (File file : files) {
+                fileList.append(file.getName()).append("\n");
+            }
+
+            new AlertDialog.Builder(this)
+                    .setTitle("Downloaded Files")
+                    .setMessage(String.format("Total files: %d\n\nFiles:\n%s", files.length, fileList.toString()))
+                    .setPositiveButton("OK", null)
+                    .show();
+
+            Log.d(TAG, "--m-- Files listed: " + files.length);
+        } else {
+            Toast.makeText(this, "No files found", Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "--m-- No files found");
+        }
+    }
+
     private void deleteFiles() {
-        File appDir = Config.getDownloadDir();
+        File appDir = Config.getDownloadDir(this);
         File[] files = appDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
         if (files != null && files.length > 0) {
@@ -722,12 +854,12 @@ public class SettingActivity extends AppCompatActivity {
         }
     }
 
-    private void downloadFile(String fileName) {
+    private void downloadFile_old(String fileName) {
         String fileUrl = BASE_URL + UPLOAD_DIR + fileName;
         Log.d(TAG, "--m-- Downloading file from: " + fileUrl);
 
 
-        File appDir = Config.getDownloadDir();
+        File appDir = Config.getDownloadDir(this);
 
         if (!appDir.exists()) {
             boolean created = appDir.mkdirs();
@@ -771,6 +903,72 @@ public class SettingActivity extends AppCompatActivity {
             updateDownloadProgressUI(fileName, false, false);
         }
     }
+    private void downloadFile(String fileName) {
+        String fileUrl = BASE_URL + UPLOAD_DIR + fileName;
+        Log.d(TAG, "--m-- Downloading file from: " + fileUrl);
+
+        File appDir = Config.getDownloadDir(this);
+        if (!appDir.exists()) {
+            boolean created = appDir.mkdirs();
+            Log.d(TAG, "--m-- App directory created: " + created);
+        }
+        File destinationFile = new File(appDir, fileName);
+
+        // Check if file already exists and has content
+        if (destinationFile.exists() && destinationFile.length() > 0) {
+            Log.d(TAG, "--m-- File already exists and has content: " + fileName);
+            processedFiles++;
+            updateDownloadProgressUI(fileName, true, true);
+            return;
+        }
+
+        try {
+            URL url = new URL(fileUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.connect();
+
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                Log.e(TAG, "--m-- Server returned HTTP " + connection.getResponseCode()
+                        + " " + connection.getResponseMessage());
+                updateDownloadProgressUI(fileName, false, false);
+                return;
+            }
+
+            // This will be used to verify if the download was successful
+            int contentLength = connection.getContentLength();
+
+            try (java.io.InputStream input = connection.getInputStream();
+                 java.io.FileOutputStream output = new java.io.FileOutputStream(destinationFile)) {
+
+                byte[] data = new byte[4096];
+                int count;
+                long total = 0;
+                while ((count = input.read(data)) != -1) {
+                    total += count;
+                    output.write(data, 0, count);
+                }
+
+                // Verify if the downloaded file size matches the expected size
+                if (contentLength > 0 && total != contentLength) {
+                    Log.e(TAG, "--m-- Downloaded file size does not match expected size for: " + fileName);
+                    destinationFile.delete(); // Delete the incomplete file
+                    updateDownloadProgressUI(fileName, false, false);
+                    return;
+                }
+            }
+
+            Log.d(TAG, "--m-- File downloaded successfully: " + fileName);
+            processedFiles++;
+            updateDownloadProgressUI(fileName, true, false);
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error downloading file: " + fileName, e);
+            if (destinationFile.exists()) {
+                destinationFile.delete(); // Delete any partially downloaded file
+            }
+            updateDownloadProgressUI(fileName, false, false);
+        }
+    }
+
 
     private void updateDownloadProgressUI(String fileName, boolean success, boolean alreadyExists) {
         runOnUiThread(() -> {
@@ -848,7 +1046,8 @@ public class SettingActivity extends AppCompatActivity {
                 }
             }
         } catch (IOException e) {
-            Log.e(TAG, "Error reading file: " + file.getName(), e);
+            Log.e(TAG, "Error reading file and deleted!: " + file.getName(), e);
+            file.deleteOnExit();
         }
         return locations;
     }
