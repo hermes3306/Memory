@@ -634,6 +634,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return true;
     }
 
+
+
     private void deleteInvalidLocation(LocationData location) {
         if (location.getId() != 0) {  // Ensure the location has a valid ID
             deleteLocation(location.getId());
@@ -641,6 +643,30 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } else {
             Log.d(TAG, "--m-- Invalid location not yet saved to database, no deletion needed");
         }
+    }
+
+    public void removeImageFromMemory(long memoryId, String imageUrl) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        String[] columns = COLUMN_MEMORY_PICTURES;
+        Cursor cursor = db.query(TABLE_MEMORIES, columns, COLUMN_MEMORY_ID + "=?",
+                new String[]{String.valueOf(memoryId)}, null, null, null);
+
+        if (cursor.moveToFirst()) {
+            for (String column : columns) {
+                int columnIndex = cursor.getColumnIndex(column);
+                if (columnIndex != -1) {
+                    String currentUrl = cursor.getString(columnIndex);
+                    if (imageUrl.equals(currentUrl)) {
+                        values.putNull(column);
+                        db.update(TABLE_MEMORIES, values, COLUMN_MEMORY_ID + "=?", new String[]{String.valueOf(memoryId)});
+                        break;
+                    }
+                }
+            }
+        }
+        cursor.close();
     }
 
     public void deleteLocation(long id) {

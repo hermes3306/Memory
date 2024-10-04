@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.io.FileNotFoundException;
+import java.util.stream.Collectors;
 
 public class AddEditMemoryActivity extends AppCompatActivity {
     private static final String TAG = "AddEditMemoryActivity";
@@ -48,6 +50,7 @@ public class AddEditMemoryActivity extends AppCompatActivity {
     private static final int PICK_IMAGES_REQUEST = 1;
     private List<Uri> selectedImageUris = new ArrayList<>();
     private LinearLayout imagePreviewContainer;
+
 
     private void openGallery() {
         Log.d(TAG, "--m-- Opening gallery for image selection");
@@ -68,13 +71,17 @@ public class AddEditMemoryActivity extends AppCompatActivity {
                 Log.d(TAG, "--m-- Multiple images selected: " + count);
                 for (int i = 0; i < count; i++) {
                     Uri imageUri = data.getClipData().getItemAt(i).getUri();
-                    selectedImageUris.add(imageUri);
-                    Log.d(TAG, "--m-- Added image URI: " + imageUri);
+                    if (!selectedImageUris.contains(imageUri)) {
+                        selectedImageUris.add(imageUri);
+                        Log.d(TAG, "--m-- Added image URI: " + imageUri);
+                    }
                 }
             } else if (data.getData() != null && selectedImageUris.size() < 9) {
                 Uri imageUri = data.getData();
-                selectedImageUris.add(imageUri);
-                Log.d(TAG, "--m-- Added single image URI: " + imageUri);
+                if (!selectedImageUris.contains(imageUri)) {
+                    selectedImageUris.add(imageUri);
+                    Log.d(TAG, "--m-- Added single image URI: " + imageUri);
+                }
             }
             updateImagePreview();
             if (selectedImageUris.size() >= 9) {
@@ -82,6 +89,40 @@ public class AddEditMemoryActivity extends AppCompatActivity {
                 Toast.makeText(this, "Maximum 9 images allowed", Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+
+    private void updateImagePreview_orig() {
+        Log.d(TAG, "--m-- Updating image preview");
+        imagePreviewContainer.removeAllViews();
+        for (Uri uri : selectedImageUris) {
+            View imageView = LayoutInflater.from(this).inflate(R.layout.item_image_preview, imagePreviewContainer, false);
+            ImageView preview = imageView.findViewById(R.id.previewImage);
+            ImageButton deleteButton = imageView.findViewById(R.id.deleteImageButton);
+
+            try {
+                Glide.with(this)
+                        .load(uri)
+                        .placeholder(R.drawable.ic_image_placeholder) // Make sure you have this drawable
+                        .error(R.drawable.ic_image_error) // Make sure you have this drawable
+                        .into(preview);
+                Log.d(TAG, "--m-- Loaded image preview for URI: " + uri);
+            } catch (Exception e) {
+                Log.e(TAG, "--m-- Error loading image preview: " + e.getMessage(), e);
+                preview.setImageResource(R.drawable.ic_image_error); // Make sure you have this drawable
+            }
+
+            final Uri finalUri = uri;
+            deleteButton.setOnClickListener(v -> {
+                selectedImageUris.remove(finalUri);
+                Log.d(TAG, "--m-- Removed image from preview: " + finalUri);
+                updateImagePreview();
+            });
+
+            imagePreviewContainer.addView(imageView);
+            Log.d(TAG, "--m-- Added image preview view for URI: " + uri);
+        }
+        Log.d(TAG, "--m-- Image preview updated with " + selectedImageUris.size() + " images");
     }
 
     private void updateImagePreview() {
@@ -92,7 +133,20 @@ public class AddEditMemoryActivity extends AppCompatActivity {
             ImageView preview = imageView.findViewById(R.id.previewImage);
             ImageButton deleteButton = imageView.findViewById(R.id.deleteImageButton);
 
-            Glide.with(this).load(uri).into(preview);
+            try {
+                Glide.with(this)
+                        .load(uri)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .into(preview);
+                Log.d(TAG, "--m-- Loaded image preview for URI: " + uri);
+            } catch (Exception e) {
+                Log.e(TAG, "--m-- Error loading image preview: " + e.getMessage(), e);
+                preview.setImageResource(R.drawable.ic_image_error);
+            }
+
+            imageView.setTag(uri.toString()); // Set the tag to the image URI
+
             deleteButton.setOnClickListener(v -> {
                 selectedImageUris.remove(uri);
                 Log.d(TAG, "--m-- Removed image from preview: " + uri);
@@ -100,6 +154,7 @@ public class AddEditMemoryActivity extends AppCompatActivity {
             });
 
             imagePreviewContainer.addView(imageView);
+            Log.d(TAG, "--m-- Added image preview view for URI: " + uri);
         }
         Log.d(TAG, "--m-- Image preview updated with " + selectedImageUris.size() + " images");
     }
@@ -112,7 +167,7 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- onCreate: Initializing AddEditMemoryActivity");
 
         dbHelper = new DatabaseHelper(this);
-        currentUserId = Utility.getUserName(this);
+        currentUserId = Utility.getCurrentUser(this);
         Log.d(TAG, "--m-- Current User ID: " + currentUserId);
 
         titleEditText = findViewById(R.id.titleEditText);
@@ -122,6 +177,7 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         addPlaceInfoImage = findViewById(R.id.addPlaceInfoImage);
         deleteImage = findViewById(R.id.deleteImage);
         imagePreviewContainer = findViewById(R.id.imagePreviewContainer);
+
 
         closeButton.setOnClickListener(v -> {
             Log.d(TAG, "--m-- Close button clicked");
@@ -245,16 +301,20 @@ public class AddEditMemoryActivity extends AppCompatActivity {
             return;
         }
 
+        // Get the current user ID using the Utility method
+        currentUserId = Utility.getCurrentUser(this);
+
         MemoryItem memory = new MemoryItem(editMemoryId, title, timestamp, memoryText);
         memory.setUserId(currentUserId);
 
+        Log.d(TAG, "--m-- Setting memory owner: " + currentUserId);
+
         if (editMemoryId == -1) {
+            // This is a new memory
             long newId = dbHelper.addMemory(memory);
-            Log.d(TAG, "--m-- New memory added with ID: " + newId);
+            Log.d(TAG, "--m-- New memory added with ID: " + newId + ", Owner: " + currentUserId);
             if (newId != -1) {
-                if (!selectedImageUris.isEmpty()) {
-                    uploadImages(newId);
-                }
+                uploadImages(newId);
                 Toast.makeText(this, "Memory saved successfully", Toast.LENGTH_SHORT).show();
                 finish();
             } else {
@@ -262,20 +322,95 @@ public class AddEditMemoryActivity extends AppCompatActivity {
                 Toast.makeText(this, "Error saving memory", Toast.LENGTH_SHORT).show();
             }
         } else {
+            // This is an existing memory being edited
+            MemoryItem existingMemory = dbHelper.getMemory(editMemoryId);
+            List<String> existingImages = existingMemory.getPictures();
+
+            // Find images that were deleted
+            List<String> deletedImages = new ArrayList<>(existingImages);
+            deletedImages.removeAll(selectedImageUris.stream().map(Uri::toString).collect(Collectors.toList()));
+
+            // Remove deleted images from the database
+            for (String deletedImageUrl : deletedImages) {
+                dbHelper.removeImageFromMemory(editMemoryId, deletedImageUrl);
+                Log.d(TAG, "--m-- Removed image from database: " + deletedImageUrl);
+            }
+
+            // Update the memory text and title
             int rowsAffected = dbHelper.updateMemory(memory);
-            Log.d(TAG, "--m-- Memory updated. Rows affected: " + rowsAffected);
+            Log.d(TAG, "--m-- Memory updated. Rows affected: " + rowsAffected + ", Owner: " + currentUserId);
+
             if (rowsAffected > 0) {
-                if (!selectedImageUris.isEmpty()) {
-                    uploadImages(editMemoryId);
+                // Upload only new images
+                List<Uri> newImages = selectedImageUris.stream()
+                        .filter(uri -> !existingImages.contains(uri.toString()))
+                        .collect(Collectors.toList());
+
+                if (!newImages.isEmpty()) {
+                    uploadNewImages(editMemoryId, newImages);
+                } else {
+                    Toast.makeText(this, "Memory updated successfully", Toast.LENGTH_SHORT).show();
+                    finish();
                 }
-                Toast.makeText(this, "Memory updated successfully", Toast.LENGTH_SHORT).show();
-                finish();
             } else {
                 Log.e(TAG, "--m-- Error updating memory");
                 Toast.makeText(this, "Error updating memory", Toast.LENGTH_SHORT).show();
             }
         }
     }
+
+    private void uploadNewImages(long memoryId, List<Uri> newImages) {
+        Log.d(TAG, "--m-- Uploading new images for memory ID: " + memoryId);
+        final int[] successCount = {0};
+        final int totalImages = newImages.size();
+
+        for (Uri imageUri : newImages) {
+            new Thread(() -> {
+                try {
+                    Log.d(TAG, "--m-- Processing new image: " + imageUri);
+                    InputStream inputStream = getContentResolver().openInputStream(imageUri);
+                    if (inputStream == null) {
+                        throw new IOException("Failed to open input stream for URI: " + imageUri);
+                    }
+                    Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                    inputStream.close();
+
+                    if (bitmap == null) {
+                        throw new IOException("Failed to decode bitmap for URI: " + imageUri);
+                    }
+
+                    bitmap = rotateImageIfRequired(bitmap, imageUri);
+                    bitmap = resizeBitmap(bitmap, 1024);
+                    String base64Image = bitmapToBase64(bitmap);
+                    Log.d(TAG, "--m-- New image processed and converted to base64");
+
+                    Utility.uploadImage(this, base64Image, memoryId, new Utility.UploadImageCallback() {
+                        @Override
+                        public void onUploadComplete(String imageUrl) {
+                            Log.d(TAG, "--m-- New image upload complete: " + imageUrl);
+                            dbHelper.addImageToMemory(memoryId, imageUrl);
+                            successCount[0]++;
+                            checkUploadCompletion(successCount[0], totalImages);
+                        }
+
+                        @Override
+                        public void onUploadFailed(Exception e) {
+                            Log.e(TAG, "--m-- New image upload failed", e);
+                            checkUploadCompletion(successCount[0], totalImages);
+                        }
+                    });
+                } catch (Exception e) {
+                    Log.e(TAG, "--m-- Error processing new image: " + e.getMessage(), e);
+                    runOnUiThread(() -> {
+                        Toast.makeText(AddEditMemoryActivity.this, "Error processing image", Toast.LENGTH_SHORT).show();
+                    });
+                    checkUploadCompletion(successCount[0], totalImages);
+                }
+            }).start();
+        }
+    }
+
+
 
     private Bitmap rotateImageIfRequired(Bitmap bitmap, Uri imageUri) throws IOException {
         Log.d(TAG, "--m-- Rotating image if required");
@@ -318,75 +453,85 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         return Base64.encodeToString(imageBytes, Base64.DEFAULT);
     }
 
-
     private void uploadImages(long memoryId) {
         Log.d(TAG, "--m-- Starting image upload process for memory ID: " + memoryId);
         final int[] successCount = {0};
         final int totalImages = selectedImageUris.size();
         Log.d(TAG, "--m-- Total images to upload: " + totalImages);
+        Log.d(TAG, "--m-- Selected Image URIs: " + selectedImageUris.toString());
 
         for (Uri imageUri : selectedImageUris) {
             new Thread(() -> {
                 try {
                     Log.d(TAG, "--m-- Processing image: " + imageUri);
-                    InputStream inputStream = getContentResolver().openInputStream(imageUri);
-                    if (inputStream == null) {
-                        throw new IOException("Failed to open input stream for URI: " + imageUri);
-                    }
-                    Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-                    inputStream.close();
+                    if (imageUri.toString().startsWith("http") || imageUri.toString().startsWith("https")) {
+                        // This image has already been uploaded, just add it to the memory
+                        Log.d(TAG, "--m-- Image already uploaded: " + imageUri);
+                        dbHelper.addImageToMemory(memoryId, imageUri.toString());
+                        successCount[0]++;
+                        checkUploadCompletion(successCount[0], totalImages);
+                    } else {
+                        // This is a new image that needs to be processed and uploaded
+                        InputStream inputStream = getContentResolver().openInputStream(imageUri);
+                        if (inputStream == null) {
+                            throw new IOException("Failed to open input stream for URI: " + imageUri);
+                        }
+                        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+                        inputStream.close();
 
-                    if (bitmap == null) {
-                        throw new IOException("Failed to decode bitmap for URI: " + imageUri);
-                    }
-
-                    bitmap = rotateImageIfRequired(bitmap, imageUri);
-                    bitmap = resizeBitmap(bitmap, 1024);
-                    String base64Image = bitmapToBase64(bitmap);
-                    Log.d(TAG, "--m-- Image processed and converted to base64");
-
-                    Utility.uploadImage(this, base64Image, memoryId, new Utility.UploadImageCallback() {
-                        @Override
-                        public void onUploadComplete(String imageUrl) {
-                            Log.d(TAG, "--m-- Image upload complete: " + imageUrl);
-                            dbHelper.addImageToMemory(memoryId, imageUrl);
-                            successCount[0]++;
-                            Log.d(TAG, "--m-- Successful uploads: " + successCount[0] + "/" + totalImages);
-                            checkUploadCompletion();
+                        if (bitmap == null) {
+                            throw new IOException("Failed to decode bitmap for URI: " + imageUri);
                         }
 
-                        @Override
-                        public void onUploadFailed(Exception e) {
-                            Log.e(TAG, "--m-- Image upload failed", e);
-                            checkUploadCompletion();
-                        }
+                        bitmap = rotateImageIfRequired(bitmap, imageUri);
+                        bitmap = resizeBitmap(bitmap, 1024);
+                        String base64Image = bitmapToBase64(bitmap);
+                        Log.d(TAG, "--m-- Image processed and converted to base64");
 
-                        private void checkUploadCompletion() {
-                            if (successCount[0] + (totalImages - successCount[0]) == totalImages) {
-                                Log.d(TAG, "--m-- All image uploads completed");
-                                runOnUiThread(() -> {
-                                    Toast.makeText(AddEditMemoryActivity.this,
-                                            successCount[0] + " out of " + totalImages + " images uploaded successfully",
-                                            Toast.LENGTH_SHORT).show();
-                                    finish();
-                                });
+                        Utility.uploadImage(this, base64Image, memoryId, new Utility.UploadImageCallback() {
+                            @Override
+                            public void onUploadComplete(String imageUrl) {
+                                Log.d(TAG, "--m-- Image upload complete: " + imageUrl);
+                                dbHelper.addImageToMemory(memoryId, imageUrl);
+                                successCount[0]++;
+                                checkUploadCompletion(successCount[0], totalImages);
                             }
-                        }
-                    });
-                } catch (SecurityException e) {
-                    Log.e(TAG, "--m-- Security exception when processing image: " + e.getMessage(), e);
-                    runOnUiThread(() -> {
-                        Toast.makeText(AddEditMemoryActivity.this, "Permission denied to access image", Toast.LENGTH_SHORT).show();
-                    });
+
+                            @Override
+                            public void onUploadFailed(Exception e) {
+                                Log.e(TAG, "--m-- Image upload failed", e);
+                                checkUploadCompletion(successCount[0], totalImages);
+                            }
+                        });
+                    }
+                } catch (FileNotFoundException e) {
+                    Log.e(TAG, "--m-- File not found or no content provider: " + e.getMessage(), e);
+                    // Assume this file was already uploaded successfully
+                    successCount[0]++;
+                    checkUploadCompletion(successCount[0], totalImages);
                 } catch (Exception e) {
                     Log.e(TAG, "--m-- Error processing image: " + e.getMessage(), e);
                     runOnUiThread(() -> {
                         Toast.makeText(AddEditMemoryActivity.this, "Error processing image", Toast.LENGTH_SHORT).show();
                     });
+                    checkUploadCompletion(successCount[0], totalImages);
                 }
             }).start();
         }
     }
+
+    private void checkUploadCompletion(int successCount, int totalImages) {
+        if (successCount == totalImages) {
+            Log.d(TAG, "--m-- All image uploads completed");
+            runOnUiThread(() -> {
+                Toast.makeText(AddEditMemoryActivity.this,
+                        successCount + " out of " + totalImages + " images processed successfully",
+                        Toast.LENGTH_SHORT).show();
+                finish();
+            });
+        }
+    }
+
 
 
     private void deleteMemory() {

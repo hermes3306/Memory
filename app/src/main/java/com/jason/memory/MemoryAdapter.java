@@ -75,6 +75,14 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         holder.dateTextView.setText(item.getFormattedDate());
         holder.memoryTextView.setText(item.getMemoryText());
 
+        // Load the user's profile picture
+        String profileImageUrl = item.getUserProfileImageUrl();
+        Glide.with(context)
+                .load(profileImageUrl)
+                .placeholder(R.drawable.default_profile_image)
+                .error(R.drawable.default_profile_image)
+                .into(holder.profileImageView);
+
         // Set up pictures RecyclerView
         List<String> pictures = item.getPictures();
         if (pictures != null && !pictures.isEmpty()) {
@@ -90,11 +98,6 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         holder.usernameTextView.setText(item.getUserId()); // Display the correct user ID
         boolean isLiked = listener.hasUserLikedMemory(item.getId(), currentUserId);
 
-        // Using Glide or your preferred image loading library
-        Glide.with(context)
-                .load(item.getUserProfilePictureUrl())
-                .placeholder(R.drawable.default_profile_image)
-                .into(holder.profileImageView);
         updateLikeUI(holder, isLiked, item.getLikes());
 
         holder.likeCountTextView.setText(String.valueOf(item.getLikes()));
@@ -181,11 +184,8 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
 
 
     private String getCurrentUserId() {
-        // Implement this method to get the current user's ID
-        // This could be stored in SharedPreferences or retrieved from a User object
-        return Utility.getUserName(context);
+        return Utility.getCurrentUser(context);
     }
-
 
     @Override
     public int getItemCount() {

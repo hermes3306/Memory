@@ -20,12 +20,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
+
+
 public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.OnMemoryClickListener {
 
     private static final String TAG = "MemoryActivity";
     private ZoomableRecyclerView memoriesRecyclerView;
     private MemoryAdapter memoryAdapter;
     private DatabaseHelper dbHelper;
+    private String currentUserId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +37,7 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
         setContentView(R.layout.activity_memory);
 
         dbHelper = new DatabaseHelper(this);
+        currentUserId = Utility.getCurrentUser(this);
 
         memoriesRecyclerView = findViewById(R.id.memoriesRecyclerView);
         if (memoriesRecyclerView == null) {
@@ -134,12 +138,17 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
 
     @Override
     public void onLikeClick(long memoryId, String userId) {
-        Log.d(TAG, "--m-- onLikeClick: Attempting to increment like count for memory ID: " + memoryId + " by user: " + userId);
-        boolean likeAdded = dbHelper.incrementLikeCount(memoryId, userId);
+        Log.d(TAG, "--m-- onLikeClick: Attempting to increment like count for memory ID: " + memoryId + " by user: " + currentUserId);
+        boolean likeAdded = dbHelper.incrementLikeCount(memoryId, currentUserId);
         if (likeAdded) {
             MemoryItem updatedItem = dbHelper.getMemory(memoryId);
             memoryAdapter.updateItem(memoryId, updatedItem);
         }
+    }
+
+    @Override
+    public boolean hasUserLikedMemory(long memoryId, String userId) {
+        return dbHelper.hasUserLikedMemory(memoryId, currentUserId);
     }
 
     @Override
@@ -153,15 +162,11 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
 
     }
 
-    @Override
-    public boolean hasUserLikedMemory(long memoryId, String userId) {
-        return dbHelper.hasUserLikedMemory(memoryId, userId);
-    }
 
     @Override
     public void onUnlikeClick(long memoryId, String userId) {
-        Log.d(TAG, "--m-- onUnlikeClick: Attempting to decrement like count for memory ID: " + memoryId + " by user: " + userId);
-        boolean likeRemoved = dbHelper.decrementLikeCount(memoryId, userId);
+        Log.d(TAG, "--m-- onUnlikeClick: Attempting to decrement like count for memory ID: " + memoryId + " by user: " + currentUserId);
+        boolean likeRemoved = dbHelper.decrementLikeCount(memoryId, currentUserId);
         if (likeRemoved) {
             MemoryItem updatedItem = dbHelper.getMemory(memoryId);
             memoryAdapter.updateItem(memoryId, updatedItem);

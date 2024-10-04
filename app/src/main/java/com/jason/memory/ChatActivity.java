@@ -145,15 +145,7 @@ public class ChatActivity extends AppCompatActivity {
         notificationManager = NotificationManagerCompat.from(this);
 
         // Get or generate username
-        SharedPreferences prefs = getSharedPreferences("ChatPrefs", MODE_PRIVATE);
-        userName = prefs.getString(PREF_USERNAME, null);
-        if (userName == null) {
-            userName = Utility.generateRandomName(userName);
-            prefs.edit().putString(PREF_USERNAME, userName).apply();
-        }
-
-
-        //Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
+        userName = Utility.getCurrentUser(this);
 
         recyclerView = findViewById(R.id.recyclerViewMessages);
         editTextMessage = findViewById(R.id.editTextMessage);
@@ -207,7 +199,7 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void showChangeUserDialog() {
-        boolean dialogshow=false;
+        boolean dialogshow = false;
         if(dialogshow) {
             new AlertDialog.Builder(this)
                     .setTitle("Change User")
@@ -215,20 +207,18 @@ public class ChatActivity extends AppCompatActivity {
                     .setPositiveButton("Yes", (dialog, which) -> changeUserRandomly())
                     .setNegativeButton("No", null)
                     .show();
-        }else{
+        } else {
             changeUserRandomly();
         }
     }
 
     private void changeUserRandomly() {
         String newUserName = Utility.generateRandomName(userName);
-        SharedPreferences prefs = getSharedPreferences("ChatPrefs", MODE_PRIVATE);
-        prefs.edit().putString(PREF_USERNAME, newUserName).apply();
+        Utility.setCurrentUser(this, newUserName);
         userName = newUserName;
         adapter.setCurrentUserName(userName);
         Toast.makeText(this, "Your username: " + userName, Toast.LENGTH_LONG).show();
     }
-
 
 
     private void connectWebSocket() {
