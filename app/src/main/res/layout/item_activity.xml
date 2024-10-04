@@ -20,14 +20,16 @@
                 android:id="@+id/tvName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="18sp"
+                android:textSize="12sp"
+                android:textColor="#4A4A4A"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="14sp"
+                android:textColor="#808080"
+                android:textSize="12sp"
                 android:layout_marginTop="2dp" />
 
             <TextView

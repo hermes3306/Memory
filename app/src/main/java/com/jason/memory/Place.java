@@ -2,6 +2,7 @@ package com.jason.memory;
 
 public class Place {
     private long id;
+    private String userId;
     private String country;
     private String type;
     private String name;
@@ -12,8 +13,10 @@ public class Place {
     private double lat;
     private double lon;
     private double alt;
-    private String memo;
+    private String memo = ""; // Initialize with empty string
     private String url;
+    private String comments;
+    private String whoLikes;
 
     // Constructor
     public Place(long id, String country, String type, String name, String address,
@@ -30,24 +33,16 @@ public class Place {
         this.lat = lat;
         this.lon = lon;
         this.alt = alt;
-        this.memo = memo;
+        this.memo = memo != null ? memo : "";
     }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     public Place(long id, String country, String type, String name, String address,
                  long firstVisited, int numberOfVisits, long lastVisited,
                  double lat, double lon, double alt, String memo, String url) {
-        this.id = id;
-        this.country = country;
-        this.type = type;
-        this.name = name;
-        this.address = address;
-        this.firstVisited = firstVisited;
-        this.numberOfVisits = numberOfVisits;
-        this.lastVisited = lastVisited;
-        this.lat = lat;
-        this.lon = lon;
-        this.alt = alt;
-        this.memo = memo;
+        this(id, country, type, name, address, firstVisited, numberOfVisits, lastVisited, lat, lon, alt, memo);
         this.url = url;
     }
 
@@ -68,7 +63,8 @@ public class Place {
     public double getLon() { return lon; }
     public double getAlt() { return alt; }
     public String getMemo() { return memo; }
-    public String getMapUrl() {return null;}
+    public String getUrl() { return url; }
+    public String getMapUrl() { return null; }
 
     // Setters
     public void setId(long id) { this.id = id; }
@@ -82,5 +78,34 @@ public class Place {
     public void setLat(double lat) { this.lat = lat; }
     public void setLon(double lon) { this.lon = lon; }
     public void setAlt(double alt) { this.alt = alt; }
-    public void setMemo(String memo) { this.memo = memo; }
+    public void setMemo(String memo) { this.memo = memo != null ? memo : ""; }
+    public void setUrl(String url) { this.url = url; }
+    public String getProfileImageUrl() {
+        return Config.PROFILE_BASE_URL + getUserId() + ".jpg";
+    }
+    public String getComments() {
+        return comments;
+    }
+
+    public void setComments(String comments) {
+        this.comments = comments;
+    }
+
+    public String getWhoLikes() {
+        return whoLikes;
+    }
+
+    public void setWhoLikes(String whoLikes) {
+        this.whoLikes = whoLikes;
+    }
+
+    @Override
+    public String toString() {
+        return "Place{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", address='" + address + '\'' +
+                ", memo='" + memo + '\'' +
+                '}';
+    }
 }

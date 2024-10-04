@@ -93,37 +93,6 @@ public class Utility {
         }.execute();
     }
 
-    private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
-        Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
-        Gson gson = new Gson();
-        try (FileReader reader = new FileReader(file)) {
-            MemoryItem[] memoryItems = gson.fromJson(reader, MemoryItem[].class);
-            Log.d(TAG, "--m-- Found " + memoryItems.length + " memory items in file");
-            for (MemoryItem memoryItem : memoryItems) {
-                if (memoryItem != null && memoryItem.getMemoryText() != null) {
-                    MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
-                    if (existingMemoryItem == null) {
-                        long newId = dbHelper.addMemoryItem(memoryItem);
-                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId + ", User ID: " + memoryItem.getUserId());
-                    } else {
-                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle() + ", User ID: " + memoryItem.getUserId());
-                        existingMemoryItem.setTimestamp(memoryItem.getTimestamp());
-                        existingMemoryItem.setLikes(memoryItem.getLikes());
-                        existingMemoryItem.setComments(memoryItem.getComments());
-                        existingMemoryItem.setUserId(memoryItem.getUserId()); // Ensure user ID is updated
-                        int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
-                        Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "--m-- Error in mergeMemoryItemsFromFile: " + e.getMessage(), e);
-            throw e;
-        }
-        Log.d(TAG, "--m-- Finished merging memory items from file: " + file.getName());
-    }
-
-
     private static void mergePlacesFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
         Log.d(TAG, "--m-- Starting to merge places from file: " + file.getName());
         Gson gson = new Gson();
@@ -135,13 +104,14 @@ public class Utility {
                     Place existingPlace = dbHelper.getPlaceByName(place.getName());
                     if (existingPlace == null) {
                         long newId = dbHelper.addPlace(place);
-                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId);
+                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId + ", Memo: " + place.getMemo());
                     } else {
                         Log.d(TAG, "--m-- Updating existing place: " + place.getName());
                         existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
                         existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
+                        existingPlace.setMemo(place.getMemo() != null && !place.getMemo().isEmpty() ? place.getMemo() : existingPlace.getMemo());
                         int updatedRows = dbHelper.updatePlace(existingPlace);
-                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows);
+                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows + ", Memo: " + existingPlace.getMemo());
                     }
                 }
             }
@@ -153,6 +123,42 @@ public class Utility {
     }
 
 
+
+    private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
+        Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
+        Gson gson = new Gson();
+        try (FileReader reader = new FileReader(file)) {
+            MemoryItem[] memoryItems = gson.fromJson(reader, MemoryItem[].class);
+            Log.d(TAG, "--m-- Found " + memoryItems.length + " memory items in file");
+            for (MemoryItem memoryItem : memoryItems) {
+                if (memoryItem != null && memoryItem.getMemoryText() != null) {
+                    MemoryItem existingMemoryItem = dbHelper.getMemoryItemByText(memoryItem.getMemoryText());
+                    if (existingMemoryItem == null) {
+                        long newId = dbHelper.addMemoryItem(memoryItem);
+                        Log.d(TAG, "--m-- Added new memory item: " + memoryItem.getTitle() + " with ID: " + newId +
+                                ", User ID: " + memoryItem.getUserId() +
+                                ", Who likes: " + memoryItem.getWhoLikes());
+                    } else {
+                        Log.d(TAG, "--m-- Updating existing memory item: " + memoryItem.getTitle() +
+                                ", User ID: " + memoryItem.getUserId() +
+                                ", Who likes: " + memoryItem.getWhoLikes());
+                        existingMemoryItem.setTimestamp(memoryItem.getTimestamp());
+                        existingMemoryItem.setLikes(memoryItem.getLikes());
+                        existingMemoryItem.setComments(memoryItem.getComments());
+                        existingMemoryItem.setUserId(memoryItem.getUserId());
+                        existingMemoryItem.setPictures(memoryItem.getPictures());
+                        existingMemoryItem.setWhoLikes(memoryItem.getWhoLikes());
+                        int updatedRows = dbHelper.updateMemoryItem(existingMemoryItem);
+                        Log.d(TAG, "--m-- Updated memory item, rows affected: " + updatedRows);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "--m-- Error in mergeMemoryItemsFromFile: " + e.getMessage(), e);
+            throw e;
+        }
+        Log.d(TAG, "--m-- Finished merging memory items from file: " + file.getName());
+    }
     private static List<String> fetchJSONFileList(String ext) throws IOException {
         if (ext.startsWith(".")) {
             ext = ext.substring(1);
@@ -657,7 +663,7 @@ public class Utility {
         String fileName = fileNameFormat.format(new Date(activity.getStartTimestamp())) + ".csv";
         Log.d(TAG, "--m-- Saving activity to file: " + fileName);
 
-        File directory = Config.getDownloadDir();
+        File directory = Config.getDownloadDir(context);
 
         if (!directory.exists()) {
             boolean dirCreated = directory.mkdirs();

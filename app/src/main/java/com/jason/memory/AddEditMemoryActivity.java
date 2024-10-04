@@ -441,7 +441,12 @@ public class AddEditMemoryActivity extends AppCompatActivity {
         Log.d(TAG, "--m-- Resizing bitmap");
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
-        float scaleFactor = Math.min((float) maxDimension / width, (float) maxDimension / height);
+        float scaleFactor = Math.max((float) maxDimension / width, (float) maxDimension / height);
+
+        if (scaleFactor > 1) {
+            return bitmap; // If the image is smaller than maxDimension, don't upscale
+        }
+
         return Bitmap.createScaledBitmap(bitmap, Math.round(width * scaleFactor), Math.round(height * scaleFactor), true);
     }
 

@@ -30,7 +30,17 @@ public class MemoryItem {
         this.memoryText = memoryText;
         this.pictures = new ArrayList<>();
         this.comments = new ArrayList<>();
+        this.likes = 0;
         this.whoLikes = "";
+    }
+
+    public String getWhoLikes() {
+        return whoLikes;
+    }
+
+    public void setWhoLikes(String whoLikes) {
+        this.whoLikes = whoLikes;
+        updateLikesCount();
     }
 
     public MemoryItem(String title, long timestamp, String memoryText) {
@@ -47,7 +57,20 @@ public class MemoryItem {
         } else if (!isLikedBy(userId)) {
             whoLikes += "," + userId;
         }
-        likes = whoLikes.split(",").length;
+        updateLikesCount();
+    }
+
+    public void removeLike(String userId) {
+        if (isLikedBy(userId)) {
+            List<String> likers = new ArrayList<>(Arrays.asList(whoLikes.split(",")));
+            likers.remove(userId);
+            whoLikes = String.join(",", likers);
+            updateLikesCount();
+        }
+    }
+
+    private void updateLikesCount() {
+        likes = whoLikes.isEmpty() ? 0 : whoLikes.split(",").length;
     }
 
     // Add getter and setter
@@ -99,20 +122,22 @@ public class MemoryItem {
     public void setAudio(String audio) { this.audio = audio; }
     public String getHashtag() { return hashtag; }
     public void setHashtag(String hashtag) { this.hashtag = hashtag; }
-    public int getLikes() { return likes; }
     public void setLikes(int likes) { this.likes = likes; }
     public List<String> getPictures() { return pictures; }
     public void setPictures(List<String> pictures) { this.pictures = pictures; }
     public List<String> getComments() { return comments; }
     public void setComments(List<String> comments) { this.comments = comments; }
-    public String getWhoLikes() { return whoLikes; }
-    public void setWhoLikes(String whoLikes) { this.whoLikes = whoLikes; }
+
 
     public void addPicture(String pictureUrl) {
         if (this.pictures == null) {
             this.pictures = new ArrayList<>();
         }
         this.pictures.add(pictureUrl);
+    }
+
+    public int getLikes() {
+        return likes;
     }
 
 

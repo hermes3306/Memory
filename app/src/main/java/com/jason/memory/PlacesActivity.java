@@ -2,16 +2,21 @@ package com.jason.memory;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.Switch;
@@ -55,6 +60,13 @@ import android.graphics.Typeface;
 import android.text.SpannableString;
 import android.text.style.StyleSpan;
 import android.graphics.Typeface;
+import android.app.AlertDialog;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.TextView;
+import android.widget.Toast;
+import com.bumptech.glide.Glide;
+import de.hdodenhof.circleimageview.CircleImageView;
 
 public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallback {
     private RecyclerView recyclerView;
@@ -70,6 +82,8 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private static final int MAX_ZOOM = 21;
     private int currentZoom = DEFAULT_ZOOM;
     private boolean isMapSizeReduced = false;
+    private EditText searchEditText;
+    private static String TAG = "PlacesActivity";
 
     private List<Locale> getSupportedLocales() {
         List<Locale> locales = new ArrayList<>();
@@ -78,6 +92,65 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         locales.add(Locale.CHINESE);
         locales.add(Locale.JAPANESE);
         return locales;
+    }
+
+    private void onUserIdClick(String userId) {
+        // Handle user ID click, e.g., open a user profile page
+        Toast.makeText(this, "User ID clicked: " + userId, Toast.LENGTH_SHORT).show();
+    }
+
+    private void showUserProfileDialog(String userId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_user_profile, null);
+        builder.setView(dialogView);
+
+        CircleImageView profileImageView = dialogView.findViewById(R.id.profileImageView);
+        TextView userIdTextView = dialogView.findViewById(R.id.userIdTextView);
+        TextView userInfoTextView = dialogView.findViewById(R.id.userInfoTextView);
+
+        userIdTextView.setText(userId);
+
+        // Load user profile image
+        String profileImageUrl = getUserProfileImageUrl(userId);
+        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            Glide.with(this)
+                    .load(profileImageUrl)
+                    .placeholder(R.drawable.default_profile)
+                    .error(R.drawable.default_profile)
+                    .into(profileImageView);
+        } else {
+            profileImageView.setImageResource(R.drawable.default_profile);
+        }
+
+        // Load user info
+        String userInfo = getUserInfo(userId);
+        userInfoTextView.setText(userInfo);
+
+        builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private String getUserProfileImageUrl(String userId) {
+        // TODO: Implement this method to get the user's profile image URL
+        // For now, return null or a default image URL
+        return null;
+    }
+
+    private String getUserInfo(String userId) {
+        // TODO: Implement this method to get the user's information
+        // For now, return a placeholder text
+        return "User information for " + userId;
+    }
+
+    private void openFullScreenImage(ArrayList<String> imageUrls, int position, boolean isProfileImage) {
+        Log.d(TAG, "--m-- Opening full screen image: position " + position + ", isProfileImage: " + isProfileImage);
+        Intent intent = new Intent(this, FullScreenImageActivity.class);
+        intent.putStringArrayListExtra("IMAGE_URLS", imageUrls);
+        intent.putExtra("POSITION", position);
+        intent.putExtra("IS_PROFILE_IMAGE", isProfileImage);
+        startActivity(intent);
     }
 
     @Override
@@ -91,7 +164,29 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         RecyclerView recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        adapter = new PlacesAdapter(this::onPlaceClick, dbHelper);
+        adapter = new PlacesAdapter(new PlacesAdapter.OnPlaceClickListener() {
+            @Override
+            public void onPlaceClick(Place place) {
+                PlacesActivity.this.onPlaceClick(place);
+            }
+
+            @Override
+            public void onUserIdClick(String userId) {
+                PlacesActivity.this.showUserProfileDialog(userId);
+            }
+
+            @Override
+            public void onProfileImageClick(String imageUrl) {
+                if (imageUrl != null && !imageUrl.isEmpty()) {
+                    ArrayList<String> imageUrls = new ArrayList<>();
+                    imageUrls.add(imageUrl);
+                    PlacesActivity.this.openFullScreenImage(imageUrls, 0, true);
+                } else {
+                    Toast.makeText(PlacesActivity.this, "No profile image available", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }, dbHelper, this);
+
         recyclerView.setAdapter(adapter);
 
         // Initialize supported locales
@@ -111,8 +206,16 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         ImageButton searchButton = findViewById(R.id.searchButton);
         searchButton.setOnClickListener(v -> searchPlace());
 
-        ImageButton saveButton = findViewById(R.id.saveButton);
-        saveButton.setOnClickListener(v -> savePlace());
+        searchEditText = findViewById(R.id.searchEditText);
+        searchEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER && event.getAction() == KeyEvent.ACTION_DOWN)) {
+                performSearch();
+                return true;
+            }
+            return false;
+        });
+
 
 
         // Initialize the map
@@ -122,7 +225,77 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             mapFragment.getMapAsync(this);
         }
 
+        setupBottomNavigation();
+
     }
+
+
+    private void setupBottomNavigation() {
+        // Find layout views
+        View chatLayout = findViewById(R.id.chatLayout);
+        View runLayout = findViewById(R.id.runLayout);
+        View memoryLayout = findViewById(R.id.memoryLayout);
+        View placeLayout = findViewById(R.id.placeLayout);
+        View meLayout = findViewById(R.id.meLayout);
+
+        // Find icon views
+        ImageView chatIcon = findViewById(R.id.iconChat);
+        ImageView runIcon = findViewById(R.id.iconRun);
+        ImageView memoryIcon = findViewById(R.id.iconMemory);
+        ImageView placeIcon = findViewById(R.id.iconPlace);
+        ImageView meIcon = findViewById(R.id.iconMe);
+
+        // Set default icon colors
+        chatIcon.setImageResource(R.drawable.ht_chat);
+        runIcon.setImageResource(R.drawable.ht_run);
+        memoryIcon.setImageResource(R.drawable.ht_memory);
+        placeIcon.setImageResource(R.drawable.ht_place_blue);
+        meIcon.setImageResource(R.drawable.ht_my);
+
+        // Add click listeners for bottom navigation layouts
+        chatLayout.setOnClickListener(v -> openChatActivity());
+        runLayout.setOnClickListener(v -> openListActivityActivity());
+        memoryLayout.setOnClickListener(v -> openMemoryActivity());
+        //placeLayout.setOnClickListener(v -> openPlacesActivity());
+        meLayout.setOnClickListener(v -> openSettingActivity());
+    }
+
+    private void performSearch() {
+        String searchText = searchEditText.getText().toString().trim();
+        if (!searchText.isEmpty()) {
+            try {
+                List<Place> searchResults = dbHelper.searchPlacesByText(searchText);
+                adapter.submitList(searchResults);
+                updateMap();
+                Toast.makeText(this, searchResults.size() + " places found", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "Error searching places: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void openChatActivity() {
+        Intent intent = new Intent(this, ChatActivity.class);
+        startActivity(intent);
+    }
+
+    private void openListActivityActivity() {
+        Intent intent = new Intent(this, ListActivityActivity.class);
+        startActivity(intent);
+    }
+
+    private void openMemoryActivity() {
+        Intent intent = new Intent(this, MemoryActivity.class);
+        startActivity(intent);
+    }
+
+    private void openSettingActivity() {
+        Intent intent = new Intent(this, SettingActivity.class);
+        startActivity(intent);
+    }
+
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -135,14 +308,27 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     }
 
     private void syncWithServer() {
-        new AlertDialog.Builder(this)
-                .setTitle("Sync with Server")
-                .setMessage("Do you want to download and merge the latest data from the server?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    Utility.downloadJsonAndMergeServerData(this, Config.PLACE_EXT, dbHelper, this::onSyncComplete);
-                })
-                .setNegativeButton("No", null)
-                .show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Sync with Server")
+                .setItems(new CharSequence[]{"Upload", "Download", "Both"}, (dialog, which) -> {
+                    switch (which) {
+                        case 0: // Upload
+                            savePlace();
+                            break;
+                        case 1: // Download
+                            downloadFromServer();
+                            break;
+                        case 2: // Both
+                            savePlace();
+                            downloadFromServer();
+                            break;
+                    }
+                });
+        builder.create().show();
+    }
+
+    private void downloadFromServer() {
+        Utility.downloadJsonAndMergeServerData(this, Config.PLACE_EXT, dbHelper, this::onSyncComplete);
     }
 
     private void onSyncComplete(boolean success) {
@@ -161,13 +347,12 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
 
     private void savePlace() {
         try {
-            // 1. Save JSON format for all places
             List<Place> allPlaces = dbHelper.getAllPlaces();
             Gson gson = new Gson();
             String jsonPlaces = gson.toJson(allPlaces);
 
             // Create file in the download directory
-            File directory = Config.getDownloadDir4Places();
+            File directory = Config.getDownloadDir4Places(this);
             if (!directory.exists()) {
                 directory.mkdirs();
             }
@@ -179,16 +364,16 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             writer.write(jsonPlaces);
             writer.close();
 
-            // 2. Upload file to server
+            // Upload file to server
             Utility.uploadFile(this, file);
 
-            // 3. Show toast for save result
             Toast.makeText(this, "Places saved to " + file.getAbsolutePath(), Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
             Toast.makeText(this, "Error saving places: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
+
 
     private void searchPlace() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -402,6 +587,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             String type = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
             String country = countryInput.getText().toString().trim();
 
+
             if (name.isEmpty() || address.isEmpty() || type.isEmpty() || country.isEmpty()) {
                 Toast.makeText(PlacesActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
                 return;
@@ -479,9 +665,9 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         builder.setView(dialogView);
 
         final EditText nameInput = dialogView.findViewById(R.id.nameInput);
-        final EditText addressInput = dialogView.findViewById(R.id.addressInput);
+        final TextView addressInput = dialogView.findViewById(R.id.addressInput);
         final Spinner typeSpinner = dialogView.findViewById(R.id.typeSpinner);
-        final EditText countryInput = dialogView.findViewById(R.id.countryInput);
+        final TextView countryInput = dialogView.findViewById(R.id.countryInput);
         final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
         final Spinner localeSpinner = dialogView.findViewById(R.id.localeSpinner);
         final TextView visitedDateView = dialogView.findViewById(R.id.vistedDateView);
@@ -512,19 +698,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             typeSpinner.setSelection(typePosition);
         }
 
-        // Set up listener for localeSpinner
-        localeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position > 0) {
-                    Locale selectedLocale = supportedLocales.get(position - 1);
-                    updateAddressInfo(new LatLng(place.getLat(), place.getLon()), addressInput, countryInput, selectedLocale);
-                }
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
 
         builder.setPositiveButton("Update", null);
         builder.setNegativeButton("Delete", null);
@@ -593,7 +766,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         });
     }
 
-    private void updateAddressInfo(LatLng location, EditText addressInput, EditText countryInput, Locale locale) {
+    private void updateAddressInfo(LatLng location, TextView addressInput, TextView countryInput, Locale locale) {
         Geocoder geocoder = new Geocoder(this, locale);
         try {
             List<Address> addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1);
