@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
 
     <application
         android:allowBackup="true"
@@ -22,6 +23,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Memory"
         tools:targetApi="31">
+        <activity
+            android:name=".lab.LabRunActivity"
+            android:exported="false" />
+        <activity
+            android:name=".Post"
+            android:exported="false" />
         <activity
             android:name=".FullScreenImageActivity"
             android:exported="false" />
@@ -52,7 +59,7 @@
             android:name=".ChatActivity"
             android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".ListActivityActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -60,11 +67,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".LabActivity" />
         <activity
             android:name=".MonitorActivity"
             android:exported="false" />
         <activity
             android:name=".MemoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".PostActivity"
             android:exported="false" />
         <activity
             android:name=".MyActivity"
@@ -74,7 +85,6 @@
             android:name=".RunningMapActivity"
             android:label="@string/title_activity_running_map" />
         <activity android:name=".ListCloudActivity" />
-        <activity android:name=".ListActivityActivity" />
         <activity android:name=".ActivityDetailActivity" />
         <activity android:name=".ActivityCloudDetailActivity" />
         <activity android:name=".FileActivity" />
@@ -89,6 +99,14 @@
         <service
             android:name=".LocationService"
             android:foregroundServiceType="location" />
+
+        <service
+            android:name=".lab.ActivityRecognitionIntentService"
+            android:exported="false" />
+
+        <receiver
+            android:name=".lab.ActivityRecognitionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

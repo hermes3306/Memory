@@ -29,6 +29,8 @@ public class FileActivity extends AppCompatActivity {
     private FileAdapter adapter;
     private List<ActivityData> activityList;
     private ProgressBar progressBar;
+    private static final int BATCH_SIZE = 50;
+    private int currentFileIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,7 +43,7 @@ public class FileActivity extends AppCompatActivity {
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         activityList = new ArrayList<>();
-        adapter = new FileAdapter(activityList, activity -> {
+        adapter = new FileAdapter(this, activityList, activity -> {
             Log.d(TAG, "--m-- onItemClick: Starting ActivityDetailActivity for " + activity.getName());
             Intent intent = new Intent(FileActivity.this, ActivityDetailActivity.class);
             intent.putExtra("ACTIVITY_FILENAME", activity.getName() + ".csv");
@@ -63,14 +65,11 @@ public class FileActivity extends AppCompatActivity {
     }
 
 
-    private static final int BATCH_SIZE = 50;
-    private int currentFileIndex = 0;
-
     private void loadFileList() {
         Log.d(TAG, "--m-- loadFileList: Starting to load file list");
         showProgressBar(true);
         new Thread(() -> {
-            File directory = Config.getDownloadDir();
+            File directory = Config.getDownloadDir(this);
             File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
 
             if (files == null || files.length == 0) {
@@ -84,6 +83,7 @@ public class FileActivity extends AppCompatActivity {
             loadNextBatch(files);
         }).start();
     }
+
 
     private void loadNextBatch(File[] files) {
         int endIndex = Math.min(currentFileIndex + BATCH_SIZE, files.length);
@@ -108,13 +108,11 @@ public class FileActivity extends AppCompatActivity {
         });
     }
 
-
     private ActivityData parseActivityDataFromFile(File file) {
         Log.d(TAG, "--m-- parseActivityDataFromFile: Parsing file: " + file.getName());
         try (BufferedReader reader = new BufferedReader(new java.io.FileReader(file))) {
             String line;
             reader.readLine(); // Skip header
-
 
             String firstLine = reader.readLine();
             if (firstLine == null) {
@@ -136,12 +134,10 @@ public class FileActivity extends AppCompatActivity {
             String lastLine = firstLine;
             String previousLine = null;
 
-
             while ((line = reader.readLine()) != null) {
                 previousLine = lastLine;
                 lastLine = line;
             }
-
 
             String[] lastParts = lastLine.split(",");
             if (lastParts.length < 4) {
@@ -159,12 +155,7 @@ public class FileActivity extends AppCompatActivity {
             String name = file.getName().replace(".csv", "");
             double distance = calculateDistance(firstParts, lastParts);
             long elapsedTime = endTimestamp - startTimestamp;
-            String address = "";
-            try {
-                address = getAddress(Double.parseDouble(firstParts[0]), Double.parseDouble(firstParts[1]));
-            } catch(Exception e) {
-                Log.e(TAG, "--m-- " + e.getMessage());
-            }
+            String address = getAddress(Double.parseDouble(firstParts[0]), Double.parseDouble(firstParts[1]));
 
             Log.d(TAG, "--m-- parseActivityDataFromFile: Successfully parsed activity: " + name);
             return new ActivityData(0, "run", name, startTimestamp, endTimestamp, 0, 0, distance, elapsedTime, address);

@@ -90,7 +90,7 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
     }
 
     private ActivityData loadActivityFromFile(String filename) {
-        File directory = Config.getDownloadDir();
+        File directory = Config.getDownloadDir(this);
         File file = new File(directory, filename);
         if (!file.exists()) {
             return null;
@@ -227,7 +227,7 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
         SimpleDateFormat fileNameFormat = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
         String fileName = fileNameFormat.format(new Date(activity.getStartTimestamp())) + ".csv";
 
-        File directory = Config.getDownloadDir();
+        File directory = Config.getDownloadDir(this);
 
         if (!directory.exists()) {
             directory.mkdirs();
@@ -428,7 +428,7 @@ public class ActivityDetailActivity extends AppCompatActivity implements OnMapRe
             // If the activity is not from the database, we need to load locations from the file
             // We'll use the activity name as the filename
             String filename = activity.getName() + ".csv"; // Assuming the file extension is .csv
-            File directory = Config.getDownloadDir();
+            File directory = Config.getDownloadDir(this);
             locations = loadLocationsFromFile(new File(directory, filename));
         }
 

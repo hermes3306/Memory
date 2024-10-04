@@ -59,20 +59,20 @@ public class FileViewActivity extends AppCompatActivity implements FileViewListA
     }
 
     private void updateFileList(String fileType) {
-        File directory = Config.getDownloadDir();
+        File directory = Config.getDownloadDir(this);
         File[] files;
         switch (fileType) {
             case "Activity":
-                files = Config.getDownloadDir().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.ACTIVITY_EXT));
+                files = Config.getDownloadDir(this).listFiles((dir, name) -> name.toLowerCase().endsWith(Config.ACTIVITY_EXT));
                 break;
             case "Memory":
-                files = Config.getDownloadDir4Memories().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.MEMORY_EXT));
+                files = Config.getDownloadDir4Memories(this).listFiles((dir, name) -> name.toLowerCase().endsWith(Config.MEMORY_EXT));
                 break;
             case "Place":
-                files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.PLACE_EXT));
+                files = Config.getDownloadDir4Places(this).listFiles((dir, name) -> name.toLowerCase().endsWith(Config.PLACE_EXT));
                 break;
             case "Daily":
-                files = Config.getDownloadDir4Places().listFiles((dir, name) -> name.toLowerCase().endsWith(Config.DAILY_EXT));
+                files = Config.getDownloadDir4Places(this).listFiles((dir, name) -> name.toLowerCase().endsWith(Config.DAILY_EXT));
                 break;
 
             default:

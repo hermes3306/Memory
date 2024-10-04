@@ -1,6 +1,8 @@
 package com.jason.memory;
 
 import android.content.Context;
+import android.content.Intent;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,7 +28,7 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
     private List<MemoryItem> memoryItems;
     private OnMemoryClickListener listener;
     private Context context;
-    CircleImageView profileImageView;
+    private String TAG = "MemoryAdapter";
 
     public interface OnMemoryClickListener {
         void onMemoryClick(long memoryId);
@@ -37,6 +39,10 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         boolean hasUserLikedMemory(long memoryId, String userId);
         void onLikeCountClick(long memoryId);
         void onCommentCountClick(long memoryId);
+        void onUserIdClick(String userId);
+        void onTitleClick(String title);
+        void onDateClick(String date);
+        void onContentClick(String content);
     }
 
     public MemoryAdapter(List<MemoryItem> memoryItems, OnMemoryClickListener listener, Context context) {
@@ -44,6 +50,8 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         this.listener = listener;
         this.context = context;
     }
+
+
 
     @NonNull
     @Override
@@ -67,70 +75,110 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         notifyDataSetChanged();
     }
 
+    private void openFullScreenImage(ArrayList<String> imageUrls, int position, boolean isProfileImage) {
+        Log.d(TAG, "--m-- Opening full screen image: position " + position + ", isProfileImage: " + isProfileImage);
+        Intent intent = new Intent(context, FullScreenImageActivity.class);
+        intent.putStringArrayListExtra("IMAGE_URLS", imageUrls);
+        intent.putExtra("POSITION", position);
+        intent.putExtra("IS_PROFILE_IMAGE", isProfileImage);
+        context.startActivity(intent);
+    }
+
     @Override
     public void onBindViewHolder(@NonNull MemoryViewHolder holder, int position) {
         MemoryItem item = memoryItems.get(position);
+        String currentUserId = getCurrentUserId();
+
+        holder.usernameTextView.setText(item.getUserId());
+        holder.usernameTextView.setOnClickListener(v -> listener.onUserIdClick(item.getUserId()));
 
         holder.titleTextView.setText(item.getTitle());
-        holder.dateTextView.setText(item.getFormattedDate());
-        holder.memoryTextView.setText(item.getMemoryText());
+        holder.titleTextView.setOnClickListener(v -> listener.onTitleClick(item.getTitle()));
 
-        // Load the user's profile picture
+        holder.dateTextView.setText(item.getFormattedDate());
+        holder.dateTextView.setOnClickListener(v -> listener.onDateClick(item.getFormattedDate()));
+
+        holder.memoryTextView.setText(item.getMemoryText());
+        holder.memoryTextView.setOnClickListener(v -> listener.onContentClick(item.getMemoryText()));
+        holder.memoryTextView.post(() -> {
+            if (holder.memoryTextView.getLineCount() > 10) {
+                holder.continueTextView.setVisibility(View.VISIBLE);
+                holder.isExpanded = false;
+                holder.memoryTextView.setMaxLines(10);
+            } else {
+                holder.continueTextView.setVisibility(View.GONE);
+            }
+        });
+
+        holder.continueTextView.setOnClickListener(v -> {
+            if (holder.isExpanded) {
+                holder.memoryTextView.setMaxLines(10);
+                holder.continueTextView.setText("(continue)");
+            } else {
+                holder.memoryTextView.setMaxLines(Integer.MAX_VALUE);
+                holder.continueTextView.setText("(collapse)");
+            }
+            holder.isExpanded = !holder.isExpanded;
+        });
+
         String profileImageUrl = item.getUserProfileImageUrl();
+        Log.d(TAG, "--m-- Loading profile image: " + profileImageUrl);
+
         Glide.with(context)
                 .load(profileImageUrl)
-                .placeholder(R.drawable.default_profile_image)
-                .error(R.drawable.default_profile_image)
+                .placeholder(R.drawable.default_profile)
+                .error(R.drawable.default_profile)
                 .into(holder.profileImageView);
 
-        // Set up pictures RecyclerView
         List<String> pictures = item.getPictures();
         if (pictures != null && !pictures.isEmpty()) {
-            holder.picturesRecyclerView.setVisibility(View.VISIBLE);
+            Log.d(TAG, "--m-- Memory has " + pictures.size() + " pictures");
             MemoryPictureAdapter pictureAdapter = new MemoryPictureAdapter(pictures, context);
             holder.picturesRecyclerView.setAdapter(pictureAdapter);
             holder.picturesRecyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false));
+            holder.picturesRecyclerView.setVisibility(View.VISIBLE);
         } else {
+            Log.d(TAG, "--m-- Memory has no pictures");
             holder.picturesRecyclerView.setVisibility(View.GONE);
         }
 
-        String currentUserId = getCurrentUserId();
-        holder.usernameTextView.setText(item.getUserId()); // Display the correct user ID
-        boolean isLiked = listener.hasUserLikedMemory(item.getId(), currentUserId);
+        updateLikeUI(holder, item, currentUserId);
 
-        updateLikeUI(holder, isLiked, item.getLikes());
-
-        holder.likeCountTextView.setText(String.valueOf(item.getLikes()));
+        holder.profileImageView.setOnClickListener(v -> {
+            Log.d(TAG, "--m-- Profile image clicked: " + item.getUserProfileImageUrl());
+            ArrayList<String> profileImageList = new ArrayList<>();
+            profileImageList.add(item.getUserProfileImageUrl());
+            openFullScreenImage(profileImageList, 0, true);
+        });
 
         holder.likeIcon.setOnClickListener(v -> {
-            if (isLiked) {
-                // Unlike
+            boolean wasLiked = item.getWhoLikes().contains(currentUserId);
+            if (wasLiked) {
                 listener.onUnlikeClick(item.getId(), currentUserId);
-                int newLikeCount = Math.max(0, item.getLikes() - 1);
-                item.setLikes(newLikeCount);
-                updateLikeUI(holder, false, newLikeCount);
+                item.removeLike(currentUserId);
             } else {
-                // Like
                 listener.onLikeClick(item.getId(), currentUserId);
-                int newLikeCount = item.getLikes() + 1;
-                item.setLikes(newLikeCount);
-                updateLikeUI(holder, true, newLikeCount);
+                item.addLike(currentUserId);
             }
+            updateLikeUI(holder, item, currentUserId);
+
             String postUserId = item.getUserId();
             String whoLikes = item.getWhoLikes();
+            Log.d(TAG, "--m-- Like clicked - Post User ID: " + postUserId +
+                    ", Who likes: " + whoLikes +
+                    ", Current user: " + currentUserId +
+                    ", Is liked: " + !wasLiked);
             Toast.makeText(context,
                     "Post User ID: " + postUserId +
-                            ",Who likes: " + whoLikes +
-                            ",Current user: " + currentUserId,
+                            ", Who likes: " + whoLikes +
+                            ", Current user: " + currentUserId,
                     Toast.LENGTH_LONG).show();
         });
 
-        // Set comment count and show comments
         List<String> comments = item.getComments();
         int commentCount = comments != null ? comments.size() : 0;
         holder.commentCountTextView.setText(String.valueOf(commentCount));
 
-        // Set up comments RecyclerView
         if (comments != null && !comments.isEmpty()) {
             holder.commentsRecyclerView.setVisibility(View.VISIBLE);
             CommentAdapter commentAdapter = new CommentAdapter(comments);
@@ -140,7 +188,6 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
             holder.commentsRecyclerView.setVisibility(View.GONE);
         }
 
-        // Handle comment click
         holder.commentIcon.setOnClickListener(v -> {
             holder.commentInputLayout.setVisibility(View.VISIBLE);
         });
@@ -153,7 +200,6 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
             listener.onCommentCountClick(item.getId());
         });
 
-        // Handle comment send
         holder.commentSendButton.setOnClickListener(v -> {
             String newComment = holder.commentEditText.getText().toString().trim();
             if (!newComment.isEmpty()) {
@@ -175,13 +221,26 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         });
     }
 
-    private void updateLikeUI(MemoryViewHolder holder, boolean isLiked, int likeCount) {
+    private void updateLikeUI(MemoryViewHolder holder, MemoryItem item, String currentUserId) {
+        boolean isLiked = item.getWhoLikes().contains(currentUserId);
         int color = isLiked ? context.getResources().getColor(R.color.Red) : context.getResources().getColor(R.color.Gray);
         holder.likeIcon.setColorFilter(color);
         holder.likeCountTextView.setTextColor(color);
-        holder.likeCountTextView.setText(String.valueOf(likeCount));
-    }
+        holder.likeCountTextView.setText(String.valueOf(item.getLikes()));
 
+        if (isLiked) {
+            holder.likeIcon.animate()
+                    .scaleX(1.2f)
+                    .scaleY(1.2f)
+                    .setDuration(200)
+                    .withEndAction(() -> holder.likeIcon.animate()
+                            .scaleX(1f)
+                            .scaleY(1f)
+                            .setDuration(200)
+                            .start())
+                    .start();
+        }
+    }
 
     private String getCurrentUserId() {
         return Utility.getCurrentUser(context);
@@ -197,7 +256,6 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         TextView dateTextView;
         TextView memoryTextView;
         TextView usernameTextView;
-;
         ImageView likeIcon;
         TextView likeCountTextView;
         ImageView commentIcon;
@@ -207,7 +265,9 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         EditText commentEditText;
         ImageButton commentSendButton;
         CircleImageView profileImageView;
-        RecyclerView picturesRecyclerView; // Add this line
+        RecyclerView picturesRecyclerView;
+        TextView continueTextView;
+        boolean isExpanded = false;
 
         MemoryViewHolder(View itemView) {
             super(itemView);
@@ -224,7 +284,8 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
             commentEditText = itemView.findViewById(R.id.commentEditText);
             commentSendButton = itemView.findViewById(R.id.commentSendButton);
             profileImageView = itemView.findViewById(R.id.profileImageView);
-            picturesRecyclerView = itemView.findViewById(R.id.picturesRecyclerView); // Add this line
+            continueTextView = itemView.findViewById(R.id.continueTextView);
+            picturesRecyclerView = itemView.findViewById(R.id.picturesRecyclerView);
         }
     }
 
@@ -291,9 +352,15 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
         @Override
         public void onBindViewHolder(@NonNull PictureViewHolder holder, int position) {
             String pictureUrl = pictureUrls.get(position);
+            Log.d(TAG, "--m-- Loading memory picture: " + pictureUrl);
             Glide.with(context)
                     .load(pictureUrl)
                     .into(holder.imageView);
+
+            holder.imageView.setOnClickListener(v -> {
+                Log.d(TAG, "--m-- Memory picture clicked: " + pictureUrl);
+                openFullScreenImage(new ArrayList<>(pictureUrls), position, false);
+            });
         }
 
         @Override
@@ -310,5 +377,4 @@ public class MemoryAdapter extends RecyclerView.Adapter<MemoryAdapter.MemoryView
             }
         }
     }
-
 }

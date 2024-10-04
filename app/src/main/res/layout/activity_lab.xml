@@ -5,7 +5,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".LabActivity">
 
 <LinearLayout
     android:layout_width="match_parent"
@@ -23,13 +23,6 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="32dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Memory"
-            android:textSize="24sp"
-            android:layout_centerInParent="true"/>
-
         <ImageView
             android:id="@+id/settingsIcon"
             android:layout_width="24dp"
@@ -41,12 +34,27 @@
 
     </RelativeLayout>
 
-    <Button
-        android:id="@+id/memoryButton"
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Memory"
-        android:layout_marginBottom="16dp"/>
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="실험실:"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="8dp"/>
+
+        <Spinner
+            android:id="@+id/labSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+    </LinearLayout>
+
+
 
     <Button
         android:id="@+id/startServiceButton"
@@ -109,37 +117,6 @@
         android:layout_marginBottom="16dp">
 
         <Button
-            android:id="@+id/btnStartMyActivity"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Run"
-            android:layout_marginEnd="4dp"/>
-
-        <Button
-            android:id="@+id/btnChat"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Chat"
-            android:layout_marginStart="4dp"/>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
-
-        <Button
-            android:id="@+id/btnListActivity"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Act"
-            android:layout_marginEnd="4dp"/>
-
-        <Button
             android:id="@+id/btnListCloud"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -157,11 +134,9 @@
             android:layout_marginStart="4dp"/>
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnMyPlaces"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="My Places"/>
+
+
+
 
 </LinearLayout>
 
