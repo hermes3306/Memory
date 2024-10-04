@@ -116,6 +116,11 @@ public class MemoryItem {
     }
 
 
+    public String getUserProfileImageUrl() {
+        return Config.PROFILE_BASE_URL + getUserId() + ".jpg";
+    }
+
+
     public void addComment(String comment) {
         if (this.comments == null) {
             this.comments = new ArrayList<>();

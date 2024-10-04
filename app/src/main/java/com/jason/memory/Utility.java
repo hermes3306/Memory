@@ -22,6 +22,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
@@ -31,6 +32,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.UUID;
+
 import android.net.Uri;
 
 public class Utility {
@@ -205,61 +208,48 @@ public class Utility {
                     httpUrlConnection.setUseCaches(false);
                     httpUrlConnection.setDoInput(true);
                     httpUrlConnection.setDoOutput(true);
-                    httpUrlConnection.setConnectTimeout(15000);
-
                     httpUrlConnection.setRequestMethod("POST");
-                    httpUrlConnection.setRequestProperty("Connection", "Keep-Alive");
-                    httpUrlConnection.setRequestProperty("Cache-Control", "no-cache");
 
-                    String boundary = "*****";
-                    String crlf = "\r\n";
-                    String twoHyphens = "--";
+                    String boundary = "*****" + System.currentTimeMillis() + "*****";
+                    httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
 
-                    httpUrlConnection.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-
-                    DataOutputStream request = new DataOutputStream(httpUrlConnection.getOutputStream());
+                    OutputStream outputStream = httpUrlConnection.getOutputStream();
+                    DataOutputStream request = new DataOutputStream(outputStream);
 
                     // Add memoryId to the request
-                    request.writeBytes(twoHyphens + boundary + crlf);
-                    request.writeBytes("Content-Disposition: form-data; name=\"memoryId\"" + crlf);
-                    request.writeBytes(crlf);
-                    request.writeBytes(String.valueOf(memoryId));
-                    request.writeBytes(crlf);
+                    request.writeBytes("--" + boundary + "\r\n");
+                    request.writeBytes("Content-Disposition: form-data; name=\"memoryId\"\r\n\r\n");
+                    request.writeBytes(String.valueOf(memoryId) + "\r\n");
+
+
+                    String uniqueFileName = UUID.randomUUID().toString() + ".jpg";
 
                     // Add the image data
-                    request.writeBytes(twoHyphens + boundary + crlf);
-                    request.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"" + crlf);
-                    request.writeBytes("Content-Type: image/jpeg" + crlf);
-                    request.writeBytes("Content-Transfer-Encoding: binary" + crlf);
-                    request.writeBytes(crlf);
+                    request.writeBytes("--" + boundary + "\r\n");
+                    request.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + uniqueFileName + "\"\r\n");
+                    request.writeBytes("Content-Type: image/jpeg\r\n\r\n");
 
                     byte[] imageBytes = Base64.decode(base64Image, Base64.DEFAULT);
                     request.write(imageBytes);
 
-                    request.writeBytes(crlf);
-                    request.writeBytes(twoHyphens + boundary + twoHyphens + crlf);
-
+                    request.writeBytes("\r\n--" + boundary + "--\r\n");
                     request.flush();
-                    request.close();
 
                     int responseCode = httpUrlConnection.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_OK) {
                         BufferedReader in = new BufferedReader(new InputStreamReader(httpUrlConnection.getInputStream()));
-                        String inputLine;
                         StringBuilder response = new StringBuilder();
+                        String inputLine;
                         while ((inputLine = in.readLine()) != null) {
                             response.append(inputLine);
                         }
                         in.close();
-                        Log.d(TAG, "--m-- Image upload successful. Server response: " + response.toString());
                         return response.toString();
                     } else {
-                        Log.e(TAG, "--m-- Image upload failed. Server returned: " + responseCode);
                         return null;
                     }
-
                 } catch (Exception e) {
-                    Log.e(TAG, "--m-- Image upload failed: " + e.getMessage(), e);
+                    Log.e(TAG, "Error uploading image: " + e.getMessage(), e);
                     return null;
                 } finally {
                     if (httpUrlConnection != null) {
@@ -278,7 +268,6 @@ public class Utility {
             }
         }.execute();
     }
-
 
 
     private static List<String> fetchFileList() throws IOException {
@@ -364,6 +353,8 @@ public class Utility {
         }
     }
 
+
+
     public static void finalizeActivity_old(Context context, DatabaseHelper dbHelper, StravaUploader stravaUploader,
                                         long activityId, long startTimestamp, long endTimestamp,
                                         FinalizeCallback callback, StravaUploadCallback stravaCallback) {
@@ -421,6 +412,21 @@ public class Utility {
             Toast.makeText(context, "Unable to save activity(" + activityId + "): location data missing", Toast.LENGTH_SHORT).show();
             callback.onFinalize();
         }
+    }
+
+    public static void setCurrentUser(Context context, String userName) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREF_FILE_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString(Config.PREF_CURRENT_USER, userName).apply();
+    }
+
+    public static String getCurrentUser(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(Config.PREF_FILE_NAME, Context.MODE_PRIVATE);
+        String userName = prefs.getString(Config.PREF_CURRENT_USER, null);
+        if (userName == null) {
+            userName = generateRandomName("Unknown");
+            setCurrentUser(context, userName);
+        }
+        return userName;
     }
 
     public static void uploadLocationsToServer(Context context, List<LocationData> locations, String fileName) {
@@ -803,7 +809,40 @@ public class Utility {
     }
 
     public static String generateRandomName(String userName) {
-        String[] names = {"Ali", "Amy", "Ben", "Cloe", "Jack", "Kate", "Soyer", "Tayler"};
+        String[] names = {
+                // English names
+                "Ali", "Amy", "Ben", "Cloe", "Jack", "Kate", "Soyer", "Tayler",
+                "Emma", "Liam", "Olivia", "Noah", "Ava", "Ethan", "Sophia", "Mason",
+
+                // Chinese names
+                "Wei", "Xia", "Yong", "Mei", "Jian", "Ling", "Hao", "Fang",
+                "Chen", "Lei", "Xiu", "Yang", "Cheng", "Yan", "Jun", "Qing",
+
+                // Japanese names
+                "Hiroshi", "Yuki", "Kenji", "Sakura", "Takashi", "Aiko", "Haru", "Emi",
+                "Daiki", "Miyuki", "Kazuo", "Hana", "Ryu", "Yumi", "Akira", "Nao",
+
+                // Korean names
+                "Min-jun", "Seo-yeon", "Ji-hoon", "Soo-yun", "Jae-hwa", "Eun-ji", "Sung-min", "Hye-jin",
+                "Tae-hyun", "Da-eun", "Seung-hoon", "Yu-na", "Dong-hyun", "Ji-soo", "Byung-chul", "Min-seo",
+
+                // Arabic names
+                "Mohammed", "Fatima", "Ahmed", "Aisha", "Omar", "Layla", "Hassan", "Zainab",
+                "Yusuf", "Noor", "Khalid", "Amira", "Samir", "Rania", "Tariq", "Yasmin",
+
+                // Indian names
+                "Aarav", "Priya", "Arjun", "Neha", "Vikram", "Anjali", "Rahul", "Pooja",
+                "Amit", "Divya", "Raj", "Anita", "Sanjay", "Meera", "Vijay", "Sunita",
+
+                // Russian names
+                "Ivan", "Anastasia", "Dmitri", "Olga", "Sergei", "Tatiana", "Alexei", "Natasha",
+                "Mikhail", "Ekaterina", "Vladimir", "Svetlana", "Nikolai", "Marina", "Andrei", "Irina",
+
+                // Spanish names
+                "Carlos", "Maria", "Juan", "Sofia", "Miguel", "Isabella", "Antonio", "Gabriela",
+                "Javier", "Carmen", "Diego", "Elena", "Alejandro", "Valentina", "Ricardo", "Lucia"
+        };
+
         String newName;
         do {
             newName = names[new Random().nextInt(names.length)];

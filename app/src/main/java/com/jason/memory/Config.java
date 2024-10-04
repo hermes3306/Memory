@@ -25,6 +25,9 @@ public class Config {
     public static final String PREFS_NAME = "MyActivityPrefs";
     public static final String PREF_KEEP_SCREEN_ON = "keepScreenOn";
     public static final String PREF_LOCATION_VALIDATION = "pref_location_validation";
+    public static final String PREF_CURRENT_USER = "current_user";
+    public static final String PREF_FILE_NAME = "com.jason.memory.prefs";
+
 
     public  static final String PREF_RUN_TYPE = "runType";
     public static final String RUN_TYPE_MEMORY = "memory";
