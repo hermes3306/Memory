@@ -37,6 +37,20 @@ public class Place {
         this.userId = userId;
     }
 
+    public int getLikeCount() {
+        if (whoLikes == null || whoLikes.isEmpty()) {
+            return 0;
+        }
+        return whoLikes.split(",").length;
+    }
+
+    public int getCommentCount() {
+        if (comments == null || comments.isEmpty()) {
+            return 0;
+        }
+        return comments.split("\n").length;
+    }
+
     // Constructor with URL
     public Place(long id, String country, String type, String name, String address,
                  long firstVisited, int numberOfVisits, long lastVisited,

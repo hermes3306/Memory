@@ -104,6 +104,19 @@
             android:name=".lab.ActivityRecognitionIntentService"
             android:exported="false" />
 
+        <activity
+            android:name=".lab.StravaActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="memorylab"
+                    android:host="strava-callback" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".lab.ActivityRecognitionReceiver"
             android:exported="false" />

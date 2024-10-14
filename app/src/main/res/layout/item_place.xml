@@ -133,8 +133,8 @@
 
             <ImageView
                 android:id="@+id/likeIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_like"
                 android:layout_marginEnd="4dp"/>
 
@@ -153,8 +153,8 @@
 
             <ImageView
                 android:id="@+id/commentIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_comment"
                 android:layout_marginEnd="4dp"/>
 
@@ -165,6 +165,18 @@
                 android:textSize="12sp"
                 android:textColor="#808080"/>
         </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/commentsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <!-- This will be populated dynamically in the adapter -->
+
     </LinearLayout>
 
     <View
