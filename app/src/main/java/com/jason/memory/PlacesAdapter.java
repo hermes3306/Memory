@@ -6,6 +6,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.ListAdapter;
@@ -37,6 +38,12 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import android.graphics.Color;
 import android.location.Location;
+import androidx.core.content.ContextCompat;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.util.TypedValue;
+import android.view.ViewGroup;
 
 public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHolder> {
     private OnPlaceClickListener listener;
@@ -48,6 +55,9 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
         void onPlaceClick(Place place);
         void onUserIdClick(String userId);
         void onProfileImageClick(String imageUrl);
+        void onLikeClick(Place place);
+        void onCommentClick(Place place);
+        void onShowWhoLikes(Place place);
     }
 
     public PlacesAdapter(OnPlaceClickListener listener, DatabaseHelper dbHelper, Context context) {
@@ -77,10 +87,32 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
     }
 
 
-
     @Override
     public void onBindViewHolder(@NonNull PlaceViewHolder holder, int position) {
         Place place = getItem(position);
+        holder.likeCount.setText(String.valueOf(place.getLikeCount()));
+        holder.commentCount.setText(String.valueOf(place.getCommentCount()));
+
+        int likeCount = place.getLikeCount();
+        holder.likeCount.setText(String.valueOf(likeCount));
+
+        String currentUserId = Utility.getCurrentUser(holder.itemView.getContext());
+        boolean isLiked = place.getWhoLikes() != null && place.getWhoLikes().contains(currentUserId);
+
+        int color;
+        if (isLiked) {
+            color = ContextCompat.getColor(holder.itemView.getContext(), R.color.liked_color);
+        } else {
+            color = ContextCompat.getColor(holder.itemView.getContext(), R.color.unliked_color);
+        }
+        holder.likeIcon.setColorFilter(color);
+
+        holder.likeIcon.setOnClickListener(v -> {
+            if (listener != null) {  // Change this line
+                listener.onLikeClick(place);  // Change this line
+            }
+        });
+
         holder.bind(place, listener);
     }
 
@@ -95,12 +127,18 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
         CircleImageView profileImageView;
         ImageView countryFlagIcon;
         ImageView placeTypeIcon;
+        LinearLayout commentsContainer;
+
+        ImageView likeIcon;
         TextView likeCount;
+        ImageView commentIcon;
         TextView commentCount;
+        TextView commentsTextView;
 
 
         public PlaceViewHolder(View itemView) {
             super(itemView);
+            commentsContainer = itemView.findViewById(R.id.commentsContainer);
             tvUserId = itemView.findViewById(R.id.tvUserId);
             tvName = itemView.findViewById(R.id.tvName);
             tvDate = itemView.findViewById(R.id.tvDate);
@@ -109,7 +147,9 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
             tvMemo = itemView.findViewById(R.id.tvMemo);
             countryFlagIcon = itemView.findViewById(R.id.countryFlagIcon);
             placeTypeIcon = itemView.findViewById(R.id.placeTypeIcon);
+            likeIcon = itemView.findViewById(R.id.likeIcon);
             likeCount = itemView.findViewById(R.id.likeCount);
+            commentIcon = itemView.findViewById(R.id.commentIcon);
             commentCount = itemView.findViewById(R.id.commentCount);
 
             mapView = itemView.findViewById(R.id.mapView);
@@ -205,14 +245,78 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
                 }
             }
 
-            String[] likes = place.getWhoLikes() != null ? place.getWhoLikes().split(",") : new String[0];
+            // Handle likes
+            String whoLikes = place.getWhoLikes();
+            String[] likes = (whoLikes != null && !whoLikes.isEmpty()) ? whoLikes.split(",") : new String[0];
             int likeCountValue = likes.length;
+
             likeCount.setText(String.valueOf(likeCountValue));
 
-            // Set comment count
-            String[] comments = place.getComments() != null ? place.getComments().split("\n") : new String[0];
-            int commentCountValue = comments.length;
-            commentCount.setText(String.valueOf(commentCountValue));
+            // Create a "Liked by:" text
+            if (likeCountValue > 0) {
+                String likedByText = "Liked by: " + String.join(", ", likes);
+                TextView likedByTextView = new TextView(itemView.getContext());
+                likedByTextView.setLayoutParams(new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT));
+                likedByTextView.setText(likedByText);
+                likedByTextView.setTextColor(Color.GRAY);
+                likedByTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                likedByTextView.setPadding(0, 2, 0, 2);
+            }
+
+            String currentUserId = Utility.getCurrentUser(context);
+            updateLikeUI(this, place, currentUserId);
+            likeCount.setText(String.valueOf(likeCountValue));
+
+            // Handle comments
+            String comments = place.getComments();
+            if (comments != null && !comments.isEmpty()) {
+                String[] commentArray = comments.split("\n");
+                if (commentArray.length > 1) {
+                    commentsContainer.removeAllViews(); // Clear previous comments
+                    for (int i = 0; i < Math.min(commentArray.length, 3); i++) { // Show up to 3 comments
+                        String comment = commentArray[i];
+                        TextView commentView = new TextView(itemView.getContext());
+                        commentView.setLayoutParams(new LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT));
+
+                        String[] parts = comment.split(":", 2);
+                        if (parts.length == 2) {
+                            SpannableString ss = new SpannableString(comment);
+                            ss.setSpan(new ForegroundColorSpan(Color.BLUE), 0, parts[0].length() + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            ss.setSpan(new ForegroundColorSpan(Color.GRAY), parts[0].length() + 1, comment.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                            commentView.setText(ss);
+                        } else {
+                            commentView.setText(comment);
+                            commentView.setTextColor(Color.GRAY);
+                        }
+
+                        commentView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                        commentView.setPadding(0, 2, 0, 2);
+                        commentsContainer.addView(commentView);
+                    }
+                    if (commentArray.length > 3) {
+                        TextView moreCommentsView = new TextView(itemView.getContext());
+                        moreCommentsView.setLayoutParams(new LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT));
+                        moreCommentsView.setText("...");
+                        moreCommentsView.setTextColor(Color.GRAY);
+                        moreCommentsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+                        moreCommentsView.setPadding(0, 2, 0, 2);
+                        commentsContainer.addView(moreCommentsView);
+                    }
+                    commentsContainer.setVisibility(View.VISIBLE);
+                } else {
+                    commentsContainer.setVisibility(View.GONE);
+                }
+            } else {
+                commentsContainer.setVisibility(View.GONE);
+            }
+
+            commentCount.setText(String.valueOf(place.getCommentCount()));
 
             String profileImageUrl = place.getProfileImageUrl();
             if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
@@ -363,6 +467,43 @@ public class PlacesAdapter extends ListAdapter<Place, PlacesAdapter.PlaceViewHol
                 });
             }
 
+
+            likeIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onLikeClick(place);
+                    listener.onShowWhoLikes(place);
+                }
+            });
+
+            commentIcon.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onCommentClick(place);
+                }
+            });
+        }
+
+        private void updateLikeUI(PlaceViewHolder holder, Place place, String currentUserId) {
+            boolean isLiked = place.getWhoLikes() != null && place.getWhoLikes().contains(currentUserId);
+            int color = isLiked ? context.getResources().getColor(R.color.Red) : context.getResources().getColor(R.color.Gray);
+            holder.likeIcon.setColorFilter(color);
+            holder.likeCount.setTextColor(color);
+
+            String[] likes = place.getWhoLikes() != null ? place.getWhoLikes().split(",") : new String[0];
+            int likeCountValue = likes.length;
+            holder.likeCount.setText(String.valueOf(likeCountValue));
+
+            if (isLiked) {
+                holder.likeIcon.animate()
+                        .scaleX(1.2f)
+                        .scaleY(1.2f)
+                        .setDuration(200)
+                        .withEndAction(() -> holder.likeIcon.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(200)
+                                .start())
+                        .start();
+            }
         }
     }
 }

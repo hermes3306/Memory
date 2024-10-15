@@ -1085,7 +1085,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return db.insert(TABLE_PLACES, null, values);
     }
 
-    public int updatePlace(Place place) {
+    public long updatePlace(Place place) {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
         values.put("country", place.getCountry());
@@ -1099,9 +1099,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         values.put("alt", place.getAlt());
         values.put("memo", place.getMemo());
         values.put(COLUMN_USER_ID, place.getUserId());
-        values.put(COLUMN_COMMENTS, place.getComments());
         values.put(COLUMN_WHO_LIKES, place.getWhoLikes());
-        return db.update("places", values, "id = ?", new String[]{String.valueOf(place.getId())});
+        values.put(COLUMN_COMMENTS, place.getComments());
+        return db.update(TABLE_PLACES, values, "id = ?", new String[]{String.valueOf(place.getId())});
     }
 
 
@@ -1133,6 +1133,8 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                         cursor.getString(cursor.getColumnIndex("memo")),
                         cursor.getString(cursor.getColumnIndex(COLUMN_USER_ID)) // Add this line
                 );
+                place.setWhoLikes(cursor.getString(cursor.getColumnIndex(COLUMN_WHO_LIKES)));
+                place.setComments(cursor.getString(cursor.getColumnIndex(COLUMN_COMMENTS)));
                 places.add(place);
             } while (cursor.moveToNext());
         }

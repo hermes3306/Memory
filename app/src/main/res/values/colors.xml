@@ -25,6 +25,8 @@
     <color name="PapayaWhip">#FFEFD5</color>
     <color name="BlanchedAlmond">#FFEBCD</color>
     <color name="MistyRose">#FFE4E1</color>
+    <color name="liked_color">#FF0000</color> <!-- Red color for liked -->
+    <color name="unliked_color">#808080</color> <!-- Gray color for unliked -->
     <color name="Bisque">#FFE4C4</color>
     <color name="Moccasin">#FFE4B5</color>
     <color name="NavajoWhite">#FFDEAD</color>

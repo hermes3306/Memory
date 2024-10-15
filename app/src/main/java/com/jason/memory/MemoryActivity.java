@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
+import com.bumptech.glide.Glide;
 import com.google.gson.Gson;
 
 import java.io.File;
@@ -27,6 +28,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
+import de.hdodenhof.circleimageview.CircleImageView;
 
 
 public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.OnMemoryClickListener {
@@ -41,8 +43,53 @@ public class MemoryActivity extends AppCompatActivity implements MemoryAdapter.O
 
     @Override
     public void onUserIdClick(String userId) {
-        Toast.makeText(this, "User ID: " + userId, Toast.LENGTH_SHORT).show();
+        showUserProfileDialog(userId);
     }
+
+    private void showUserProfileDialog(String userId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_user_profile, null);
+        builder.setView(dialogView);
+
+        CircleImageView profileImageView = dialogView.findViewById(R.id.profileImageView);
+        TextView userIdTextView = dialogView.findViewById(R.id.userIdTextView);
+        TextView userInfoTextView = dialogView.findViewById(R.id.userInfoTextView);
+
+        userIdTextView.setText(userId);
+
+        // Load user profile image
+        String profileImageUrl = getUserProfileImageUrl(userId);
+        if (profileImageUrl != null && !profileImageUrl.isEmpty()) {
+            Glide.with(this)
+                    .load(profileImageUrl)
+                    .placeholder(R.drawable.default_profile)
+                    .error(R.drawable.default_profile)
+                    .into(profileImageView);
+        } else {
+            profileImageView.setImageResource(R.drawable.default_profile);
+        }
+
+        // Load user info
+        String userInfo = getUserInfo(userId);
+        userInfoTextView.setText(userInfo);
+
+        builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private String getUserProfileImageUrl(String userId) {
+        // Implement this method to return the correct image URL for the user
+        return Config.PROFILE_BASE_URL + userId + ".jpg";
+    }
+
+    private String getUserInfo(String userId) {
+        // Implement this method to return user information
+        // For now, return a placeholder text
+        return "User information for " + userId;
+    }
+
 
     @Override
     public void onTitleClick(String title) {

@@ -28,10 +28,13 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 import android.net.Uri;
@@ -99,19 +102,63 @@ public class Utility {
         try (FileReader reader = new FileReader(file)) {
             Place[] places = gson.fromJson(reader, Place[].class);
             Log.d(TAG, "--m-- Found " + places.length + " places in file");
+
             for (Place place : places) {
                 if (place != null && place.getName() != null) {
                     Place existingPlace = dbHelper.getPlaceByName(place.getName());
                     if (existingPlace == null) {
+                        // New place, add it
+                        if (place.getUserId() == null || place.getUserId().isEmpty()) {
+                            place.setUserId(getCurrentUser(context));
+                        }
                         long newId = dbHelper.addPlace(place);
-                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId + ", Memo: " + place.getMemo());
+                        Log.d(TAG, "--m-- Added new place: " + place.getName() + " with ID: " + newId + ", UserId: " + place.getUserId() + ", Memo: " + place.getMemo());
                     } else {
-                        Log.d(TAG, "--m-- Updating existing place: " + place.getName());
-                        existingPlace.setLastVisited(Math.max(existingPlace.getLastVisited(), place.getLastVisited()));
-                        existingPlace.setNumberOfVisits(Math.max(existingPlace.getNumberOfVisits(), place.getNumberOfVisits()));
-                        existingPlace.setMemo(place.getMemo() != null && !place.getMemo().isEmpty() ? place.getMemo() : existingPlace.getMemo());
-                        int updatedRows = dbHelper.updatePlace(existingPlace);
-                        Log.d(TAG, "--m-- Updated place, rows affected: " + updatedRows + ", Memo: " + existingPlace.getMemo());
+                        // Existing place, merge data
+                        boolean updated = false;
+
+                        if (place.getLastVisited() > existingPlace.getLastVisited()) {
+                            existingPlace.setLastVisited(place.getLastVisited());
+                            updated = true;
+                        }
+
+                        if (place.getNumberOfVisits() > existingPlace.getNumberOfVisits()) {
+                            existingPlace.setNumberOfVisits(place.getNumberOfVisits());
+                            updated = true;
+                        }
+
+                        if (place.getMemo() != null && !place.getMemo().isEmpty() &&
+                                (!existingPlace.getMemo().equals(place.getMemo()) || existingPlace.getMemo().isEmpty())) {
+                            existingPlace.setMemo(place.getMemo());
+                            updated = true;
+                        }
+
+                        if (place.getUserId() != null && !place.getUserId().isEmpty() &&
+                                (existingPlace.getUserId() == null || existingPlace.getUserId().isEmpty())) {
+                            existingPlace.setUserId(place.getUserId());
+                            updated = true;
+                        }
+
+                        // Merge likes
+                        String[] newLikes = place.getWhoLikes() != null ? place.getWhoLikes().split(",") : new String[0];
+                        String[] existingLikes = existingPlace.getWhoLikes() != null ? existingPlace.getWhoLikes().split(",") : new String[0];
+                        Set<String> mergedLikes = new HashSet<>(Arrays.asList(existingLikes));
+                        mergedLikes.addAll(Arrays.asList(newLikes));
+                        existingPlace.setWhoLikes(String.join(",", mergedLikes));
+
+                        // Merge comments
+                        if (place.getComments() != null && !place.getComments().isEmpty()) {
+                            String existingComments = existingPlace.getComments() != null ? existingPlace.getComments() : "";
+                            existingPlace.setComments(existingComments + "\n" + place.getComments());
+                            updated = true;
+                        }
+
+                        if (updated) {
+                            long updatedRows = dbHelper.updatePlace(existingPlace);
+                            Log.d(TAG, "--m-- Updated place: " + existingPlace.getName() + ", rows affected: " + updatedRows);
+                        } else {
+                            Log.d(TAG, "--m-- No updates needed for place: " + existingPlace.getName());
+                        }
                     }
                 }
             }
@@ -121,8 +168,6 @@ public class Utility {
         }
         Log.d(TAG, "--m-- Finished merging places from file: " + file.getName());
     }
-
-
 
     private static void mergeMemoryItemsFromFile(Context context, DatabaseHelper dbHelper, File file) throws IOException {
         Log.d(TAG, "--m-- Starting to merge memory items from file: " + file.getName());
