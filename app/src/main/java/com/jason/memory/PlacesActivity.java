@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.InputType;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -189,6 +190,22 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
                     Toast.makeText(PlacesActivity.this, "No profile image available", Toast.LENGTH_SHORT).show();
                 }
             }
+
+            @Override
+            public void onLikeClick(Place place) {
+                handleLikeClick(place);
+            }
+
+            @Override
+            public void onCommentClick(Place place) {
+                showCommentDialog(place);
+            }
+
+            @Override
+            public void onShowWhoLikes(Place place) {
+                showWhoLikesToast(place);
+            }
+
         }, dbHelper, this);
 
         recyclerView.setAdapter(adapter);
@@ -232,6 +249,82 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         setupBottomNavigation();
         updatePlacesList();
 
+    }
+
+    private void handleLikeClick(Place place) {
+        String currentUserId = Utility.getCurrentUser(this);
+        String whoLikes = place.getWhoLikes();
+        List<String> likeList = new ArrayList<>();
+
+        if (whoLikes != null && !whoLikes.isEmpty()) {
+            likeList = new ArrayList<>(Arrays.asList(whoLikes.split(",")));
+        }
+
+        if (likeList.contains(currentUserId)) {
+            // User has already liked, so remove the like
+            likeList.remove(currentUserId);
+        } else {
+            // User hasn't liked, so add the like
+            likeList.add(currentUserId);
+        }
+
+        // Update the whoLikes string
+        whoLikes = String.join(",", likeList);
+        place.setWhoLikes(whoLikes);
+
+        // Immediately update the database
+        long updatedRows = dbHelper.updatePlace(place);
+
+        if (updatedRows > 0) {
+            // Database update successful
+            adapter.notifyDataSetChanged();
+            showWhoLikesToast(place);
+        } else {
+            // Database update failed
+            Toast.makeText(this, "Failed to update like status", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showWhoLikesToast(Place place) {
+        String whoLikes = place.getWhoLikes();
+        if (whoLikes != null && !whoLikes.isEmpty()) {
+            String[] likers = whoLikes.split(",");
+            String likersList = String.join(", ", likers);
+            String toastMessage = "Liked by: " + likersList;
+            Toast.makeText(this, toastMessage, Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "No likes yet", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void showCommentDialog(Place place) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add Comment");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
+
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String comment = input.getText().toString();
+            if (!comment.isEmpty()) {
+                String currentUserId = getUserId();
+                String newComment = currentUserId + ": " + comment;
+                String comments = place.getComments();
+                comments = (comments == null || comments.isEmpty()) ? newComment : comments + "\n" + newComment;
+                place.setComments(comments);
+
+                long updatedRows = dbHelper.updatePlace(place);
+                if (updatedRows > 0) {
+                    adapter.notifyDataSetChanged();
+                } else {
+                    Toast.makeText(this, "Failed to add comment", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        builder.show();
     }
 
     private void updatePlacesList() {
@@ -362,6 +455,11 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
     private void savePlace() {
         try {
             List<Place> allPlaces = dbHelper.getAllPlaces();
+            for (Place place : allPlaces) {
+                if (place.getUserId() == null || place.getUserId().isEmpty()) {
+                    place.setUserId(Utility.getCurrentUser(this));
+                }
+            }
             Gson gson = new Gson();
             String jsonPlaces = gson.toJson(allPlaces);
 
@@ -651,26 +749,67 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         return Utility.getCurrentUser(context);
     }
 
+
+
     private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
                                    EditText countryInput, Locale locale) {
+        Log.d("AddressUpdate", "--m-- Address update started");
+
         Geocoder geocoder = new Geocoder(this, locale);
         try {
             List<Address> addresses = geocoder.getFromLocation(location.latitude, location.longitude, 1);
             if (!addresses.isEmpty()) {
                 Address address = addresses.get(0);
-                String shortName = address.getFeatureName() != null ? address.getFeatureName() : address.getSubThoroughfare();
+
+                // Log all available address details
+                Log.d("AddressUpdate", "Feature Name: " + address.getFeatureName());
+                Log.d("AddressUpdate", "Sub-Thoroughfare: " + address.getSubThoroughfare());
+                Log.d("AddressUpdate", "Thoroughfare: " + address.getThoroughfare());
+                Log.d("AddressUpdate", "Sub-Admin Area: " + address.getSubAdminArea());
+                Log.d("AddressUpdate", "Admin Area: " + address.getAdminArea());
+                Log.d("AddressUpdate", "Locality: " + address.getLocality());
+                Log.d("AddressUpdate", "Sub-Locality: " + address.getSubLocality());
+                Log.d("AddressUpdate", "Country Name: " + address.getCountryName());
+                Log.d("AddressUpdate", "Country Code: " + address.getCountryCode());
+                Log.d("AddressUpdate", "Postal Code: " + address.getPostalCode());
+                Log.d("AddressUpdate", "Premises: " + address.getPremises());
+
+                for (int i = 0; i <= address.getMaxAddressLineIndex(); i++) {
+                    Log.d("AddressUpdate", "Address Line " + i + ": " + address.getAddressLine(i));
+                }
+
+                // Prioritize Thoroughfare for shortName
+                String shortName = address.getThoroughfare();
+                if (shortName == null || shortName.isEmpty()) {
+                    shortName = address.getFeatureName();
+                }
+                if (shortName == null || shortName.isEmpty()) {
+                    shortName = address.getSubThoroughfare();
+                }
+
                 String fullAddress = address.getAddressLine(0);
                 String country = address.getCountryName();
+
+                Log.d("AddressUpdate", "Short Name: " + shortName);
+                Log.d("AddressUpdate", "Full Address: " + fullAddress);
+                Log.d("AddressUpdate", "Country: " + country);
 
                 if (nameInput != null) nameInput.setText(shortName);
                 addressInput.setText(fullAddress);
                 countryInput.setText(country);
+
+                Log.d("AddressUpdate", "UI updated with address information");
+            } else {
+                Log.d("AddressUpdate", "No address found for the given location");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            Log.e("AddressUpdate", "Error getting address information", e);
             Toast.makeText(this, "Unable to get address information", Toast.LENGTH_SHORT).show();
         }
+
+        Log.d("AddressUpdate", "--m-- Address update completed");
     }
+
 
 
     private void updateAddressInfo(LatLng location, EditText nameInput, EditText addressInput,
@@ -678,7 +817,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         Locale locale = getSupportedLocales().get(localeSpinner.getSelectedItemPosition());
         updateAddressInfo(location, nameInput, addressInput, countryInput, locale);
     }
-
 
     private void showUpdateDialog(Place place) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -695,20 +833,36 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         final TextView visitsTextView = dialogView.findViewById(R.id.visitsTextView);
         final Spinner localeSpinner = dialogView.findViewById(R.id.localeSpinner);
         final TextView visitedDateView = dialogView.findViewById(R.id.vistedDateView);
-        final EditText memoInput = dialogView.findViewById(R.id.memoInput);  // Add this line
+        final EditText memoInput = dialogView.findViewById(R.id.memoInput);
+        final TextView likeCountView = dialogView.findViewById(R.id.likeCountView);
+        final TextView likeListView = dialogView.findViewById(R.id.likeListView);
+        final TextView commentCountView = dialogView.findViewById(R.id.commentCountView);
+        final TextView commentListView = dialogView.findViewById(R.id.commentListView);
 
         // Set initial values
         nameInput.setText(place.getName());
         addressInput.setText(place.getAddress());
         countryInput.setText(place.getCountry());
         visitsTextView.setText(String.format("Visits: %d", place.getNumberOfVisits()));
-        memoInput.setText(place.getMemo());  // Add this line
+        memoInput.setText(place.getMemo());
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         String visitedDates = String.format("First: %s\nLast: %s",
                 sdf.format(new Date(place.getFirstVisited())),
                 sdf.format(new Date(place.getLastVisited())));
         visitedDateView.setText(visitedDates);
+
+        // Set up likes information
+        String[] likes = place.getWhoLikes() != null ? place.getWhoLikes().split(",") : new String[0];
+        int likeCount = likes.length;
+        likeCountView.setText(String.format("Likes: %d", likeCount));
+        likeListView.setText(String.format("Liked by: %s", String.join(", ", likes)));
+
+        // Set up comments information
+        String[] comments = place.getComments() != null ? place.getComments().split("\n") : new String[0];
+        int commentCount = comments.length;
+        commentCountView.setText(String.format("Comments: %d", commentCount));
+        commentListView.setText(String.join("\n", comments));
 
         // Set up the type spinner
         ArrayAdapter<CharSequence> typeAdapter = ArrayAdapter.createFromResource(this,
@@ -722,7 +876,6 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             typeSpinner.setSelection(typePosition);
         }
 
-
         builder.setPositiveButton("Update", null);
         builder.setNegativeButton("Delete", null);
         builder.setNeutralButton("Visit", null);
@@ -735,7 +888,7 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
             String newAddress = addressInput.getText().toString().trim();
             String newType = typeSpinner.getSelectedItem() != null ? typeSpinner.getSelectedItem().toString() : "";
             String newCountry = countryInput.getText().toString().trim();
-            String newMemo = memoInput.getText().toString().trim();  // Add this line
+            String newMemo = memoInput.getText().toString().trim();
 
             if (newName.isEmpty() || newAddress.isEmpty() || newType.isEmpty() || newCountry.isEmpty()) {
                 Toast.makeText(PlacesActivity.this, "Please fill all fields", Toast.LENGTH_SHORT).show();
@@ -856,6 +1009,17 @@ public class PlacesActivity extends AppCompatActivity implements OnMapReadyCallb
         }
 
         return options;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshPlacesList();
+    }
+
+    private void refreshPlacesList() {
+        List<Place> updatedPlaces = dbHelper.getAllPlaces();
+        adapter.submitList(updatedPlaces);
     }
 
 

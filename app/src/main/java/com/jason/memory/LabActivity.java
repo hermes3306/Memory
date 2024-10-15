@@ -28,6 +28,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Spinner;
 
 import com.jason.memory.lab.LabRunActivity;
+import com.jason.memory.lab.StravaActivity;
 
 public class LabActivity extends AppCompatActivity {
     private static final int PERMISSIONS_REQUEST_LOCATION = 100;
@@ -182,6 +183,9 @@ public class LabActivity extends AppCompatActivity {
                     }catch(Exception exception){
                         Log.e("LabActivity", " --m-- " + exception.getMessage());
                     }
+                }else
+                if (selectedOption.equals("Strava")) {
+                    startActivity(new Intent(LabActivity.this, StravaActivity.class));
                 }
 
             }
